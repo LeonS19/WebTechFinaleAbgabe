@@ -1,3 +1,4 @@
+const { randomUUID } = require("crypto");
 class Todo {
   constructor({
     id = randomUUID(),
@@ -34,8 +35,8 @@ class TodoRepository {
     return this.items.find((todo) => todo.id === id) || null;
   }
 
-  create({title, completed, importance}) {
-    const todo = new Todo({ title, completed, importance});
+  create(input) {
+    const todo = new Todo(input);
     this.items.push(todo);
     return todo;
   }
@@ -55,7 +56,7 @@ class TodoRepository {
       todo.completed = patch.completed;
     }
 
-    if (typeof patch.importance === "int") {
+    if (typeof patch.importance === "number") {
         todo.importance = patch.importance;
     }
 
