@@ -4,11 +4,15 @@ class TodoController {
     }
 
     allTodos() {
-        return this.todoRepository.findAll();
+        return this.todoRepository.findAll(query);
+    }
+
+    getTodoById(id) {
+        return this.todoRepository.findById(id);
     }
 
     createTodo(input) {
-        return this.todoRepository.create({title: input.title, completed: input.completed, importance: input.importance});
+        return this.todoRepository.create(input);
     }
 
     updateTodo(id, input) {

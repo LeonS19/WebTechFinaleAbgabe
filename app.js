@@ -5,6 +5,10 @@ const port = 3000
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
 
+const todoRouter = require('./todo');
+
+app.use(express.json());
+
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 /**
@@ -24,6 +28,8 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.get('/', (req, res) => {
   res.send('Hello World!')
 })
+
+app.use('/todos', todoRouter);
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
