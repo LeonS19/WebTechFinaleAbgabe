@@ -1,0 +1,220 @@
+openapi: 3.0.3
+info:
+  title: To-Do List API
+  description: |-
+    Eine RESTful API zur Verwaltung von To-Do-Einträgen.
+    Sie ermöglicht das Erstellen, Lesen, Aktualisieren und Löschen von To-Do-Einträgen.
+  version: 1.0.0
+
+paths:
+  /todos:
+    get:
+      tags:
+        - Todos
+      summary: Ruft eine Liste von To-Do-Einträgen ab
+      description: |-
+        Ermöglicht das Abrufen einer Liste von To-Do-Einträgen.
+        Die Liste kann gefiltert, sortiert und durchsucht werden.
+      operationId: getTodos
+      parameters:
+        - name: search
+          in: query
+          description: Suchbegriff, um den Titel oder die Beschreibung zu durchsuchen.
+          required: false
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          description: Feld, nach dem sortiert werden soll.
+          required: false
+          schema:
+            type: string
+            enum: [dueDate, priority, title]
+        - name: priority
+          in: query
+          description: Filtert nach Priorität.
+          required: false
+          schema:
+            type: integer
+            enum: [1, 2, 3]
+      responses:
+        '200':
+          description: Erfolgreiche Operation. Gibt eine Liste von To-Do-Einträgen zurück.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Todo'
+    post:
+      tags:
+        - Todos
+      summary: Erstellt einen neuen To-Do-Eintrag
+      operationId: createTodo
+      requestBody:
+        description: Das To-Do-Objekt, das erstellt werden soll.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TodoInput'
+      responses:
+        '201':
+          description: To-Do-Eintrag erfolgreich erstellt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Todo'
+        '400':
+          description: Ungültige Eingabedaten.
+
+  /todos/{id}:
+    get:
+      tags:
+        - Todos
+      summary: Findet einen To-Do-Eintrag anhand der ID
+      operationId: getTodoById
+      parameters:
+        - name: id
+          in: path
+          description: ID des abzurufenden To-Do-Eintrags.
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Erfolgreiche Operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Todo'
+        '404':
+          description: To-Do-Eintrag nicht gefunden.
+    put:
+      tags:
+        - Todos
+      summary: Aktualisiert einen bestehenden To-Do-Eintrag
+      operationId: updateTodo
+      parameters:
+        - name: id
+          in: path
+          description: ID des zu aktualisierenden To-Do-Eintrags.
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        description: Das aktualisierte To-Do-Objekt.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TodoInput'
+      responses:
+        '200':
+          description: To-Do-Eintrag erfolgreich aktualisiert.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Todo'
+        '400':
+          description: Ungültige ID oder Eingabedaten.
+        '404':
+          description: To-Do-Eintrag nicht gefunden.
+    delete:
+      tags:
+        - Todos
+      summary: Löscht einen To-Do-Eintrag
+      description: Löscht einen To-Do-Eintrag anhand seiner ID.
+      operationId: deleteTodo
+      parameters:
+        - name: id
+          in: path
+          description: ID des zu löschenden To-Do-Eintrags.
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: To-Do-Eintrag erfolgreich gelöscht. Kein Inhalt.
+        '404':
+          description: To-Do-Eintrag nicht gefunden.
+
+components:
+  schemas:
+    Todo:
+      type: object
+      required:
+        - id
+        - title
+        - completed
+        - priority
+        - createDate
+        - editedDate
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Eindeutiger Identifikator für den To-Do-Eintrag.
+          example: 1
+        title:
+          type: string
+          description: Der Titel oder die Hauptaufgabe des To-Do-Eintrags.
+          example: "OpenAPI Spezifikation erstellen"
+        description:
+          type: string
+          description: Eine detailliertere Beschreibung der Aufgabe.
+          example: "Alle Endpunkte für die To-Do-App definieren."
+        completed:
+          type: boolean
+          description: Gibt an, ob der To-Do-Eintrag erledigt ist.
+          default: false
+        dueDate:
+          type: string
+          format: date
+          description: Das Fälligkeitsdatum für den To-Do-Eintrag.
+          example: "2026-05-15"
+        createDate:
+          type: string
+          format: date
+          description: Das Erstelldatum für den To-Do-Eintrag
+          example: "2026-05-10"
+        editedDate:
+          type: string
+          format: date
+          description: Das Datum an dem der To-Do-Eintrag zuletzt bearbeitet wurde
+          example: "2026-05-12"
+        priority:
+          type: integer
+          description: Die Wichtigkeit des Eintrags (1=Niedrig, 2=Mittel, 3=Hoch).
+          example: 3
+    TodoInput:
+      description: create oder bearbeiten eines Todos
+      type: object
+      required:
+        - title
+        - priority
+      properties:
+        title:
+          type: string
+          description: Der Titel oder die Hauptaufgabe des To-Do-Eintrags.
+          example: "Neues Feature implementieren"
+        description:
+          type: string
+          description: Eine detailliertere Beschreibung der Aufgabe.
+          example: "Filterfunktion in der UI hinzufügen."
+        completed:
+          type: boolean
+          description: Gibt an, ob der To-Do-Eintrag erledigt ist.
+          default: false
+        dueDate:
+          type: string
+          format: date
+          description: Das Fälligkeitsdatum für den To-Do-Eintrag.
+          example: "2026-05-15"
+        priority:
+          type: integer
+          description: Die Wichtigkeit des Eintrags (1=Niedrig, 2=Mittel, 3=Hoch).
+          example: 2
