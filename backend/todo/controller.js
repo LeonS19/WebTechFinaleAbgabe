@@ -1,27 +1,14 @@
 class TodoController {
-    constructor(todoRepository) {
-        this.todoRepository = todoRepository;
-    }
+    constructor(todoRepository) { this.todoRepository = todoRepository; }
 
-    allTodos(query) {
-        return this.todoRepository.findAll(query);
-    }
+    async allTodos(query) { return await this.todoRepository.findAll(query); }
 
-    getTodoById(id) {
-        return this.todoRepository.findById(id);
-    }
+    async getTodoById(id) { return await this.todoRepository.findById(id); }
 
-    createTodo(input) {
-        return this.todoRepository.create(input);
-    }
+    async createTodo(input) { return await this.todoRepository.create(input); }
 
-    updateTodo(id, input) {
-        return this.todoRepository.update(id, input);
-    }
-
-    deleteTodo(id) {
-        return this.todoRepository.delete(id);
-    }
+    async updateTodo(id, input) { return await this.todoRepository.update(id, input); }
+    
+    async deleteTodo(id) { return await this.todoRepository.delete(id); }
 }
-
 module.exports = { TodoController };

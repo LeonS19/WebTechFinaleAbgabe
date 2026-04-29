@@ -1,3 +1,5 @@
+const db = require('../db');
+
 class Todo {
   constructor({
     id,
@@ -32,85 +34,91 @@ class Todo {
 }
 
 class TodoRepository {
-  constructor() {
-    this.items = [];
-    this.nextId = 1;
-  }
+  
+async findAll({ search, sortBy, priority, order = "asc" } = {}) {
+    let query = 'SELECT * FROM todos';
+    const params = [];
+    const whereClauses = [];
 
-  findAll({ search, sortBy, priority } = {}) {
-    let result = [...this.items];
-
-    //filtert result nach Gesuchtem, wenn in 'search' etwas drin steht
-    if (typeof search === "string" && search.trim()) {
-      const q = search.trim().toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.title.toLowerCase().includes(q) ||
-          (t.description || "").toLowerCase().includes(q),
-      );
+    // 1. WHERE-Klausel für die Suche dynamisch hinzufügen
+    if (search) {
+      params.push(`%${search}%`); // Füge Wildcards für die LIKE-Suche hinzu
+      // ILIKE ist wie LIKE, aber ignoriert Groß-/Kleinschreibung
+      whereClauses.push(`title ILIKE $${params.length}`);
     }
 
-    //filtert result nach priority, wenn priority gegeben wurds
-    if (priority !== undefined) {
-      const p = Number(priority);
-      result = result.filter((t) => t.priority === p);
+    // 2. WHERE-Klausel für den Prioritätsfilter dynamisch hinzufügen
+    if (priority) {
+      params.push(priority);
+      whereClauses.push(`priority = $${params.length}`);
     }
 
-    //sortiert gefilterte/ungefilterte ergebnisse nach "sortby"
-    const allowedSort = ["dueDate", "priority", "title"];
-    if (allowedSort.includes(sortBy)) {
-      result.sort((a, b) => {
-        const av = a[sortBy] ?? "";
-        const bv = b[sortBy] ?? "";
-        if (av < bv) return -1;
-        if (av > bv) return 1;
-        return 0;
-      });
+    // Füge alle WHERE-Bedingungen zur Haupt-Query hinzu
+    if (whereClauses.length > 0) {
+      query += ' WHERE ' + whereClauses.join(' AND ');
     }
 
-    //gibt sortierte und gefilterte liste zurücl
-    return result;
+    // 3. ORDER BY-Klausel für die Sortierung dynamisch hinzufügen
+    const allowedSortBy = ['"dueDate"', 'priority', 'title']; // Spaltennamen in Anführungszeichen, falls nötig
+    if (allowedSortBy.includes(sortBy)) {
+      // WICHTIG: Spaltennamen und Sortierrichtung dürfen aus Sicherheitsgründen
+      // nicht als Parameter ($) übergeben werden. Sie müssen direkt in den String.
+      const sortOrder = order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+      query += ` ORDER BY ${sortBy} ${sortOrder}`;
+    }
+
+    // Führe die fertig zusammengebaute Query aus
+    const { rows } = await db.query(query, params);
+    return rows;
   }
 
-  findById(id) {
-    const numericId = Number(id);
-    return this.items.find((t) => t.id === numericId) || null;
+  
+  async findById(id) {
+    const { rows } = await db.query('SELECT * FROM todos WHERE id = $1', [id]);
+    return rows[0] || null;
   }
 
-  create(input) {
-    const todo = new Todo({
-      id: this.nextId++,
-      ...input,
-    });
-    this.items.push(todo);
-    return todo;
+  
+  async create(input) {
+    const todoToCreate = new Todo(input); // Validierung
+    const { title, description, dueDate, priority, completed } = todoToCreate;
+    
+    const sql = `
+      INSERT INTO todos (title, description, "dueDate", priority, completed)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *;
+    `;
+    const params = [title, description, dueDate, priority, completed ?? false];
+    const { rows } = await db.query(sql, params);
+    return rows[0];
   }
 
-  update(id, input) {
-    const todo = this.findById(id);
-    if (!todo) return null;
-
-    const next = new Todo({
-      id: todo.id,
-      title: input.title,
-      priority: input.priority,
-      description: input.description ?? null,
-      completed: input.completed ?? false,
-      dueDate: input.dueDate ?? null,
-      createDate: todo.createDate,
-      editedDate: new Date().toISOString().split("T")[0],
-    });
-
-    Object.assign(todo, next);
-    return todo;
+  
+  async update(id, input) {
+    // Hier kommt die SQL-Logik für das Update...
+    const { title, description, dueDate, priority, completed } = input;
+    const sql = `
+      UPDATE todos
+      SET 
+        title = COALESCE($1, title),
+        description = COALESCE($2, description),
+        "dueDate" = COALESCE($3, "dueDate"),
+        priority = COALESCE($4, priority),
+        completed = COALESCE($5, completed),
+        "editedDate" = CURRENT_TIMESTAMP
+      WHERE id = $6
+      RETURNING *;
+    `;
+    const params = [title, description, dueDate, priority, completed, id];
+    const { rows } = await db.query(sql, params);
+    return rows[0] || null;
   }
 
-  delete(id) {
-    const numericId = Number(id);
-    const idx = this.items.findIndex((t) => t.id === numericId);
-    if (idx === -1) return false;
-    this.items.splice(idx, 1);
-    return true;
+  
+  async delete(id) {
+    const result = await db.query('DELETE FROM todos WHERE id = $1', [id]);
+    // rowCount gibt an, wie viele Zeilen gelöscht wurden.
+    return result.rowCount > 0;
   }
 }
 
