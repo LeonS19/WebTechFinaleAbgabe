@@ -59,12 +59,13 @@ async findAll({ search, sortBy, priority, order = "asc" } = {}) {
     }
 
     // 3. ORDER BY-Klausel für die Sortierung dynamisch hinzufügen
-    const allowedSortBy = ['"dueDate"', 'priority', 'title']; // Spaltennamen in Anführungszeichen, falls nötig
+    const allowedSortBy = ['dueDate', 'priority', 'title']; // Spaltennamen in Anführungszeichen, falls nötig
     if (allowedSortBy.includes(sortBy)) {
       // WICHTIG: Spaltennamen und Sortierrichtung dürfen aus Sicherheitsgründen
       // nicht als Parameter ($) übergeben werden. Sie müssen direkt in den String.
+      const sortColumn = `"${sortBy}"`; 
       const sortOrder = order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
-      query += ` ORDER BY ${sortBy} ${sortOrder}`;
+      query += ` ORDER BY ${sortColumn} ${sortOrder}`;
     }
 
     // Führe die fertig zusammengebaute Query aus
