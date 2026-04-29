@@ -31,6 +31,13 @@ app.get('/', (req, res) => {
 
 app.use('/todos', todoRouter);
 
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
-})
+// Server nur starten, wenn die Datei nicht in einem Test importiert wird
+// Hier wird geprüft, ob app.js direkt mit dem befehl 'node app.js' gestartet wurde
+if (require.main === module) {
+  app.listen(port, () => {
+    console.log(`Example app listening on port ${port}`)
+  })
+}
+
+// App für die tests exportieren
+module.exports = app;

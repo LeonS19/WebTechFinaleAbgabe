@@ -3,7 +3,7 @@ class TodoController {
         this.todoRepository = todoRepository;
     }
 
-    allTodos() {
+    allTodos(query) {
         return this.todoRepository.findAll(query);
     }
 
