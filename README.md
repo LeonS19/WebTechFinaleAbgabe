@@ -76,6 +76,8 @@ Die API ist nach dem OpenAPI 3.0 Standard spezifiziert.
 
 ## Testen
 
+* **Test-Datei:** Die Test-Datei befindet sich unter `backend/todo/test.js`.
+
 Die Backend-API ist mit automatisierten Tests abgedeckt.
 
 **Tests ausführen:**
