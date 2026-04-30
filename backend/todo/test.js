@@ -4,15 +4,19 @@ const db = require('../db');
 
 describe('Todo API', () => {
 
-  // Vor jedem einzelnen Test wird die Tabelle geleert und der ID-Zähler zurückgesetzt.
-  // Das garantiert, dass jeder Test mit einem sauberen, vorhersagbaren Zustand startet.
+  // Einmal vor allen Tests: Stelle sicher, dass die Tabelle existiert.
+  beforeAll(async () => {
+    await db.initializeDatabase();
+  });
+
+  // Vor jedem einzelnen Test: Leere die Tabelle für einen sauberen Start.
   beforeEach(async () => {
     await db.query('TRUNCATE TABLE todos RESTART IDENTITY CASCADE');
   });
 
-  // Nach allen Tests wird die Datenbankverbindung sauber geschlossen.
-  // Das verhindert, dass Jest hängen bleibt.
+  // Nach allen Tests: Schließe die Verbindung.
   afterAll(async () => {
+    await db.query('TRUNCATE TABLE todos RESTART IDENTITY CASCADE');
     await db.pool.end();
   });
 

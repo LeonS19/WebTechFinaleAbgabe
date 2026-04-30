@@ -152,3 +152,7 @@ main {
     background-color: #5bc0de;
     color: white;
 }
+
+#sort-select option[disabled] {
+    display: none;
+}

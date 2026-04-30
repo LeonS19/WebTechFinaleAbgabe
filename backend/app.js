@@ -1,4 +1,5 @@
 const express = require('express')
+const db = require('./db');
 const cors = require('cors');
 const app = express()
 const port = 3000
@@ -37,9 +38,22 @@ app.use('/todos', todoRouter);
 // Server nur starten, wenn die Datei nicht in einem Test importiert wird
 // Hier wird geprüft, ob app.js direkt mit dem befehl 'node app.js' gestartet wurde
 if (require.main === module) {
-  app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`)
-  })
+  const startApp = async () => {
+    try {
+      // 1. Warte, bis die Datenbank bereit ist
+      await db.initializeDatabase();
+
+      // 2. Starte dann den Express-Server
+      app.listen(port, () => {
+        console.log(`Example app listening on port ${port}`);
+      });
+    } catch (error) {
+      console.error('Fehler beim Starten der Anwendung:', error);
+      process.exit(1);
+    }
+  };
+
+  startApp();
 }
 
 // App für die tests exportieren

@@ -1,19 +1,24 @@
-const swaggerJSDoc = require('swagger-jsdoc');
+// backend/swagger.js
 
-const options = {
-  definition: {
-    openapi: '3.0.3',
-    info: {
-      title: 'WebTech API',
-      version: '1.0.0',
-      description: 'Dokumentation der Express-API',
-    },
-    servers: [
-      { url: 'http://localhost:3000' },
-    ],
-  },
-  apis: ['./app.js'], // Dateien mit @openapi Kommentaren
-};
+const fs = require('fs');
+const path = require('path');
+const yaml = require('js-yaml');
 
-const swaggerSpec = swaggerJSDoc(options);
-module.exports = swaggerSpec;
+try {
+  // Baue den absoluten Pfad zur YAML-Datei
+  const filePath = path.join(__dirname, 'docs', 'openapi.yaml');
+  
+  // Lese den Inhalt der Datei
+  const fileContents = fs.readFileSync(filePath, 'utf8');
+  
+  // Parse den YAML-Inhalt in ein JavaScript-Objekt
+  const swaggerSpec = yaml.load(fileContents);
+  
+  // Exportiere das fertige Objekt
+  module.exports = swaggerSpec;
+
+} catch (e) {
+  console.error('Fehler beim Laden der Swagger-Spezifikation:', e);
+  // Exportiere ein leeres Objekt im Fehlerfall, damit die App nicht abstürzt
+  module.exports = {}; 
+}

@@ -27,8 +27,8 @@ class Todo {
     this.description = description;
     this.completed = completed;
     this.dueDate = dueDate;
-    this.createDate = createDate || new Date().toISOString().split("T")[0]; // wird gesplittet, damit Zeit nicht angezeigt wird
-    this.editedDate = editedDate || new Date().toISOString().split("T")[0];
+    this.createDate = createDate || new Date().toISOString(); // wird gesplittet, damit Zeit nicht angezeigt wird
+    this.editedDate = editedDate || new Date().toISOString();
     this.priority = priority;
   }
 }
