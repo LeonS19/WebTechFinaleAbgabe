@@ -35,7 +35,7 @@ class Todo {
 
 class TodoRepository {
   
-async findAll({ search, sortBy, priority, order = "asc" } = {}) {
+async findAll({ search, sortBy, priority, completed, order = "asc" } = {}) {
     let query = 'SELECT * FROM todos';
     const params = [];
     const whereClauses = [];
@@ -51,6 +51,13 @@ async findAll({ search, sortBy, priority, order = "asc" } = {}) {
     if (priority) {
       params.push(priority);
       whereClauses.push(`priority = $${params.length}`);
+    }
+
+    // Logik für den "completed"-Filter
+    if (completed !== undefined) {
+      const isCompleted = completed === 'true'; 
+      params.push(isCompleted);
+      whereClauses.push(`completed = $${params.length}`);
     }
 
     // Füge alle WHERE-Bedingungen zur Haupt-Query hinzu

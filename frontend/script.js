@@ -6,18 +6,26 @@ const descriptionInput = document.getElementById('todo-description-input');
 const dueDateInput = document.getElementById('todo-duedate-input');
 const searchInput = document.getElementById('search-input');
 const sortSelect = document.getElementById('sort-select');
+const filterSelect = document.getElementById('filter-select');
 
 const API_URL = 'http://localhost:3000/todos';
 
 async function fetchAndRenderTodos() {
     const searchTerm = searchInput.value;
     const sortValue = sortSelect.value;
+    const filterValue = filterSelect.value;
+
     const url = new URL(API_URL);
     if (searchTerm) url.searchParams.append('search', searchTerm);
     if (sortValue) {
         const [sortBy, order] = sortValue.split('-');
         url.searchParams.append('sortBy', sortBy);
         url.searchParams.append('order', order);
+    }
+
+    if (filterValue && filterValue !== 'all') {
+        const [filterBy, value] = filterValue.split('-');
+        url.searchParams.append(filterBy, value);
     }
 
     try {
@@ -59,6 +67,7 @@ async function fetchAndRenderTodos() {
 document.addEventListener('DOMContentLoaded', fetchAndRenderTodos);
 searchInput.addEventListener('input', fetchAndRenderTodos);
 sortSelect.addEventListener('change', fetchAndRenderTodos);
+filterSelect.addEventListener('change', fetchAndRenderTodos);
 
 newTodoForm.addEventListener('submit', async (event) => {
     event.preventDefault();

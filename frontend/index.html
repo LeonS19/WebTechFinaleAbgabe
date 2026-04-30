@@ -42,7 +42,20 @@
 
         <!-- NEU: Filter- und Sortier-Steuerelemente -->
         <div id="filter-controls">
+            <!--suchen Zeile-->
             <input type="search" id="search-input" placeholder="Suchen...">
+
+            <!--Filter-Dropdown-Menü-->
+            <select id="filter-select">
+                <option value="all">Alle anzeigen</option>
+                <option value="completed-false">Nur offene</option>
+                <option value="completed-true">Nur erledigte</option>
+                <option value="priority-1">Priorität 1</option>
+                <option value="priority-2">Priorität 2</option>
+                <option value="priority-3">Priorität 3</option>
+            </select>
+
+            <!--Sortier-Dropdown-Menü-->
             <select id="sort-select">
                 <option value="" disabled selected>Sortieren nach...</option>
                 <option value="priority-desc">Priorität (Absteigend)</option>
