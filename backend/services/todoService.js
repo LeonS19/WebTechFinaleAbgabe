@@ -39,7 +39,7 @@ const todoService = {
     const todo = await Todo.findByIdAndUpdate(
       id,
       { ...input, $push: { history: { $each: historyEntries } } },
-      { new: true, returnDocument: 'after' }
+      { returnDocument: 'after' }
     );
     pubsub.publish(EVENTS.TODO_UPDATED, { todoUpdated: todo });
     return todo;
@@ -55,7 +55,7 @@ const todoService = {
     const todo = await Todo.findByIdAndUpdate(
       todoId,
       { $push: { comments: { text, author } } },
-      { new: true }
+      { returnDocument: 'after' }
     );
     pubsub.publish(EVENTS.TODO_UPDATED, { todoUpdated: todo });
     return todo;
@@ -65,7 +65,7 @@ const todoService = {
     const todo = await Todo.findByIdAndUpdate(
       todoId,
       { $push: { subtasks: { title, done: false } } },
-      { new: true }
+      { returnDocument: 'after' }
     );
     pubsub.publish(EVENTS.TODO_UPDATED, { todoUpdated: todo });
     return todo;

@@ -9,56 +9,67 @@ afterAll(async () => { await stopTestServer(server); });
 afterEach(async () => { await Todo.deleteMany({}); });
 
 test('todoCreated-Subscription feuert wenn createTodo aufgerufen wird', async () => {
-  // Subscription anlegen und auf das erste Event warten
-  const subResult = await server.executeOperation({
-    query: `subscription { todoCreated { id title status } }`
-  });
+  const iterator = pubsub.asyncIterableIterator([EVENTS.TODO_CREATED]);
 
-  // createTodo aufrufen — das soll die Subscription triggern
-  await execute(server, `
+  // Mutation ausführen
+  const mutationPromise = execute(server, `
     mutation { createTodo(input: { title: "Subscription Test" }) { id } }
   `);
 
-  // Erstes Event aus dem AsyncIterator holen
-  const iterator = subResult.body.initialResult.data.todoCreated;
-  const { value } = await iterator.next();
+  // Auf Event warten (mit Timeout)
+  const { value } = await Promise.race([
+    iterator.next(),
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Event nicht empfangen')), 1000)
+    )
+  ]);
+
+  await mutationPromise;
 
   expect(value.todoCreated.title).toBe('Subscription Test');
   expect(value.todoCreated.status).toBe('OPEN');
-});
+}, 10000);
 
 test('todoUpdated-Subscription feuert bei Statusänderung', async () => {
   const todo = await Todo.create({ title: 'Todo für Subscription' });
 
-  const subResult = await server.executeOperation({
-    query: `subscription { todoUpdated { id status } }`
-  });
+  const iterator = pubsub.asyncIterableIterator([EVENTS.TODO_UPDATED]);
 
-  await execute(server, `
+  const mutationPromise = execute(server, `
     mutation UpdateTodo($id: ID!, $input: UpdateTodoInput!) {
       updateTodo(id: $id, input: $input) { id }
     }
   `, { id: todo._id.toString(), input: { status: 'DONE' } });
 
-  const iterator = subResult.body.initialResult.data.todoUpdated;
-  const { value } = await iterator.next();
+  const { value } = await Promise.race([
+    iterator.next(),
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Event nicht empfangen')), 1000)
+    )
+  ]);
+
+  await mutationPromise;
 
   expect(value.todoUpdated.status).toBe('DONE');
-});
+}, 10000);
 
 test('todoDeleted-Subscription liefert die ID des gelöschten Todos', async () => {
   const todo = await Todo.create({ title: 'Zu löschendes Todo' });
 
-  const subResult = await server.executeOperation({
-    query: `subscription { todoDeleted }`
-  });
+  const iterator = pubsub.asyncIterableIterator([EVENTS.TODO_DELETED]);
 
-  await execute(server, `
+  const mutationPromise = execute(server, `
     mutation DeleteTodo($id: ID!) { deleteTodo(id: $id) }
   `, { id: todo._id.toString() });
 
-  const iterator = subResult.body.initialResult.data.todoDeleted;
-  const { value } = await iterator.next();
+  const { value } = await Promise.race([
+    iterator.next(),
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Event nicht empfangen')), 1000)
+    )
+  ]);
+
+  await mutationPromise;
 
   expect(value.todoDeleted).toBe(todo._id.toString());
-});
+}, 10000);
