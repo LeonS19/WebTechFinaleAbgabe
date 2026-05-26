@@ -23,9 +23,12 @@ const resolvers = {
     deleteTodo: (_, { id }) => todoService.delete(id),
     addComment: (_, { todoId, text, author }) =>
       todoService.addComment(todoId, { text, author }),
-    addSubtask: (_, { todoId, title }) => todoService.addSubtask(todoId, title),
-    toggleSubtask: (_, { todoId, subtaskId }) =>
-      todoService.toggleSubtask(todoId, subtaskId),
+    addChecklistItem: (_, { todoId, label, description }) =>
+      todoService.addChecklistItem(todoId, { label, description }),
+    updateChecklistItem: (_, { todoId, itemId, label, description, checked }) =>
+      todoService.updateChecklistItem(todoId, itemId, { label, description, checked }),
+    deleteChecklistItem: (_, { todoId, itemId }) =>
+      todoService.deleteChecklistItem(todoId, itemId),
   },
 
   Subscription: {
@@ -46,6 +49,11 @@ const resolvers = {
     createdAt: (todo) => todo.createdAt.toISOString(),
     updatedAt: (todo) => todo.updatedAt.toISOString(),
   },
+
+  ChecklistItem: {
+    id: (item) => item._id.toString(),
+  },
+  
 };
 
 module.exports = { resolvers };

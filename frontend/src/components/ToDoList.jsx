@@ -28,11 +28,6 @@ const TODO_DETAIL = gql`
       tags
       createdAt
       updatedAt
-      subtasks {
-        id
-        title
-        done
-      }
       comments {
         id
         text
@@ -98,14 +93,6 @@ const ADD_COMMENT = gql`
   }
 `
 
-const ADD_SUBTASK = gql`
-  mutation AddSubtask($todoId: ID!, $title: String!) {
-    addSubtask(todoId: $todoId, title: $title) {
-      id
-    }
-  }
-`
-
 const TODO_CREATED = gql`
   subscription {
     todoCreated {
@@ -150,7 +137,7 @@ function formatDate(value) {
 function emptyTodoForm() {
   return {
     title: '',
-    priority: '',
+    priority: 'MEDIUM',
     dueDate: '',
     tags: '',
   }
@@ -163,22 +150,14 @@ function emptyCommentForm() {
   }
 }
 
-function emptySubtaskForm() {
-  return {
-    title: '',
-  }
-}
-
 function TodoDetail({
   selectedTodo,
   onUpdate,
   onDelete,
-  onAddComment,
-  onAddSubtask,
+  onAddComment
 }) {
   const [editForm, setEditForm] = useState(emptyTodoForm())
   const [commentForm, setCommentForm] = useState(emptyCommentForm())
-  const [subtaskForm, setSubtaskForm] = useState(emptySubtaskForm())
 
   const { data, loading, error, refetch } = useQuery(TODO_DETAIL, {
     variables: { id: selectedTodo },
@@ -208,15 +187,19 @@ function TodoDetail({
 
   const handleSubmitUpdate = async (e) => {
     e.preventDefault()
-    await onUpdate({
-      title: editForm.title || undefined,
-      priority: editForm.priority || null,
-      dueDate: editForm.dueDate || null,
-      tags: editForm.tags
-        ? editForm.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
-        : [],
-    })
-    await refetch()
+    try {
+      await onUpdate({
+        title: editForm.title || undefined,
+        priority: editForm.priority || 'MEDIUM',  // Nicht null!
+        dueDate: editForm.dueDate || null,
+        tags: editForm.tags
+          ? editForm.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
+          : [],
+      })
+      await refetch()
+    } catch (error) {
+      console.error('Fehler beim Update:', error)
+    }
   }
 
   const handleCommentSubmit = async (e) => {
@@ -227,14 +210,6 @@ function TodoDetail({
       author: commentForm.author.trim() || null,
     })
     setCommentForm(emptyCommentForm())
-    await refetch()
-  }
-
-  const handleSubtaskSubmit = async (e) => {
-    e.preventDefault()
-    if (!subtaskForm.title.trim()) return
-    await onAddSubtask(subtaskForm.title.trim())
-    setSubtaskForm(emptySubtaskForm())
     await refetch()
   }
 
@@ -264,7 +239,6 @@ function TodoDetail({
             value={editForm.priority}
             onChange={(e) => setEditForm((prev) => ({ ...prev, priority: e.target.value }))}
           >
-            <option value="">Keine</option>
             <option value="LOW">LOW</option>
             <option value="MEDIUM">MEDIUM</option>
             <option value="HIGH">HIGH</option>
@@ -295,31 +269,6 @@ function TodoDetail({
       <button onClick={onDelete} style={{ background: '#dc2626' }}>
         Todo löschen
       </button>
-
-      <h3>Subtasks</h3>
-      {todo.subtasks?.length ? (
-        <ul>
-          {todo.subtasks.map((subtask) => (
-            <li key={subtask.id}>
-              {subtask.done ? '✓' : '○'} {subtask.title}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>Keine Subtasks</p>
-      )}
-
-      <form onSubmit={handleSubtaskSubmit} className="todo-form">
-        <label>
-          Neue Subtask
-          <input
-            value={subtaskForm.title}
-            onChange={(e) => setSubtaskForm({ title: e.target.value })}
-            placeholder="Subtask-Titel"
-          />
-        </label>
-        <button type="submit">Subtask hinzufügen</button>
-      </form>
 
       <h3>Kommentare</h3>
       {todo.comments?.length ? (
@@ -412,7 +361,6 @@ export function TodoList() {
   const [updateTodo] = useMutation(UPDATE_TODO)
   const [deleteTodo] = useMutation(DELETE_TODO)
   const [addComment] = useMutation(ADD_COMMENT)
-  const [addSubtask] = useMutation(ADD_SUBTASK)
 
   useSubscription(TODO_CREATED, {
     onData: () => {
@@ -437,20 +385,24 @@ export function TodoList() {
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault()
-    await createTodo({
-      variables: {
-        input: {
-          title: createForm.title,
-          priority: createForm.priority || null,
-          dueDate: createForm.dueDate || null,
-          tags: createForm.tags
-            ? createForm.tags.split(',').map((tagItem) => tagItem.trim()).filter(Boolean)
-            : [],
+    try {
+      await createTodo({
+        variables: {
+          input: {
+            title: createForm.title,
+            priority: createForm.priority || 'MEDIUM',
+            dueDate: createForm.dueDate || null,
+            tags: createForm.tags
+              ? createForm.tags.split(',').map((tagItem) => tagItem.trim()).filter(Boolean)
+              : [],
+          },
         },
-      },
-    })
-    setCreateForm(emptyTodoForm())
-    refetch()
+      })
+      setCreateForm(emptyTodoForm())
+      await refetch()  // Warte auf das refetch
+    } catch (error) {
+      console.error('Fehler beim Erstellen:', error)
+    }
   }
 
   const handleDelete = async () => {
@@ -462,13 +414,20 @@ export function TodoList() {
 
   const handleUpdate = async (input) => {
     if (!selectedId) return
-    await updateTodo({
-      variables: {
-        id: selectedId,
-        input,
-      },
-    })
-    refetch()
+    try {
+      await updateTodo({
+        variables: {
+          id: selectedId,
+          input: {
+            ...input,
+            priority: input.priority || 'MEDIUM'  // Stelle sicher, dass priority nie null ist
+          },
+        },
+      })
+      await refetch()
+    } catch (error) {
+      console.error('Fehler beim Update:', error)
+    }
   }
 
   const handleAddComment = async (input) => {
@@ -478,17 +437,6 @@ export function TodoList() {
         todoId: selectedId,
         text: input.text,
         author: input.author || null,
-      },
-    })
-    refetch()
-  }
-
-  const handleAddSubtask = async (title) => {
-    if (!selectedId) return
-    await addSubtask({
-      variables: {
-        todoId: selectedId,
-        title,
       },
     })
     refetch()
@@ -551,7 +499,6 @@ export function TodoList() {
               value={createForm.priority}
               onChange={(e) => setCreateForm((prev) => ({ ...prev, priority: e.target.value }))}
             >
-              <option value="">Keine</option>
               <option value="LOW">LOW</option>
               <option value="MEDIUM">MEDIUM</option>
               <option value="HIGH">HIGH</option>
@@ -611,7 +558,6 @@ export function TodoList() {
             onUpdate={handleUpdate}
             onDelete={handleDelete}
             onAddComment={handleAddComment}
-            onAddSubtask={handleAddSubtask}
           />
         </section>
       </main>

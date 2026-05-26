@@ -13,8 +13,9 @@ const CommentSchema = new mongoose.Schema({
 });
 
 const ChecklistItemSchema = new mongoose.Schema({
-  label:   { type: String, required: true },
-  checked: { type: Boolean, default: false }
+  label:       { type: String, required: true },
+  description: { type: String, default: '' },
+  checked:     { type: Boolean, default: false }
 });
 
 const HistoryEntrySchema = new mongoose.Schema({
@@ -27,10 +28,9 @@ const HistoryEntrySchema = new mongoose.Schema({
 const TodoSchema = new mongoose.Schema({
   title:          { type: String, required: true },
   status:         { type: String, enum: ['OPEN','IN_PROGRESS','DONE'], default: 'OPEN' },
-  priority:       { type: String, enum: ['LOW','MEDIUM','HIGH'] },
+  priority:       { type: String, enum: ['LOW','MEDIUM','HIGH'], required: true, default: 'MEDIUM' },
   dueDate:        { type: Date },
   tags:           [String],
-  subtasks:       [SubtaskSchema],
   comments:       [CommentSchema],
   checklistItems: [ChecklistItemSchema],
   history:        [HistoryEntrySchema]

@@ -61,21 +61,37 @@ const todoService = {
     return todo;
   },
 
-  async addSubtask(todoId, title) {
+  async addChecklistItem(todoId, { label, description = '' }) {
     const todo = await Todo.findByIdAndUpdate(
       todoId,
-      { $push: { subtasks: { title, done: false } } },
+      { $push: { checklistItems: { label, description, checked: false } } },
       { returnDocument: 'after' }
     );
     pubsub.publish(EVENTS.TODO_UPDATED, { todoUpdated: todo });
     return todo;
   },
 
-  async toggleSubtask(todoId, subtaskId) {
+  async updateChecklistItem(todoId, itemId, updates) {
     const todo = await Todo.findById(todoId);
-    const subtask = todo.subtasks.id(subtaskId);
-    subtask.done = !subtask.done;
+    const item = todo.checklistItems.id(itemId);
+    
+    if (!item) throw new Error('Checklist item not found');
+    
+    if (updates.label !== undefined) item.label = updates.label;
+    if (updates.description !== undefined) item.description = updates.description;
+    if (updates.checked !== undefined) item.checked = updates.checked;
+    
     await todo.save();
+    pubsub.publish(EVENTS.TODO_UPDATED, { todoUpdated: todo });
+    return todo;
+  },
+
+  async deleteChecklistItem(todoId, itemId) {
+    const todo = await Todo.findByIdAndUpdate(
+      todoId,
+      { $pull: { checklistItems: { _id: itemId } } },
+      { returnDocument: 'after' }
+    );
     pubsub.publish(EVENTS.TODO_UPDATED, { todoUpdated: todo });
     return todo;
   }

@@ -2,21 +2,14 @@ type Todo {
   id: ID!
   title: String!
   status: TodoStatus!
-  priority: Priority
+  priority: Priority!
   dueDate: String
   tags: [String]
-  subtasks: [Subtask]
   comments: [Comment]
   checklistItems: [ChecklistItem]
   history: [HistoryEntry]
   createdAt: String!
   updatedAt: String!
-}
-
-type Subtask {
-  id: ID!
-  title: String!
-  done: Boolean!
 }
 
 type Comment {
@@ -29,6 +22,7 @@ type Comment {
 type ChecklistItem {
   id: ID!
   label: String!
+  description: String
   checked: Boolean!
 }
 
@@ -61,8 +55,9 @@ type Mutation {
   updateTodo(id: ID!, input: UpdateTodoInput!): Todo!
   deleteTodo(id: ID!): Boolean!
   addComment(todoId: ID!, text: String!, author: String): Todo!
-  addSubtask(todoId: ID!, title: String!): Todo!
-  toggleSubtask(todoId: ID!, subtaskId: ID!): Todo!
+  addChecklistItem(todoId: ID!, label: String!, description: String): Todo!
+  updateChecklistItem(todoId: ID!, itemId: ID!, label: String, description: String, checked: Boolean): Todo!
+  deleteChecklistItem(todoId: ID!, itemId: ID!): Todo!
 }
 
 type Subscription {
