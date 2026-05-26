@@ -1,10 +1,9 @@
 services:
   db:
-    image: postgres
+    image: mongo
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: todoapp
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
     ports:
-      - "5432:5432"
+      - "27017:27017"
