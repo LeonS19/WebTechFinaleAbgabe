@@ -156,3 +156,78 @@ main {
 #sort-select option[disabled] {
     display: none;
 }
+
+/* ─── CHAT PANEL ─────────────────────────────────────────────── */
+.chat-panel {
+    margin-top: 12px;
+    border-top: 1px solid #ddd;
+    padding-top: 10px;
+}
+
+.chat-messages {
+    max-height: 200px;
+    overflow-y: auto;
+    background: #f9f9f9;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    padding: 8px;
+    margin-bottom: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.chat-message {
+    background: #fff;
+    border-radius: 6px;
+    padding: 6px 10px;
+    border: 1px solid #e0e0e0;
+}
+
+.chat-message p {
+    margin: 2px 0 0 0;
+}
+
+.chat-user {
+    font-weight: bold;
+    color: #333;
+}
+
+.chat-time {
+    font-size: 0.75em;
+    color: #999;
+    margin-left: 6px;
+}
+
+.chat-input-row {
+    display: flex;
+    gap: 6px;
+}
+
+.chat-username {
+    width: 120px;
+    flex-shrink: 0;
+}
+
+.chat-message-input {
+    flex: 1;
+}
+
+.chat-btn {
+    background: #6c8ebf;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+}
+
+.chat-send-btn {
+    background: #5a9e6f;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+}

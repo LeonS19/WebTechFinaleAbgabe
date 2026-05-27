@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Todo-App</title>
     <link rel="stylesheet" href="style.css">
+    <!-- PWA: Manifest einbinden -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- PWA: Service Worker registrieren -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/service-worker.js')
+        .then(() => console.log('[SW] Service Worker registriert'))
+        .catch(err => console.error('[SW] Fehler:', err));
+    }
+    </script>
 </head>
 <body>
 

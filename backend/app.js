@@ -1,5 +1,6 @@
 const express = require('express')
 const db = require('./db');
+const { setupWebSocket, initializeChatTable } = require('./chat');
 const cors = require('cors');
 const app = express()
 const port = 3000
@@ -40,21 +41,23 @@ app.use('/todos', todoRouter);
 if (require.main === module) {
   const startApp = async () => {
     try {
-      // 1. Warte, bis die Datenbank bereit ist
       await db.initializeDatabase();
+      await initializeChatTable(); //Chat-Tabelle anlegen
 
-      // 2. Starte dann den Express-Server
-      app.listen(port, () => {
-        console.log(`Example app listening on port ${port}`);
+      // http.createServer statt app.listen, damit WebSocket denselben Port nutzt
+      const http = require('http');
+      const server = http.createServer(app);
+      setupWebSocket(server); // WebSocket an den Server hängen
+
+      server.listen(port, () => {
+        console.log(`Server läuft auf Port ${port}`);
       });
     } catch (error) {
-      console.error('Fehler beim Starten der Anwendung:', error);
+      console.error('Fehler beim Starten:', error);
       process.exit(1);
     }
   };
-
   startApp();
 }
 
-// App für die tests exportieren
 module.exports = app;
