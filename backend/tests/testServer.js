@@ -22,7 +22,7 @@ async function startTestServer() {
 async function stopTestServer(server) {
   await server.stop();
   await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
+  await mongoose.connection.close();
 }
 
 // Hilfsfunktion damit Tests lesbarer werden

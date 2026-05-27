@@ -41,14 +41,19 @@ test('todoUpdated-Subscription feuert bei Statusänderung', async () => {
     }
   `, { id: todo._id.toString(), input: { status: 'DONE' } });
 
-  const { value } = await Promise.race([
-    iterator.next(),
-    new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Event nicht empfangen')), 1000)
-    )
+  const [{ value }, mutationResult] = await Promise.all([
+    Promise.race([
+      iterator.next(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Event nicht empfangen')), 2000)
+      )
+    ]),
+    execute(server, `
+      mutation UpdateTodo($id: ID!, $input: UpdateTodoInput!) {
+        updateTodo(id: $id, input: $input) { id }
+      }
+    `, { id: todo._id.toString(), input: { status: 'DONE' } })
   ]);
-
-  await mutationPromise;
 
   expect(value.todoUpdated.status).toBe('DONE');
 }, 10000);

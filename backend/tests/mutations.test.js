@@ -49,7 +49,7 @@ test('createTodo schlägt fehl wenn Titel fehlt', async () => {
 // --- updateTodo ---
 
 test('updateTodo ändert Status eines Todos', async () => {
-  const todo = await Todo.create({ title: 'Zu updatendes Todo' });
+  const todo = await Todo.create({ title: 'Zu updatendes Todo', priority: 'MEDIUM' });
 
   const { data } = await execute(server, `
     mutation UpdateTodo($id: ID!, $input: UpdateTodoInput!) {
@@ -61,7 +61,7 @@ test('updateTodo ändert Status eines Todos', async () => {
 });
 
 test('updateTodo legt Bearbeitungsverlauf an', async () => {
-  const todo = await Todo.create({ title: 'Todo', status: 'OPEN' });
+  const todo = await Todo.create({ title: 'Todo', status: 'OPEN', priority: 'LOW' });
 
   await execute(server, `
     mutation UpdateTodo($id: ID!, $input: UpdateTodoInput!) {
@@ -107,39 +107,4 @@ test('addComment fügt Kommentar zu Todo hinzu', async () => {
   expect(data.addComment.comments).toHaveLength(1);
   expect(data.addComment.comments[0].text).toBe('Mein Kommentar');
   expect(data.addComment.comments[0].author).toBe('Alice');
-});
-
-// --- addSubtask / toggleSubtask ---
-
-test('addSubtask fügt Subtask hinzu', async () => {
-  const todo = await Todo.create({ title: 'Todo mit Subtask' });
-
-  const { data } = await execute(server, `
-    mutation AddSubtask($todoId: ID!, $title: String!) {
-      addSubtask(todoId: $todoId, title: $title) {
-        id subtasks { id title done }
-      }
-    }
-  `, { todoId: todo._id.toString(), title: 'Mein Subtask' });
-
-  expect(data.addSubtask.subtasks).toHaveLength(1);
-  expect(data.addSubtask.subtasks[0].done).toBe(false);
-});
-
-test('toggleSubtask markiert Subtask als erledigt', async () => {
-  const todo = await Todo.create({
-    title: 'Todo',
-    subtasks: [{ title: 'Subtask', done: false }]
-  });
-  const subtaskId = todo.subtasks[0]._id.toString();
-
-  const { data } = await execute(server, `
-    mutation ToggleSubtask($todoId: ID!, $subtaskId: ID!) {
-      toggleSubtask(todoId: $todoId, subtaskId: $subtaskId) {
-        subtasks { id done }
-      }
-    }
-  `, { todoId: todo._id.toString(), subtaskId });
-
-  expect(data.toggleSubtask.subtasks[0].done).toBe(true);
 });

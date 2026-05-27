@@ -1,21 +1,41 @@
-# Todo-App - WebTech Projekt
+# Todo-App - WebTech Projekt (Aufgabe 2)
 
-Dies ist eine voll funktionsfähige Full-Stack Todo-Anwendung, die im Rahmen des Web-Technologie-Kurses entwickelt wurde. Sie besteht aus einem Node.js/Express-Backend mit einer PostgreSQL-Datenbank und einem Vanilla-JS-Frontend.
+Dies ist eine erweiterte Full-Stack Todo-Anwendung mit GraphQL API und MongoDB, entwickelt im Rahmen des Web-Technologie-Kurses. Sie besteht aus einem Node.js-Backend mit GraphQL und einer dokumentenbasierten MongoDB-Datenbank, ergänzt um ein modernes Frontend mit Apollo Client.
 
 ## Features
 
-* **Backend:**
-  * RESTful API zum Erstellen, Lesen, Aktualisieren und Löschen (CRUD) von Todos.
-  * Datenbank-Anbindung an PostgreSQL.
-  * Dynamische Filterung (Suche) und Sortierung (nach Priorität, Fälligkeitsdatum, Titel).
-  * Automatisierte API-Tests mit Jest und Supertest.
-* **Frontend:**
-  * Benutzeroberfläche zum Verwalten von Todos.
-  * Erstellen, Bearbeiten, Löschen und als "erledigt" markieren von Todos direkt im UI.
-  * Live-Suche und Sortierung der angezeigten Todos.
-* **API-Dokumentation:**
-  * Vollständige OpenAPI 3.0 Spezifikation.
-  * Interaktive Swagger-UI zur direkten Interaktion mit der API.
+### Backend
+
+* **GraphQL API** mit:
+  * Queries für flexible Lesezugriffe
+  * Mutations zum Erstellen, Ändern und Löschen von Todos, Kommentaren, Tags und Subtasks
+  * Subscriptions für Echtzeit-Aktualisierungen (Multi-User-Support)
+* **MongoDB** als dokumentenbasierte Datenbank mit verschachtelten Datenstrukturen
+* **Erweiterte Todo-Struktur:**
+  * Tags
+  * Subtasks
+  * Kommentare
+  * Priorität
+  * Fälligkeitsdatum
+  * Bearbeitungsverlauf
+  * Checklisten
+* **Multi-User-System** mit Echtzeit-Benachrichtigungen über Pub/Sub
+* **Automatisierte Tests** für Queries, Mutations und Subscriptions
+
+### Frontend
+
+* **GraphQL-Integration** mit Apollo Client
+* **Mehrere Ansichten:**
+  * Übersicht mit Titel und Status
+  * Detailansicht mit allen Informationen
+  * Filteransicht (nach Tags, Priorität, etc.)
+* **Echtzeit-Updates** über GraphQL Subscriptions
+* **Funktionalität:**
+  * Erstellen, Bearbeiten, Löschen von Todos
+  * Kommentare und Subtasks hinzufügen
+  * Tags und Prioritäten verwalten
+  * Fälligkeitsdaten setzen
+  * Live-Suche und Filterung
 
 ---
 
@@ -26,11 +46,12 @@ Dies ist eine voll funktionsfähige Full-Stack Todo-Anwendung, die im Rahmen des
 ```bash
 git clone https://github.com/elisabeth-gdt/WebTech.git
 cd WebTech
+git checkout Aufgabe2
 ```
 
 ### 2. Backend einrichten und starten
 
-Das Backend verwendet Docker, um eine PostgreSQL-Datenbank zu starten.
+Das Backend verwendet Docker, um die Mongo-Datenbank zu starten.
 
 ```bash
 # Ins Backend-Verzeichnis wechseln
@@ -42,25 +63,27 @@ npm install
 # Docker-Container für die Datenbank starten (-d für "detached mode")
 docker compose up -d
 
-# Backend-Server starten (stellt die API auf Port 3000 bereit)
-npm start
+# Backend-Server starten (stellt die API auf Port 4000 bereit)
+noder server.js
 ```
 
-Das Backend läuft nun auf `http://localhost:3000`.
+Der Server läuft nun auf `http://localhost:4000/graphql`.
 
 ### 3. Frontend starten
 
-Das Frontend ist eine einfache HTML/CSS/JS-Anwendung. Sie können die `index.html` direkt im Browser öffnen. Für eine realistischere Umgebung wird die Verwendung eines Live-Servers empfohlen.
+Das Frontend ist eine moderne Vite-basierte Anwendung mit Apollo Client zur GraphQL-Integration.
 
-* **Mit VS Code und der "Live Server"-Extension:**
-    1. Öffnen Sie das `frontend`-Verzeichnis in VS Code.
-    2. Klicken Sie mit der rechten Maustaste auf die Datei `index.html`.
-    3. Wählen Sie "Open with Live Server".
+```bash
+cd ../frontend
 
-* **Ohne Live Server:**
-  * Öffnen Sie die Datei `frontend/index.html` einfach per Doppelklick in Ihrem Webbrowser.
+# Abhängigkeiten installieren
+npm install
 
-Die Anwendung ist nun in Ihrem Browser verfügbar (typischerweise unter `http://127.0.0.1:5500` bei Verwendung von Live Server).
+# Development Server starten
+npm run dev
+```
+
+Die Seite ist nun erreichbar über `http://localhost:5173/`.
 
 ---
 
@@ -78,7 +101,7 @@ Die API ist nach dem OpenAPI 3.0 Standard spezifiziert.
 
 Die Backend-API ist mit automatisierten Tests abgedeckt.
 
-* **Test-Datei:** Die Test-Datei befindet sich unter `backend/todo/test.js`.
+* **Test-Datei:** Die Test-Datei befindet sich unter `backend/tests/test.js`.
 
 **Tests ausführen:**
 
