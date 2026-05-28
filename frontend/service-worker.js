@@ -2,13 +2,15 @@ const CACHE_NAME = 'todo-app-v1';
 
 // App-Shell: diese Dateien werden beim Installieren des Service Workers gecacht
 const APP_SHELL = [
-  '/',
-  '/index.html',
-  '/script.js',
-  '/style.css',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/manifest.json',
+  './',
+  './index.html',
+  './js/script.js',
+  './js/components/todo-card.js',
+  './js/components/chat-window.js',
+  './css/style.css',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './manifest.json',
 ];
 
 // ─── INSTALL ────────────────────────────────────────────────────────────────

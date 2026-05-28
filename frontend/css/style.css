@@ -231,3 +231,105 @@ main {
     cursor: pointer;
     white-space: nowrap;
 }
+
+/* ─── DATEIANHÄNGE ───────────────────────────────────────────── */
+.attachment-section {
+    margin-top: 12px;
+    border-top: 1px solid #ddd;
+    padding-top: 10px;
+}
+
+.attachment-upload {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.upload-label {
+    display: inline-block;
+    padding: 5px 10px;
+    background: #f0ad4e;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    width: 100%;  /* ← neu */
+    margin-top: 12px;
+    margin-left: 12px;
+    border-top: 1px solid #ddd;
+    padding-top: 10px;
+}
+
+.upload-label:hover {
+    background: #ec971f;
+}
+
+.upload-status {
+    font-size: 0.85em;
+    color: #5cb85c;
+}
+
+.attachment-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.no-attachments {
+    font-size: 0.85em;
+    color: #aaa;
+}
+
+.attachment-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f9f9f9;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.9em;
+}
+
+.attachment-icon {
+    font-size: 1.2em;
+    flex-shrink: 0;
+}
+
+.attachment-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #333;
+}
+
+.attachment-size {
+    color: #999;
+    font-size: 0.8em;
+    flex-shrink: 0;
+}
+
+.attachment-download {
+    text-decoration: none;
+    font-size: 1.1em;
+    flex-shrink: 0;
+}
+
+.attachment-delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1em;
+    padding: 0;
+    flex-shrink: 0;
+    opacity: 0.6;
+}
+
+.attachment-delete-btn:hover {
+    opacity: 1;
+}

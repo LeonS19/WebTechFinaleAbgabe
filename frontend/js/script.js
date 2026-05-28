@@ -38,46 +38,33 @@ async function fetchAndRenderTodos() {
         if (!response.ok) throw new Error(`HTTP-Fehler! Status: ${response.status}`);
         const todos = await response.json();
 
-        todoList.innerHTML = '';
-        todos.forEach(todo => {
-            const li = document.createElement('li');
-            li.className = 'todo-item';
-            if (todo.completed) li.classList.add('completed');
-            li.dataset.id = todo.id;
+        // Todos lokal speichern
+        await saveTodos(todos);
 
-            li.innerHTML = `
-                <div class="todo-details">
-                    <h3>${todo.title} (Prio: ${todo.priority})</h3>
-                    ${todo.description ? `<p class="todo-description">${todo.description}</p>` : ''}
-                    <div class="todo-dates">
-                        ${todo.dueDate ? `<small><b>Fällig:</b> ${new Date(todo.dueDate).toLocaleDateString('de-DE')}</small>` : ''}
-                        <small><b>Erstellt:</b> ${new Date(todo.createDate).toLocaleString('de-DE')}</small>
-                        <small><b>Bearbeitet:</b> ${new Date(todo.editedDate).toLocaleString('de-DE')}</small>
-                    </div>
-                </div>
-                <div class="todo-actions">
-                    <button class="edit-btn">Bearbeiten</button>
-                    <button class="complete-btn">Erledigt</button>
-                    <button class="delete-btn">Löschen</button>
-                    <button class="chat-btn">💬 Chat</button>
-                </div>
-
-                <!-- Chat-Panel (standardmäßig versteckt) -->
-                <div class="chat-panel" id="chat-${todo.id}" style="display:none;">
-                    <div class="chat-messages" id="chat-messages-${todo.id}"></div>
-                    <div class="chat-input-row">
-                        <input type="text" class="chat-username" placeholder="Dein Name" />
-                        <input type="text" class="chat-message-input" placeholder="Nachricht..." />
-                        <button class="chat-send-btn">Senden</button>
-                    </div>
-                </div>
-            `;
-            todoList.appendChild(li);
-        });
+        renderTodos(todos);
     } catch (error) {
-        console.error("Fehler beim Abrufen der Todos:", error);
-        todoList.innerHTML = '<li>Fehler beim Laden der Todos.</li>';
+        console.warn("Server nicht erreichbar, lade aus IndexedDB...");
+
+        // Offline-Fallback
+        const todos = await loadTodos();
+        renderTodos(todos);
     }
+}
+
+function renderTodos(todos) {
+    todoList.innerHTML = '';
+    todos.forEach(todo => {
+        const card = document.createElement('todo-card');
+        card.setAttribute('todo-id', todo.id);
+        card.setAttribute('todo-title', todo.title);
+        card.setAttribute('todo-priority', todo.priority);
+        card.setAttribute('todo-desc', todo.description || '');
+        card.setAttribute('todo-duedate', todo.dueDate || '');
+        card.setAttribute('todo-createdate', todo.createDate);
+        card.setAttribute('todo-editeddate', todo.editedDate);
+        card.setAttribute('todo-completed', todo.completed);
+        todoList.appendChild(card);
+    });
 }
 
 // ─── CHAT-FUNKTIONEN ──────────────────────────────────────────────────────────
@@ -169,6 +156,12 @@ filterSelect.addEventListener('change', fetchAndRenderTodos);
 
 newTodoForm.addEventListener('submit', async (event) => {
     event.preventDefault();
+
+    if (!navigator.onLine) {
+        alert('Du bist offline – Todos können nur gelesen, nicht erstellt werden.');
+        return;
+    }
+
     const title = titleInput.value.trim();
     const priority = parseInt(priorityInput.value, 10);
     const description = descriptionInput.value.trim();
@@ -194,101 +187,64 @@ newTodoForm.addEventListener('submit', async (event) => {
     }
 });
 
-todoList.addEventListener('click', async (event) => {
-    const todoItem = event.target.closest('.todo-item');
-    if (!todoItem) return;
-    const todoId = todoItem.dataset.id;
 
-    // --- Chat-Button ---
-    if (event.target.classList.contains('chat-btn')) {
-        toggleChat(todoId);
+todoList.addEventListener('todo-delete', async (e) => {
+    if (!navigator.onLine) {
+        alert('Du bist offline – Todos können nur gelesen, nicht gelöscht werden.');
         return;
     }
 
-    // --- Chat Senden-Button ---
-    if (event.target.classList.contains('chat-send-btn')) {
-        const username = todoItem.querySelector('.chat-username').value;
-        const messageInput = todoItem.querySelector('.chat-message-input');
-        sendMessage(todoId, username, messageInput.value);
-        messageInput.value = '';
+    if (!confirm('Wirklich löschen?')) return;
+    await fetch(`${API_URL}/${e.detail.id}`, { method: 'DELETE' });
+    fetchAndRenderTodos();
+});
+
+todoList.addEventListener('todo-complete', async (e) => {
+  await fetch(`${API_URL}/${e.detail.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ completed: !e.detail.completed }),
+  });
+  fetchAndRenderTodos();
+});
+
+todoList.addEventListener('todo-edit', async (e) => {
+
+    if (!navigator.onLine) {
+        alert('Du bist offline – Todos können nur gelesen, nicht bearbeitet werden.');
         return;
     }
 
-    // --- Enter-Taste im Nachrichten-Input ---
-    if (event.target.classList.contains('chat-message-input')) return;
-
-    // --- Löschen-Button ---
-    if (event.target.classList.contains('delete-btn')) {
-        if (confirm('Bist du sicher, dass du dieses Todo löschen möchtest?')) {
-            try {
-                const response = await fetch(`${API_URL}/${todoId}`, { method: 'DELETE' });
-                if (!response.ok) throw new Error(`HTTP-Fehler! Status: ${response.status}`);
-                await fetchAndRenderTodos();
-            } catch (error) {
-                console.error('Fehler beim Löschen des Todos:', error);
-            }
-        }
-    }
-
-    // --- Erledigt-Button ---
-    if (event.target.classList.contains('complete-btn')) {
-        const isCompleted = todoItem.classList.contains('completed');
-        try {
-            const response = await fetch(`${API_URL}/${todoId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ completed: !isCompleted }),
-            });
-            if (!response.ok) throw new Error(`HTTP-Fehler! Status: ${response.status}`);
-            await fetchAndRenderTodos();
-        } catch (error) {
-            console.error('Fehler beim Aktualisieren des Todos:', error);
-        }
-    }
-
-    // --- Bearbeiten-Button ---
-    if (event.target.classList.contains('edit-btn')) {
-        const response = await fetch(`${API_URL}/${todoId}`);
-        const currentTodo = await response.json();
-        todoItem.innerHTML = `
-            <div class="edit-form">
-                <input type="text" class="edit-title" value="${currentTodo.title}">
-                <input type="number" class="edit-priority" value="${currentTodo.priority}">
-                <textarea class="edit-description">${currentTodo.description || ''}</textarea>
-                <input type="date" class="edit-dueDate" value="${currentTodo.dueDate ? new Date(currentTodo.dueDate).toISOString().split('T')[0] : ''}">
-                <div class="edit-actions">
-                    <button class="save-btn">Speichern</button>
-                    <button class="cancel-btn">Abbrechen</button>
-                </div>
-            </div>
-        `;
-    }
-
-    // --- Speichern-Button ---
-    if (event.target.classList.contains('save-btn')) {
-        const updatedData = {
-            title: todoItem.querySelector('.edit-title').value,
-            priority: parseInt(todoItem.querySelector('.edit-priority').value, 10),
-            description: todoItem.querySelector('.edit-description').value,
-            dueDate: todoItem.querySelector('.edit-dueDate').value || null,
-        };
-        try {
-            const response = await fetch(`${API_URL}/${todoId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedData),
-            });
-            if (!response.ok) throw new Error('Update fehlgeschlagen');
-            await fetchAndRenderTodos();
-        } catch (error) {
-            console.error("Fehler beim Speichern:", error);
-        }
-    }
-
-    // --- Abbrechen-Button ---
-    if (event.target.classList.contains('cancel-btn')) {
-        await fetchAndRenderTodos();
-    }
+  const id = e.detail.id;
+  const card = todoList.querySelector(`[data-id="${id}"]`);
+  const response = await fetch(`${API_URL}/${id}`);
+  const todo = await response.json();
+  card.innerHTML = `
+    <div class="edit-form">
+      <input type="text" class="edit-title" value="${todo.title}">
+      <input type="number" class="edit-priority" value="${todo.priority}">
+      <textarea class="edit-description">${todo.description || ''}</textarea>
+      <input type="date" class="edit-dueDate" value="${todo.dueDate ? new Date(todo.dueDate).toISOString().split('T')[0] : ''}">
+      <div class="edit-actions">
+        <button class="save-btn">Speichern</button>
+        <button class="cancel-btn">Abbrechen</button>
+      </div>
+    </div>
+  `;
+  card.querySelector('.save-btn').addEventListener('click', async () => {
+    await fetch(`${API_URL}/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: card.querySelector('.edit-title').value,
+        priority: parseInt(card.querySelector('.edit-priority').value),
+        description: card.querySelector('.edit-description').value,
+        dueDate: card.querySelector('.edit-dueDate').value || null,
+      }),
+    });
+    fetchAndRenderTodos();
+  });
+  card.querySelector('.cancel-btn').addEventListener('click', () => fetchAndRenderTodos());
 });
 
 // Enter-Taste im Chat-Input abfangen
