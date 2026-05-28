@@ -18,8 +18,9 @@ const { useServer } = require("graphql-ws/use/ws");
 const { makeExecutableSchema } = require("@graphql-tools/schema");
 
 const { resolvers } = require("./resolvers/index.js");
-
-const { setupChatServer } = require("./websocket/chatServer");
+// const { setupChatServer } = require("./websocket/chatServer");
+const { setupChatHandler } = require("./websocket/chatServer");
+const chatHandler = setupChatHandler();
 
 const typeDefs = fs.readFileSync(
   path.join(__dirname, "./scheme.graphql"),
@@ -40,19 +41,34 @@ async function startServer() {
     resolvers,
   });
 
-  const wsServer = new WebSocketServer({
-    server: httpServer,
-    path: "/graphql",
+  // ✅ WebSocketServer OHNE auto-attach
+  const wsServer = new WebSocketServer({ noServer: true });
+
+  // ✅ Manuelles Upgrade-Handling für korrekte Route
+  httpServer.on("upgrade", (req, socket, head) => {
+    const url = new URL(req.url, "http://localhost");
+
+    if (url.pathname === "/graphql") {
+      wsServer.handleUpgrade(req, socket, head, (ws) => {
+        wsServer.emit("connection", ws, req);
+      });
+    } else if (url.pathname === "/chat") {
+      chatHandler.handleUpgrade(req, socket, head);
+    } else {
+      socket.destroy();
+    }
+    // /chat wird von setupChatServer behandelt
   });
 
-   useServer(
+  // ✅ graphql-ws Handler registrieren
+  useServer(
     {
       schema,
       onConnect: (ctx) => {
-        console.log("✓ WebSocket Client verbunden");
+        console.log("✓ GraphQL WebSocket Client verbunden");
       },
       onDisconnect: () => {
-        console.log("✗ WebSocket Client disconnected");
+        console.log("✗ GraphQL WebSocket Client disconnected");
       },
     },
     wsServer,
@@ -66,7 +82,7 @@ async function startServer() {
         async serverWillStart() {
           return {
             async drainServer() {
-              await serverCleanup.dispose();
+              wsServer.close();
             },
           };
         },
@@ -76,7 +92,7 @@ async function startServer() {
 
   await server.start();
 
-  app.use(cors()); // CORS global
+  app.use(cors());
   app.use(express.json());
 
   app.post("/graphql", expressMiddleware(server));
@@ -85,12 +101,13 @@ async function startServer() {
   app.use("/files", fileRoutes);
   app.use("/uploads", express.static("uploads"));
 
-  setupChatServer(httpServer);
+  // ✅ Chat-Server danach - hängt seinen eigenen upgrade-Handler an
+  // setupChatServer(httpServer);
 
   httpServer.listen(4000, () => {
     console.log("✓ Server läuft auf http://localhost:4000");
-    console.log("✓ GraphQL: http://localhost:4000/graphql (POST)");
-    console.log("✓ Subscriptions: ws://localhost:4000/graphql");
+    console.log("✓ GraphQL HTTP: http://localhost:4000/graphql (POST)");
+    console.log("✓ GraphQL WebSocket: ws://localhost:4000/graphql");
     console.log("✓ Chat: ws://localhost:4000/chat");
   });
 }

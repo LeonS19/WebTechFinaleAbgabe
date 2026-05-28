@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { gql } from '@apollo/client'
 import { useMutation, useQuery, useSubscription } from '@apollo/client/react'
+import { ChatWindow } from './ChatWindow'
 
 const GET_TODOS = gql`
   query GetTodos($status: TodoStatus, $tag: String, $priority: Priority) {
@@ -383,39 +384,6 @@ function TodoDetailView({ todoId, onClose, onEdit }) {
       </form>
 
       <hr style={{ margin: '16px 0', border: 'none', borderTop: '1px solid rgba(148, 163, 184, 0.2)' }} />
-
-      {/* <h3>Verlauf</h3>
-      {todo.history?.length ? (
-        <div style={{ display: 'grid', gap: '10px' }}>
-          {todo.history.map((entry, index) => (
-            <div
-              key={`${entry.changedAt}-${index}`}
-              style={{
-                background: 'rgba(255,255,255,0.6)',
-                padding: '12px',
-                borderRadius: '10px',
-                borderLeft: '3px solid #3b82f6'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <strong style={{ color: '#2563eb' }}>{entry.field}</strong>
-                <small style={{ color: '#999' }}>{formatDate(entry.changedAt)}</small>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', color: '#475569' }}>
-                <span style={{ background: '#fee2e2', padding: '4px 8px', borderRadius: '6px', wordBreak: 'break-word' }}>
-                  {entry.oldValue || '(leer)'}
-                </span>
-                <span style={{ color: '#999' }}>→</span>
-                <span style={{ background: '#dcfce7', padding: '4px 8px', borderRadius: '6px', wordBreak: 'break-word' }}>
-                  {entry.newValue || '(leer)'}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p style={{ color: '#999' }}>Kein Verlauf</p>
-      )} */}
     </div>
   )
 }
@@ -523,6 +491,7 @@ export function TodoList() {
   const [createForm, setCreateForm] = useState(emptyTodoForm())
   const [detailTodoId, setDetailTodoId] = useState(null)
   const [editingTodo, setEditingTodo] = useState(null)
+  const [openChats, setOpenChats] = useState(new Set())
 
   const { data, loading, error, refetch } = useQuery(GET_TODOS, {
     variables: {
@@ -605,6 +574,18 @@ export function TodoList() {
       console.error('Fehler beim Update:', error)
     }
   }
+
+  const handleOpenChat = (todoId) => {
+    setOpenChats(prev => new Set([...prev, todoId]));
+  };
+
+  const handleCloseChat = (todoId) => {
+    setOpenChats(prev => {
+      const next = new Set(prev);
+      next.delete(todoId);
+      return next;
+    });
+  };
 
   return (
     <div className="page">
@@ -729,6 +710,15 @@ export function TodoList() {
                 >
                   Löschen
                 </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleOpenChat(todo.id)
+                  }}
+                  style={{ background: '#8b5cf6', color: 'white', padding: '6px 12px', border: 'none', cursor: 'pointer', marginLeft: '5px', borderRadius: '8px', fontSize: '0.9rem' }}
+                >
+                  Chat
+                </button>
               </div>
             </li>
           ))}
@@ -749,6 +739,21 @@ export function TodoList() {
           onEdit={(todo) => setEditingTodo(todo)}
         />
       )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '16px', marginTop: '16px' }}>
+        {Array.from(openChats).map(todoId => {
+          const todo = todos.find(t => t.id === todoId);
+          return (
+            <div key={todoId} style={{ border: '2px solid #8b5cf6', borderRadius: '8px', padding: '12px' }}>
+              <h3 style={{ margin: '0 0 12px 0' }}>💬 Chat: {todo?.title}</h3>
+              <ChatWindow 
+                todoId={todoId} 
+                onClose={() => handleCloseChat(todoId)} 
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   )
 }

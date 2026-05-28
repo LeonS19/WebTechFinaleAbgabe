@@ -1,4 +1,3 @@
-// frontend/js/chat.js
 import { saveMessages, loadMessages } from './db.js';
 
 export class ChatClient {
@@ -6,17 +5,17 @@ export class ChatClient {
     this.todoId = todoId;
     this.onMessage = onMessage;
     this.ws = null;
+    this.connect();
   }
 
   connect() {
     const wsUrl = `ws://localhost:4000/chat?todoId=${this.todoId}`;
     this.ws = new WebSocket(wsUrl);
-
+    
     this.ws.onmessage = async (event) => {
       const data = JSON.parse(event.data);
 
       if (data.type === 'HISTORY') {
-        // Verlauf in IndexedDB speichern
         await saveMessages(data.messages);
         data.messages.forEach(msg => this.onMessage(msg));
       }
@@ -28,7 +27,6 @@ export class ChatClient {
     };
 
     this.ws.onerror = async () => {
-      // Offline → aus IndexedDB laden
       console.warn('WebSocket nicht erreichbar, lade lokale Nachrichten');
       const cached = await loadMessages(this.todoId);
       cached.forEach(msg => this.onMessage(msg));
