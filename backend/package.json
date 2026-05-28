@@ -30,6 +30,7 @@
     "graphql-ws": "^6.0.8",
     "js-yaml": "^4.1.1",
     "mongoose": "^9.6.2",
+    "multer": "^2.1.1",
     "pg": "^8.20.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",

@@ -3,8 +3,19 @@ import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
 import { getMainDefinition } from '@apollo/client/utilities';
 
-const httpLink = new HttpLink({ uri: 'http://localhost:4000/graphql' });
-const wsLink = new GraphQLWsLink(createClient({ url: 'ws://localhost:4000/graphql' }));
+// Direkte Backend-URLs (nicht durch Proxy)
+const BACKEND_URL = 'http://localhost:4000/graphql';
+const BACKEND_WS = 'ws://localhost:4000/graphql';
+
+const httpLink = new HttpLink({ uri: BACKEND_URL });
+
+const wsLink = new GraphQLWsLink(
+  createClient({ 
+    url: BACKEND_WS,
+    connectionParams: {},
+    shouldRetry: () => true
+  })
+);
 
 export const client = new ApolloClient({
   link: split(
