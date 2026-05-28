@@ -25,6 +25,13 @@ const HistoryEntrySchema = new mongoose.Schema({
   newValue:  String
 });
 
+const AttachmentSchema = new mongoose.Schema({
+  filename:     { type: String, required: true },
+  originalname: { type: String, required: true },
+  url:          { type: String, required: true },
+  uploadedAt:   { type: Date, default: Date.now }
+});
+
 const TodoSchema = new mongoose.Schema({
   title:          { type: String, required: true },
   status:         { type: String, enum: ['OPEN','IN_PROGRESS','DONE'], default: 'OPEN' },
@@ -33,7 +40,8 @@ const TodoSchema = new mongoose.Schema({
   tags:           [String],
   comments:       [CommentSchema],
   checklistItems: [ChecklistItemSchema],
-  history:        [HistoryEntrySchema]
+  history:        [HistoryEntrySchema],
+  attachments:    [AttachmentSchema]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Todo', TodoSchema);

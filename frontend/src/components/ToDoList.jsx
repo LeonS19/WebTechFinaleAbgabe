@@ -29,6 +29,13 @@ const TODO_DETAIL = gql`
       tags
       createdAt
       updatedAt
+      attachments {
+        id: id
+        filename
+        originalname
+        url
+        uploadedAt
+      }
       comments {
         id
         text
@@ -143,6 +150,35 @@ const DELETE_CHECKLIST_ITEM = gql`
   }
 `
 
+const ADD_ATTACHMENT = gql`
+  mutation AddAttachment($todoId: ID!, $filename: String!, $originalname: String!, $url: String!) {
+    addAttachment(todoId: $todoId, filename: $filename, originalname: $originalname, url: $url) {
+      id
+      attachments {
+        id: id
+        filename
+        originalname
+        url
+        uploadedAt
+      }
+    }
+  }
+`
+
+const DELETE_ATTACHMENT = gql`
+  mutation DeleteAttachment($todoId: ID!, $attachmentId: ID!) {
+    deleteAttachment(todoId: $todoId, attachmentId: $attachmentId) {
+      id
+      attachments {
+        id: id
+        filename
+        originalname
+        url
+      }
+    }
+  }
+`
+
 const TODO_CREATED = gql`
   subscription {
     todoCreated {
@@ -204,6 +240,9 @@ function TodoDetailView({ todoId, onClose, onEdit }) {
   const [addChecklistItem] = useMutation(ADD_CHECKLIST_ITEM)
   const [updateChecklistItem] = useMutation(UPDATE_CHECKLIST_ITEM)
   const [deleteChecklistItem] = useMutation(DELETE_CHECKLIST_ITEM)
+
+  const [addAttachment] = useMutation(ADD_ATTACHMENT)
+  const [deleteAttachment] = useMutation(DELETE_ATTACHMENT)
 
   const [commentForm, setCommentForm] = useState({ author: '', text: '' })
   const [checklistForm, setChecklistForm] = useState({ label: '', description: '' })
@@ -277,6 +316,45 @@ function TodoDetailView({ todoId, onClose, onEdit }) {
     }
   }
 
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch(`http://localhost:4000/files/upload/${todoId}`, {
+        method: 'POST',
+        body: formData
+      });
+      const { filename, originalname, url } = await response.json();
+
+      await addAttachment({
+        variables: {
+          todoId,
+          filename,
+          originalname,
+          url
+        }
+      });
+      await refetch();
+    } catch (error) {
+      console.error('Upload-Fehler:', error);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId) => {
+    try {
+      await deleteAttachment({
+        variables: { todoId, attachmentId }
+      });
+      await refetch();
+    } catch (error) {
+      console.error('Fehler beim Löschen:', error);
+    }
+  };
+
   return (
     <div className="detail-panel">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -294,6 +372,45 @@ function TodoDetailView({ todoId, onClose, onEdit }) {
       <p><strong>Tags:</strong> {todo.tags?.length ? todo.tags.join(', ') : '-'}</p>
 
       <hr style={{ margin: '16px 0', border: 'none', borderTop: '1px solid rgba(148, 163, 184, 0.2)' }} />
+
+      <h3>Dateien</h3>
+      {todo.attachments?.length ? (
+        <ul style={{ listStyle: 'none', padding: 0 }}>
+          {todo.attachments.map((att) => (
+            <li key={att.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: 'rgba(255,255,255,0.6)', borderRadius: '10px', marginBottom: '8px' }}>
+              <div>
+                <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline' }}>
+                  📎 {att.originalname}
+                </a>
+                <small style={{ display: 'block', color: '#999' }}>{formatDate(att.uploadedAt)}</small>
+              </div>
+              <button
+                onClick={() => handleDeleteAttachment(att.id)}
+                style={{ background: '#dc2626', color: 'white', border: 'none', padding: '4px 8px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem' }}
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p style={{ color: '#999' }}>Keine Dateien</p>
+      )}
+
+      <form style={{ background: 'rgba(37, 99, 235, 0.05)', padding: '12px', borderRadius: '10px', marginTop: '10px' }}>
+        <h4 style={{ margin: '0 0 10px 0' }}>Datei hinzufügen</h4>
+        <label style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <input
+            type="file"
+            onChange={handleFileUpload}
+            style={{ flex: 1 }}
+          />
+        </label>
+      </form>
+
+      <hr style={{ margin: '16px 0', border: 'none', borderTop: '1px solid rgba(148, 163, 184, 0.2)' }} />
+
+      <h3>Checkliste</h3>
 
       <h3>Checkliste</h3>
       {todo.checklistItems?.length ? (
@@ -492,6 +609,9 @@ export function TodoList() {
   const [detailTodoId, setDetailTodoId] = useState(null)
   const [editingTodo, setEditingTodo] = useState(null)
   const [openChats, setOpenChats] = useState(new Set())
+
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [errorMessage, setErrorMessage] = useState('')
 
   const { data, loading, error, refetch } = useQuery(GET_TODOS, {
     variables: {
@@ -746,9 +866,9 @@ export function TodoList() {
           return (
             <div key={todoId} style={{ border: '2px solid #8b5cf6', borderRadius: '8px', padding: '12px' }}>
               <h3 style={{ margin: '0 0 12px 0' }}>💬 Chat: {todo?.title}</h3>
-              <ChatWindow 
-                todoId={todoId} 
-                onClose={() => handleCloseChat(todoId)} 
+              <ChatWindow
+                todoId={todoId}
+                onClose={() => handleCloseChat(todoId)}
               />
             </div>
           );

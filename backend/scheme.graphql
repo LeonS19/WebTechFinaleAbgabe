@@ -10,6 +10,7 @@ type Todo {
   history: [HistoryEntry]
   createdAt: String!
   updatedAt: String!
+  attachments: [Attachment]
 }
 
 type Comment {
@@ -31,6 +32,14 @@ type HistoryEntry {
   field: String!
   oldValue: String
   newValue: String
+}
+
+type Attachment {
+  id: ID!
+  filename: String!
+  originalname: String!
+  url: String!
+  uploadedAt: String!
 }
 
 enum TodoStatus {
@@ -56,8 +65,16 @@ type Mutation {
   deleteTodo(id: ID!): Boolean!
   addComment(todoId: ID!, text: String!, author: String): Todo!
   addChecklistItem(todoId: ID!, label: String!, description: String): Todo!
-  updateChecklistItem(todoId: ID!, itemId: ID!, label: String, description: String, checked: Boolean): Todo!
+  updateChecklistItem(
+    todoId: ID!
+    itemId: ID!
+    label: String
+    description: String
+    checked: Boolean
+  ): Todo!
   deleteChecklistItem(todoId: ID!, itemId: ID!): Todo!
+  addAttachment(todoId: ID!, filename: String!, originalname: String!, url: String!): Todo!
+  deleteAttachment(todoId: ID!, attachmentId: ID!): Todo!
 }
 
 type Subscription {

@@ -1,6 +1,8 @@
 const Todo = require("../models/Todo");
 const { todoService } = require("../services/todoService");
 const { pubsub, EVENTS } = require("../pubsub");
+const fs = require("fs");
+const path = require("path"); 
 
 const resolvers = {
   Query: {
@@ -26,9 +28,59 @@ const resolvers = {
     addChecklistItem: (_, { todoId, label, description }) =>
       todoService.addChecklistItem(todoId, { label, description }),
     updateChecklistItem: (_, { todoId, itemId, label, description, checked }) =>
-      todoService.updateChecklistItem(todoId, itemId, { label, description, checked }),
+      todoService.updateChecklistItem(todoId, itemId, {
+        label,
+        description,
+        checked,
+      }),
     deleteChecklistItem: (_, { todoId, itemId }) =>
       todoService.deleteChecklistItem(todoId, itemId),
+
+    addAttachment: async (_, { todoId, filename, originalname, url }) => {
+      const todo = await Todo.findByIdAndUpdate(
+        todoId,
+        {
+          $push: {
+            attachments: { filename, originalname, url },
+          },
+        },
+        { returnDocument: 'after' },
+      );
+      pubsub.publish(EVENTS.TODO_UPDATED, { todoUpdated: todo });
+      return todo;
+    },
+
+    deleteAttachment: async (_, { todoId, attachmentId }) => {
+      // Erst das Attachment finden, um den Dateinamen zu kennen
+      const todo = await Todo.findById(todoId);
+      const attachment = todo.attachments.id(attachmentId);
+
+      if (attachment) {
+        const filePath = path.join(
+          __dirname,
+          "../uploads",
+          attachment.filename,
+        );
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            console.log(`Datei gelöscht: ${filePath}`);
+          }
+        } catch (error) {
+          console.error("Fehler beim Löschen der Datei:", error);
+          // Nicht abbrechen, auch wenn Datei-Löschung fehlschlägt
+        }
+      }
+
+      const updatedTodo = await Todo.findByIdAndUpdate(
+        todoId,
+        { $pull: { attachments: { _id: attachmentId } } },
+        { returnDocument: 'after' },
+      );
+
+      pubsub.publish(EVENTS.TODO_UPDATED, { todoUpdated: updatedTodo });
+      return updatedTodo;
+    },
   },
 
   Subscription: {
@@ -53,7 +105,6 @@ const resolvers = {
   ChecklistItem: {
     id: (item) => item._id.toString(),
   },
-  
 };
 
 module.exports = { resolvers };
