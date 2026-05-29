@@ -628,6 +628,34 @@ export function TodoList() {
   const [updateTodo] = useMutation(UPDATE_TODO)
   const [deleteTodo] = useMutation(DELETE_TODO)
 
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true)
+      setErrorMessage('')
+    }
+    const handleOffline = () => {
+      setIsOnline(false)
+      setErrorMessage('Du bist offline - einige Funktionen sind nicht verfügbar')
+    }
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  const checkOnlineAndExecute = async () => {
+    if (!isOnline) {
+      setErrorMessage('⚠️ Du bist offline - diese Aktion ist nicht möglich')
+      setTimeout(() => setErrorMessage(''), 4000)
+      return false
+    }
+    return true
+  }
+
   useSubscription(TODO_CREATED, {
     onData: () => refetch(),
   })
@@ -645,6 +673,7 @@ export function TodoList() {
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault()
+    if (!await checkOnlineAndExecute()) return
     try {
       await createTodo({
         variables: {
@@ -667,6 +696,7 @@ export function TodoList() {
 
   const handleDelete = async (id) => {
     if (window.confirm('Wirklich löschen?')) {
+      if (!await checkOnlineAndExecute()) return
       try {
         await deleteTodo({ variables: { id } })
         await refetch()
@@ -677,6 +707,7 @@ export function TodoList() {
   }
 
   const handleUpdate = async (input) => {
+    if (!await checkOnlineAndExecute()) return
     try {
       await updateTodo({
         variables: {
@@ -709,6 +740,29 @@ export function TodoList() {
 
   return (
     <div className="page">
+
+      {errorMessage && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          background: '#fee2e2',
+          color: '#991b1b',
+          padding: '12px 16px',
+          borderRadius: '0 0 8px 8px',
+          border: 'none',
+          borderBottom: '2px solid #dc2626',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          zIndex: 9999
+        }}>
+          <span>{errorMessage}</span>
+          <button onClick={() => setErrorMessage('')} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' }}>✕</button>
+        </div>
+      )}
+
       <header className="page-header">
         <h1>To-Do Übersicht</h1>
         <p>GraphQL-Frontend mit Live-Updates</p>
