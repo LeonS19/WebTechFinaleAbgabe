@@ -54,7 +54,7 @@ Dies ist eine erweiterte Full-Stack Todo-Anwendung mit GraphQL API und MongoDB, 
 ```bash
 git clone https://github.com/elisabeth-gdt/WebTech.git
 cd WebTech
-git checkout Aufgabe3_MEAN
+git checkout Abgabe3_MEAN
 ```
 
 ### 2. Backend einrichten und starten
