@@ -113,3 +113,12 @@ npm test
 ```
 
 Jest wird alle Test-Suites ausführen und einen Bericht über die erfolgreichen und fehlgeschlagenen Tests ausgeben.
+
+**PWA-Tests ausführen:**
+
+1. Stellen Sie sicher, dass sie sich im `frontend`–Verzeichnis befinden.
+2. Führen Sie den folgenden Befehl aus:
+
+```bash
+npm test
+```

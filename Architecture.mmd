@@ -1,0 +1,29 @@
+flowchart LR
+
+subgraph FE["**Frontend (React)**"]
+    RC["**React Components**<br/>App, TodoCard, ChatWindow"]
+    AC["**Apollo Client**"]
+    SW["**Service Worker**"]
+    IDB["**IndexedDB**<br/>Offline-Cache"]
+
+    RC -.-> AC
+    AC -.-> IDB
+    SW -.-> IDB
+    AC --> SW
+end
+
+subgraph BE["**Backend (Node.js)**"]
+    EX["**Express**<br/>HTTP-Server, Middleware"]
+    AS["**Apollo Server**<br/>GraphQL-Queries/Mutations<br/>Subscriptions via Websockets"]
+
+    EX -.-> AS
+end
+
+subgraph DB["MongoDB"]
+    TODOS["Todos"]
+    MSG["Messages"]
+end
+
+SW -->|HTTP| AS
+AC -.->|WebSocket| AS
+AS -->|read/write| MSG
