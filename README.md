@@ -1,6 +1,6 @@
 # Todo-App - WebTech Projekt (Aufgabe 3 – MEAN)
 
-Dies ist eine erweiterte Full-Stack Todo-Anwendung mit GraphQL API und MongoDB, entwickelt im Rahmen des Web-Technologie-Kurses. Sie besteht aus einem Node.js-Backend mit GraphQL und einer dokumentenbasierten MongoDB-Datenbank, ergänzt um ein modernes Frontend mit Apollo Client.
+Dies ist eine erweiterte Full-Stack Todo-Anwendung mit GraphQL API und MongoDB, entwickelt im Rahmen des Web-Technologie-Kurses. Sie besteht aus einem Node.js-Backend mit Express, Apollo Server und GraphQL, einer dokumentenbasierten MongoDB-Datenbank, sowie einem modernen React-Frontend mit Apollo Client, PWA-Funktionalität und Echtzeit-WebSocket-Chat.
 
 ## Features
 
@@ -29,13 +29,21 @@ Dies ist eine erweiterte Full-Stack Todo-Anwendung mit GraphQL API und MongoDB, 
   * Übersicht mit Titel und Status
   * Detailansicht mit allen Informationen
   * Filteransicht (nach Tags, Priorität, etc.)
-* **Echtzeit-Updates** über GraphQL Subscriptions
+* **Echtzeit-Kommunikation:**
+  * WebSocket-Chat mit Room-basierter Architektur
+  * Nachrichtenhistorie beim Connect
+  * Offline-Fallback auf gecachte Nachrichten
+* **PWA-Funktionalität:**
+  * Service Worker mit App-Shell-Caching
+  * Cache-Strategien: Cache-First (App-Shell), Network-First (Assets)
+  * IndexedDB für Offline-Persistierung (Todos & Nachrichten)
+  * Installierbar auf Desktop/Mobile
 * **Funktionalität:**
   * Erstellen, Bearbeiten, Löschen von Todos
-  * Kommentare und Subtasks hinzufügen
+  * Kommentare und Checklisten-Items hinzufügen
   * Tags und Prioritäten verwalten
   * Fälligkeitsdaten setzen
-  * Live-Suche und Filterung
+  * Echtzeit-Chat pro Todo
 
 ---
 
@@ -46,7 +54,7 @@ Dies ist eine erweiterte Full-Stack Todo-Anwendung mit GraphQL API und MongoDB, 
 ```bash
 git clone https://github.com/elisabeth-gdt/WebTech.git
 cd WebTech
-git checkout Aufgabe2
+git checkout Aufgabe3_MEAN
 ```
 
 ### 2. Backend einrichten und starten
