@@ -1,4 +1,4 @@
-# Todo-App - WebTech Projekt (Aufgabe 2)
+# Todo-App - WebTech Projekt (Aufgabe 3 – MEAN)
 
 Dies ist eine erweiterte Full-Stack Todo-Anwendung mit GraphQL API und MongoDB, entwickelt im Rahmen des Web-Technologie-Kurses. Sie besteht aus einem Node.js-Backend mit GraphQL und einer dokumentenbasierten MongoDB-Datenbank, ergänzt um ein modernes Frontend mit Apollo Client.
 
