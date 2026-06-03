@@ -1,92 +1,368 @@
-# Todo-App - WebTech Projekt
+# Todo-App – WebTech Projekt (Abgabe 3 - REST)
 
-Dies ist eine voll funktionsfähige Full-Stack Todo-Anwendung, die im Rahmen des Web-Technologie-Kurses entwickelt wurde. Sie besteht aus einem Node.js/Express-Backend mit einer PostgreSQL-Datenbank und einem Vanilla-JS-Frontend.
+Dies ist eine Full-Stack Todo-Anwendung mit Realtime-Chat und PWA-Funktionalität. Das Projekt besteht aus einem Node.js/Express-Backend mit PostgreSQL sowie einem Vanilla-JavaScript-Frontend.
 
-## Features
+Gruppe:
+Elmo
 
-* **Backend:**
-  * RESTful API zum Erstellen, Lesen, Aktualisieren und Löschen (CRUD) von Todos.
-  * Datenbank-Anbindung an PostgreSQL.
-  * Dynamische Filterung (Suche) und Sortierung (nach Priorität, Fälligkeitsdatum, Titel).
-  * Automatisierte API-Tests mit Jest und Supertest.
-* **Frontend:**
-  * Benutzeroberfläche zum Verwalten von Todos.
-  * Erstellen, Bearbeiten, Löschen und als "erledigt" markieren von Todos direkt im UI.
-  * Live-Suche und Sortierung der angezeigten Todos.
-* **API-Dokumentation:**
-  * Vollständige OpenAPI 3.0 Spezifikation.
-  * Interaktive Swagger-UI zur direkten Interaktion mit der API.
-
----
-
-## Installation & Start
-
-### 1. Repository klonen
-
+Repo:
 ```bash
 git clone https://github.com/elisabeth-gdt/WebTech.git
 cd WebTech
+git checkout Abgabe3_REST
+```
+---
+
+## Funktionen
+
+* CRUD für Todos
+* Suche, Filter und Sortierung der Todos
+* Realtime-Chat pro Todo über WebSockets
+* PWA-Unterstützung über Manifest und Service Worker
+* Automatisierte Tests für REST-, WebSocket- und PWA-Funktionen
+
+---
+
+## Projektarchitektur
+
+architekturDiagramm.png
+
+## Projektstruktur
+
+```text
+WebTech/
+├── backend/
+│   ├── attachment/
+│   │   ├── index.js          # Dateianhang-Router (multer)
+│   │   └── model.js          # Dateianhang-Datenbankoperationen
+│   ├── docs/
+│   │   └── openapi.yaml      # OpenAPI-Spezifikation
+│   ├── scripts/
+│   │   ├── pwa-check.test.js # PWA-Tests
+│   │   └── ws.test.js        # WebSocket-Tests
+│   ├── todo/
+│   │   ├── controller.js     # Todo-Geschäftslogik
+│   │   ├── index.js          # Todo-Router
+│   │   ├── model.js          # Todo-Datenbankoperationen
+│   │   └── test.js           # REST-Tests
+│   ├── uploads/              # Hochgeladene Dateien
+│   ├── app.js                # Express-Server + WebSocket-Setup
+│   ├── chat.js               # WebSocket-Logik & Chat-Räume
+│   ├── db.js                 # PostgreSQL-Verbindung
+│   └── swagger.js            # Swagger-Konfiguration
+│
+├── frontend/
+│   ├── css/
+│   │   └── style.css
+│   ├── icons/
+│   │   ├── icon-192.png
+│   │   └── icon-512.png
+│   ├── js/
+│   │   ├── components/
+│   │   │   ├── todo-card.js        # Web Component 
+│   │   │   ├── chat-window.js      # Web Component 
+│   │   │   └── attachment-list.js  # Web Component 
+│   │   ├── db.js                   # IndexedDB-Hilfsfunktionen
+│   │   └── script.js               # Haupt-Frontend-Logik
+│   ├── index.html
+│   ├── manifest.json               # PWA Web App Manifest
+│   └── service-worker.js           # Service Worker (Caching & Offline)
+│
+├── architekturDiagramm.mmd         # Architekturdiagramm (Mermaid)
+├── architekturDiagramm.png         # Architekturdiagramm (PNG)
+├── compose.yaml                    # Docker Compose für PostgreSQL
+└── README.md
 ```
 
-### 2. Backend einrichten und starten
+### Backend
 
-Das Backend verwendet Docker, um eine PostgreSQL-Datenbank zu starten.
+* Express-Server
+* REST-API für Todos
+* WebSocket-Chat
+* PostgreSQL-Anbindung
+* Automatisierte Tests
+
+### Frontend
+
+* HTML, CSS und JavaScript
+* PWA-Manifest
+* Service Worker
+* UI-Logik für Todos und Chat
+
+---
+
+## Installation
+
+### Voraussetzungen
+
+* Node.js
+* npm
+* PostgreSQL
+* Optional: Docker für den Datenbankbetrieb
+
+### Backend einrichten
 
 ```bash
-# Ins Backend-Verzeichnis wechseln
 cd backend
-
-# Abhängigkeiten installieren
 npm install
+```
 
-# Docker-Container für die Datenbank starten (-d für "detached mode")
-docker compose up -d
+### Datenbank starten
 
-# Backend-Server starten (stellt die API auf Port 3000 bereit)
+```bash
+docker-compose up -d
+```
+
+### Backend starten
+
+```bash
 npm start
 ```
 
-Das Backend läuft nun auf `http://localhost:3000`.
+Das Backend läuft anschließend unter:
 
-### 3. Frontend starten
+```text
+http://localhost:3000
+```
 
-Das Frontend ist eine einfache HTML/CSS/JS-Anwendung. Sie können die `index.html` direkt im Browser öffnen. Für eine realistischere Umgebung wird die Verwendung eines Live-Servers empfohlen.
+### Frontend starten
 
-* **Mit VS Code und der "Live Server"-Extension:**
-    1. Öffnen Sie das `frontend`-Verzeichnis in VS Code.
-    2. Klicken Sie mit der rechten Maustaste auf die Datei `index.html`.
-    3. Wählen Sie "Open with Live Server".
+Beispielsweise mit einem lokalen HTTP-Server:
 
-* **Ohne Live Server:**
-  * Öffnen Sie die Datei `frontend/index.html` einfach per Doppelklick in Ihrem Webbrowser.
+```bash
+cd frontend
+npx http-server .
+```
 
-Die Anwendung ist nun in Ihrem Browser verfügbar (typischerweise unter `http://127.0.0.1:5500` bei Verwendung von Live Server).
+Danach ist die Anwendung erreichbar unter:
 
----
-
-## API-Dokumentation
-
-Die API ist nach dem OpenAPI 3.0 Standard spezifiziert.
-
-* **Spezifikations-Datei:** Die rohe YAML-Datei befindet sich unter `backend/docs/openapi.yaml`.
-* **Interaktive Swagger-UI:** Nachdem das Backend gestartet wurde, können Sie die interaktive Dokumentation unter folgender URL aufrufen:
-  * [http://localhost:3000/docs](http://localhost:3000/docs)
+```text
+http://localhost:8080/frontend/
+```
 
 ---
 
-## Testen
+## Nutzung
 
-Die Backend-API ist mit automatisierten Tests abgedeckt.
+* Neue Todos können über das Formular angelegt werden.
+* Todos können bearbeitet, als erledigt markiert und gelöscht werden.
+* Über den Chat-Button wird der Realtime-Chat zu einem Todo geöffnet.
+* Nachrichten werden live an alle verbundenen Clients im selben Todo-Raum gesendet.
 
-* **Test-Datei:** Die Test-Datei befindet sich unter `backend/todo/test.js`.
+---
 
-**Tests ausführen:**
+## Tests
 
-1. Stellen Sie sicher, dass Sie sich im `backend`-Verzeichnis befinden.
-2. Führen Sie den folgenden Befehl aus:
+### REST-Tests
+
+Die REST-Tests prüfen die Todo-API.
 
 ```bash
 npm test
 ```
 
-Jest wird alle Test-Suites ausführen und einen Bericht über die erfolgreichen und fehlgeschlagenen Tests ausgeben.
+### WebSocket-Tests
+
+Die WebSocket-Tests prüfen die Realtime-Kommunikation.
+
+```bash
+npm run test:ws
+```
+
+### PWA-Tests
+
+Die PWA-Tests prüfen Service Worker, Cache und Offline-Verhalten.
+
+```bash
+npm run test:pwa
+```
+
+---
+
+# Technische Dokumentation
+
+## Architekturüberblick
+
+Die Anwendung ist in drei Hauptschichten aufgebaut:
+
+### Frontend
+
+Eine Vanilla-JavaScript-Oberfläche in `frontend/`, die:
+
+* Todos rendert
+* Benutzereingaben verarbeitet
+* den Realtime-Chat öffnet
+
+### Backend
+
+Ein Express-Server in `backend/app.js`, der:
+
+* REST-Endpunkte für Todos bereitstellt
+* den WebSocket-Server initialisiert
+* Datenbankzugriffe verwaltet
+
+### Datenbank
+
+PostgreSQL speichert:
+
+* Todos
+* Chat-Nachrichten
+
+dauerhaft und konsistent.
+
+### Ablauf
+
+1. Das Frontend lädt Todos per REST-API.
+2. Änderungen an Todos werden über die API an das Backend gesendet.
+3. Der Chat verbindet sich per WebSocket mit dem Server.
+4. Nachrichten werden gespeichert und live an alle Clients im gleichen Todo-Raum verteilt.
+
+---
+
+## Rolle von WebSockets
+
+WebSockets werden für den Realtime-Chat pro Todo verwendet.
+
+### Funktionsweise
+
+* Jeder Client sendet eine `join`-Nachricht mit einer `todoId`.
+* Der Server verwaltet Räume für jedes Todo.
+* Nachrichten werden nur an Clients desselben Raums übertragen.
+
+### Vorteile
+
+* Nachrichten erscheinen ohne Seitenreload.
+* Mehrere Nutzer sehen denselben Chat in Echtzeit.
+* Die Chat-Historie kann beim Beitritt geladen werden.
+
+---
+
+## Eingesetzte PWA-Technologien
+
+Die Anwendung verwendet folgende Progressive-Web-App-Technologien:
+
+### Web App Manifest
+
+Datei:
+
+```text
+frontend/manifest.json
+```
+
+Definiert:
+
+* App-Name
+* Icons
+* Start-URL
+* Anzeigeverhalten
+
+### Service Worker
+
+Datei:
+
+```text
+frontend/service-worker.js
+```
+
+Aufgaben:
+
+* Caching der App-Shell
+* Offline-Unterstützung
+* Laden gecachter Ressourcen
+
+### Cache API
+
+Wird verwendet für:
+
+* HTML-Dateien
+* CSS-Dateien
+* JavaScript-Dateien
+* Icons
+* Manifest-Dateien
+* optional API-Antworten
+
+Dadurch bleibt die Anwendung auch bei fehlender Netzwerkverbindung teilweise nutzbar.
+
+---
+
+## Verwendete Browser-Persistenz
+
+Es werden zwei Persistenzschichten eingesetzt:
+
+### Cache API (Service Worker)
+Gecacht werden die App-Shell-Dateien (HTML, CSS, JS, Icons, Manifest) sowie
+erfolgreiche GET-Antworten der REST-API, damit sie offline verfügbar bleiben.
+
+### IndexedDB
+Für strukturierte lokale Datenhaltung wird IndexedDB über die `idb`-Bibliothek
+verwendet. Gespeichert werden:
+
+| Daten | Grund |
+|---|---|
+| **Todos** | Offline-Lesezugriff auf zuletzt geladene Todos |
+| **Chat-Nachrichten** | Offline-Lesezugriff auf zuletzt geladene Nachrichten pro Todo |
+
+Bei vorhandener Verbindung werden Daten vom Server geladen und direkt lokal
+gespeichert. Bei fehlender Verbindung werden die lokal gespeicherten Daten
+angezeigt. Schreiboperationen sind offline nicht möglich – der Nutzer wird
+darüber informiert.
+
+---
+
+## Beschreibung der entwickelten Web Components
+
+## Beschreibung der entwickelten Web Components
+
+Es wurden drei eigene Custom Elements implementiert, alle ohne Shadow DOM,
+sodass sie die globalen CSS-Styles erben.
+
+### `<todo-card>`
+Stellt einen einzelnen Todo-Eintrag dar. Erhält alle Todo-Daten als HTML-Attribute
+und feuert Custom Events (`todo-delete`, `todo-complete`, `todo-edit`) nach oben,
+die in `script.js` behandelt werden. Enthält `<chat-window>` und
+`<attachment-list>` als Kind-Komponenten.
+
+### `<chat-window>`
+Kapselt den gesamten Chat-Bereich eines Todos. Verwaltet die WebSocket-Verbindung
+selbstständig (`connect()`, `disconnect()`, `toggle()`). Speichert eingehende
+Nachrichten in IndexedDB und zeigt bei Offline-Status lokal gespeicherte
+Nachrichten an.
+
+### `<attachment-list>`
+Zeigt alle Dateianhänge eines Todos an und ermöglicht Upload (via `multer`),
+Download und Löschen. Lädt die Anhänge beim Öffnen automatisch vom Server.
+
+---
+
+## Wichtige Dateien
+
+| Datei                               | Beschreibung             |
+| ----------------------------------- | ------------------------ |
+| `backend/app.js`                    | Hauptserver und REST-API |
+| `backend/chat.js`                   | WebSocket-Logik          |
+| `backend/db.js`                     | Datenbankanbindung       |
+| `backend/todo/test.js`              | REST-Tests               |
+| `backend/scripts/ws.test.js`        | WebSocket-Tests          |
+| `backend/scripts/pwa-check.test.js` | PWA-Tests                |
+| `frontend/index.html`               | Benutzeroberfläche       |
+| `frontend/script.js`                | Frontend-Logik           |
+| `frontend/service-worker.js`        | Service Worker           |
+| `frontend/manifest.json`            | PWA-Manifest             |
+
+---
+
+## API-Dokumentation
+
+Die OpenAPI-Spezifikation befindet sich unter:
+
+```text
+backend/docs/openapi.yaml
+```
+
+Die Swagger-UI ist nach dem Start des Backends erreichbar unter:
+
+```text
+http://localhost:3000/docs
+```
+
+Dort können sämtliche REST-Endpunkte interaktiv getestet und dokumentiert eingesehen werden.
