@@ -1,5 +1,7 @@
 # Todo-App - WebTech Projekt (Aufgabe 3 – MEAN)
 
+## Gruppe Elmo
+
 Dies ist eine erweiterte Full-Stack Todo-Anwendung mit GraphQL API und MongoDB, entwickelt im Rahmen des Web-Technologie-Kurses. Sie besteht aus einem Node.js-Backend mit Express, Apollo Server und GraphQL, einer dokumentenbasierten MongoDB-Datenbank, sowie einem modernen React-Frontend mit Apollo Client, PWA-Funktionalität und Echtzeit-WebSocket-Chat.
 
 ## Features
