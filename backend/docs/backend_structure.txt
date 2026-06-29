@@ -1,0 +1,74 @@
+backend/
+├── src/
+│   │
+│   ├── config/
+│   │   ├── db.postgres.js          # PostgreSQL Verbindung (pg / prisma)
+│   │   ├── db.mongo.js             # MongoDB Verbindung (mongoose)
+│   │   └── env.js                  # Umgebungsvariablen validieren + exportieren
+│   │
+│   ├── api/
+│   │   └── rest/
+│   │       ├── routes/
+│   │       │   ├── auth.routes.js          # /auth/google, /auth/passkey/*
+│   │       │   └── file.routes.js          # /index-cards/:id/attachments
+│   │       ├── controllers/
+│   │       │   ├── auth.controller.js
+│   │       │   └── file.controller.js
+│   │       └── middleware/
+│   │           ├── auth.middleware.js      # JWT verifizieren
+│   │           ├── role.middleware.js      # Rollen + Gruppenrechte prüfen
+│   │           └── upload.middleware.js    # Multer Datei-Upload
+│   │
+│   ├── graphql/
+│   │   │   ├── resolvers/
+│   │   │   ├── studyGroup.resolver.js
+│   │   │   ├── indexCard.resolver.js
+│   │   │   ├── run.resolver.js
+│   │   │   ├── chat.resolver.js
+│   │   │   └── ranking.resolver.js
+│   │   └── context.js                  # Auth Context für Apollo (user aus JWT)
+│   │
+│   ├── services/
+│   │   ├── auth/
+│   │   │   ├── oauth.service.js        # Google OAuth Logik
+│   │   │   ├── passkey.service.js      # WebAuthn Registration + Login
+│   │   │   └── token.service.js        # JWT erstellen + verifizieren
+│   │   ├── studyGroup.service.js
+│   │   ├── indexCard.service.js        # CRUD + Tag/Suche Filter
+│   │   ├── file.service.js             # Upload, Download, Berechtigungen
+│   │   ├── run.service.js              # Run starten, beenden, Position
+│   │   ├── combat.service.js           # answerCard, Schadensberechnung
+│   │   ├── chat.service.js             # Nachrichten speichern + laden
+│   │   ├── ranking.service.js          # RanglistenService
+│   │   └── statistics.service.js       # StatistikService
+│   │
+│   ├── models/
+│   │   ├── sql/
+│   │   │   ├── user.model.js           # Prisma / Sequelize Model
+│   │   │   ├── passkey.model.js
+│   │   │   ├── oauthAccount.model.js
+│   │   │   ├── studyGroup.model.js
+│   │   │   ├── membership.model.js
+│   │   │   ├── map.model.js
+│   │   │   ├── field.model.js
+│   │   │   ├── enemy.model.js
+│   │   │   └── run.model.js
+│   │   └── mongo/
+│   │       ├── indexCard.model.js      # Mongoose Schema
+│   │       └── message.model.js
+│   │
+│   ├── realtime/
+│   │   ├── websocket.js                # WebSocket Server Setup (ws / socket.io)
+│   │   └── handlers/
+│   │       └── chat.handler.js         # eingehende Chat Nachrichten verarbeiten
+│   │
+│   └── app.js                          # Express App + Apollo Server + WebSocket
+│
+│
+├── uploads/                            # lokaler Datei-Upload Ordner (oder S3)
+│
+├── .env                                # Umgebungsvariablen (nicht im Repo!)
+├── .env.example                        # Vorlage für .env
+├── docker-compose.yml                  # PostgreSQL + MongoDB Container
+├── Dockerfile                          # Backend Container
+└── package.json
