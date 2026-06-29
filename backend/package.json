@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node app.js",
+    "start": "node src/app.js",
     "test": "jest todo/test.js",
     "test:ws": "jest scripts/ws.test.js",
     "test:pwa": "node scripts/pwa-check.test.js"
@@ -16,22 +16,30 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "bugs": {
     "url": "https://github.com/elisabeth-gdt/WebTech/issues"
   },
   "homepage": "https://github.com/elisabeth-gdt/WebTech#readme",
   "dependencies": {
+    "@apollo/server": "^5.5.1",
+    "@as-integrations/express5": "^1.1.2",
+    "@graphql-tools/schema": "^10.0.34",
     "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "graphql-ws": "^6.0.8",
     "js-yaml": "^4.1.1",
-    "multer": "^2.1.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.7.3",
+    "multer": "^2.2.0",
     "node-fetch": "^2.7.0",
-    "pg": "^8.20.0",
+    "pg": "^8.22.0",
     "puppeteer": "^25.1.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "ws": "^8.21.0"
+    "ws": "^8.21.0",
+    "yamljs": "^0.3.0"
   },
   "devDependencies": {
     "jest": "^30.3.0",
