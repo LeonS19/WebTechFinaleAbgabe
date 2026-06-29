@@ -1,220 +1,522 @@
 openapi: 3.0.3
 info:
-  title: To-Do List API
-  description: |-
-    Eine RESTful API zur Verwaltung von To-Do-Einträgen.
-    Sie ermöglicht das Erstellen, Lesen, Aktualisieren und Löschen von To-Do-Einträgen.
+  title: Learning Platform API
+  description: REST API for the collaborative learning platform with RPG gameplay. Core data operations run via GraphQL — this REST API covers authentication, file handling, and infrastructure endpoints.
   version: 1.0.0
 
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development server
+
+# ============================================
+# SECURITY SCHEMES
+# ============================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required: [error, message]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+
+    Attachment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mimeType:
+          type: string
+        sizeInBytes:
+          type: integer
+        uploadedAt:
+          type: string
+          format: date-time
+        uploadedBy:
+          type: string
+          format: uuid
+
+    PasskeyRegistrationOptions:
+      type: object
+      properties:
+        challenge:
+          type: string
+        rp:
+          type: object
+          properties:
+            name:
+              type: string
+            id:
+              type: string
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            displayName:
+              type: string
+        pubKeyCredParams:
+          type: array
+          items:
+            type: object
+
+    PasskeyAuthenticationOptions:
+      type: object
+      properties:
+        challenge:
+          type: string
+        allowCredentials:
+          type: array
+          items:
+            type: object
+        timeout:
+          type: integer
+
+# ============================================
+# PATHS
+# ============================================
 paths:
-  /todos:
+
+  # ------------------------------------------
+  # SWAGGER UI
+  # ------------------------------------------
+  /docs:
     get:
-      tags:
-        - Todos
-      summary: Ruft eine Liste von To-Do-Einträgen ab
-      description: |-
-        Ermöglicht das Abrufen einer Liste von To-Do-Einträgen.
-        Die Liste kann gefiltert, sortiert und durchsucht werden.
-      operationId: getTodos
-      parameters:
-        - name: search
-          in: query
-          description: Suchbegriff, um den Titel oder die Beschreibung zu durchsuchen.
-          required: false
-          schema:
-            type: string
-        - name: sortBy
-          in: query
-          description: Feld, nach dem sortiert werden soll.
-          required: false
-          schema:
-            type: string
-            enum: [dueDate, priority, title]
-        - name: priority
-          in: query
-          description: Filtert nach Priorität.
-          required: false
-          schema:
-            type: integer
-            enum: [1, 2, 3]
+      summary: Swagger UI
+      description: Interactive API documentation. Served via swagger-ui-express at http://localhost:3000/api/docs
+      tags: [Infrastructure]
       responses:
         '200':
-          description: Erfolgreiche Operation. Gibt eine Liste von To-Do-Einträgen zurück.
+          description: Swagger UI HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+
+  # ------------------------------------------
+  # HEALTH
+  # ------------------------------------------
+  /health:
+    get:
+      summary: Health check
+      description: Returns service status. Used by Docker and monitoring tools.
+      tags: [Infrastructure]
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  postgres:
+                    type: string
+                    example: connected
+                  mongodb:
+                    type: string
+                    example: connected
+
+  # ------------------------------------------
+  # OAUTH - Google
+  # ------------------------------------------
+  /auth/google:
+    get:
+      summary: Initiate Google OAuth login
+      description: Redirects the user to Google's OAuth consent screen.
+      tags: [Authentication]
+      responses:
+        '302':
+          description: Redirect to Google OAuth
+
+  /auth/google/callback:
+    get:
+      summary: Google OAuth callback
+      description: Google redirects here after successful login. Returns a JWT token.
+      tags: [Authentication]
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: OAuth failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ------------------------------------------
+  # PASSKEY - Registration
+  # ------------------------------------------
+  /auth/passkey/register/options:
+    post:
+      summary: Get passkey registration options
+      description: Returns WebAuthn registration options (challenge, rp info, user info). Call this before registering a new passkey on a device.
+      tags: [Authentication]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                deviceName:
+                  type: string
+                  example: MacBook Pro
+              required: [deviceName]
+      responses:
+        '200':
+          description: Registration options
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasskeyRegistrationOptions'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/passkey/register/verify:
+    post:
+      summary: Verify and save passkey registration
+      description: Verifies the WebAuthn registration response from the device and saves the passkey.
+      tags: [Authentication]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                credential:
+                  type: object
+                  description: WebAuthn credential response from navigator.credentials.create()
+                deviceName:
+                  type: string
+              required: [credential, deviceName]
+      responses:
+        '201':
+          description: Passkey registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  deviceName:
+                    type: string
+                  createdAt:
+                    type: string
+                    format: date-time
+        '400':
+          description: Verification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ------------------------------------------
+  # PASSKEY - Login
+  # ------------------------------------------
+  /auth/passkey/login/options:
+    post:
+      summary: Get passkey authentication options
+      description: Returns WebAuthn authentication options (challenge, allowed credentials). Call this to initiate a passkey login.
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Optional — narrows down which passkeys to offer
+      responses:
+        '200':
+          description: Authentication options
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasskeyAuthenticationOptions'
+
+  /auth/passkey/login/verify:
+    post:
+      summary: Verify passkey login
+      description: Verifies the WebAuthn authentication response, updates the passkey counter, and returns a JWT token.
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                credential:
+                  type: object
+                  description: WebAuthn credential response from navigator.credentials.get()
+              required: [credential]
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Verification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ------------------------------------------
+  # PASSKEY - Management
+  # ------------------------------------------
+  /auth/passkey/{passkeyId}:
+    delete:
+      summary: Remove a passkey
+      description: Removes a registered passkey from the user's account. Requires at least one remaining login method.
+      tags: [Authentication]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: passkeyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Passkey removed
+        '400':
+          description: Cannot remove last login method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Passkey not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ------------------------------------------
+  # FILE UPLOAD
+  # ------------------------------------------
+  /index-cards/{cardId}/attachments:
+    post:
+      summary: Upload a file attachment to an index card
+      description: Uploads a file and attaches it to the given index card. Only members of the card's study group can upload.
+      tags: [Files]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required: [file]
+      responses:
+        '201':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attachment'
+        '403':
+          description: Not a member of this study group
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      summary: List attachments of an index card
+      description: Returns all attachments for a given index card. Only accessible to members of the card's study group.
+      tags: [Files]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of attachments
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Todo'
-    post:
-      tags:
-        - Todos
-      summary: Erstellt einen neuen To-Do-Eintrag
-      operationId: createTodo
-      requestBody:
-        description: Das To-Do-Objekt, das erstellt werden soll.
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TodoInput'
-      responses:
-        '201':
-          description: To-Do-Eintrag erfolgreich erstellt.
+                  $ref: '#/components/schemas/Attachment'
+        '403':
+          description: Not a member of this study group
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Todo'
-        '400':
-          description: Ungültige Eingabedaten.
+                $ref: '#/components/schemas/Error'
 
-  /todos/{id}:
+  # ------------------------------------------
+  # FILE DOWNLOAD
+  # ------------------------------------------
+  /index-cards/{cardId}/attachments/{attachmentId}:
     get:
-      tags:
-        - Todos
-      summary: Findet einen To-Do-Eintrag anhand der ID
-      operationId: getTodoById
+      summary: Download a file attachment
+      description: Downloads a specific file attachment. Only accessible to members of the card's study group.
+      tags: [Files]
+      security:
+        - bearerAuth: []
       parameters:
-        - name: id
+        - name: cardId
           in: path
-          description: ID des abzurufenden To-Do-Eintrags.
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
+            format: uuid
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Erfolgreiche Operation.
+          description: File content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '403':
+          description: Not a member of this study group
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Todo'
+                $ref: '#/components/schemas/Error'
         '404':
-          description: To-Do-Eintrag nicht gefunden.
-    put:
-      tags:
-        - Todos
-      summary: Aktualisiert einen bestehenden To-Do-Eintrag
-      operationId: updateTodo
-      parameters:
-        - name: id
-          in: path
-          description: ID des zu aktualisierenden To-Do-Eintrags.
-          required: true
-          schema:
-            type: integer
-            format: int64
-      requestBody:
-        description: Das aktualisierte To-Do-Objekt.
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TodoInput'
-      responses:
-        '200':
-          description: To-Do-Eintrag erfolgreich aktualisiert.
+          description: Attachment not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Todo'
-        '400':
-          description: Ungültige ID oder Eingabedaten.
-        '404':
-          description: To-Do-Eintrag nicht gefunden.
-    delete:
-      tags:
-        - Todos
-      summary: Löscht einen To-Do-Eintrag
-      description: Löscht einen To-Do-Eintrag anhand seiner ID.
-      operationId: deleteTodo
-      parameters:
-        - name: id
-          in: path
-          description: ID des zu löschenden To-Do-Eintrags.
-          required: true
-          schema:
-            type: integer
-            format: int64
-      responses:
-        '204':
-          description: To-Do-Eintrag erfolgreich gelöscht. Kein Inhalt.
-        '404':
-          description: To-Do-Eintrag nicht gefunden.
+                $ref: '#/components/schemas/Error'
 
-components:
-  schemas:
-    Todo:
-      type: object
-      required:
-        - id
-        - title
-        - completed
-        - priority
-        - createDate
-        - editedDate
-      properties:
-        id:
-          type: integer
-          format: int64
-          description: Eindeutiger Identifikator für den To-Do-Eintrag.
-          example: 1
-        title:
-          type: string
-          description: Der Titel oder die Hauptaufgabe des To-Do-Eintrags.
-          example: "OpenAPI Spezifikation erstellen"
-        description:
-          type: string
-          description: Eine detailliertere Beschreibung der Aufgabe.
-          example: "Alle Endpunkte für die To-Do-App definieren."
-        completed:
-          type: boolean
-          description: Gibt an, ob der To-Do-Eintrag erledigt ist.
-          default: false
-        dueDate:
-          type: string
-          format: date
-          description: Das Fälligkeitsdatum für den To-Do-Eintrag.
-          example: "2026-05-15"
-        createDate:
-          type: string
-          format: date
-          description: Das Erstelldatum für den To-Do-Eintrag
-          example: "2026-05-10"
-        editedDate:
-          type: string
-          format: date
-          description: Das Datum an dem der To-Do-Eintrag zuletzt bearbeitet wurde
-          example: "2026-05-12"
-        priority:
-          type: integer
-          description: Die Wichtigkeit des Eintrags (1=Niedrig, 2=Mittel, 3=Hoch).
-          example: 3
-    TodoInput:
-      description: create oder bearbeiten eines Todos
-      type: object
-      required:
-        - title
-        - priority
-      properties:
-        title:
-          type: string
-          description: Der Titel oder die Hauptaufgabe des To-Do-Eintrags.
-          example: "Neues Feature implementieren"
-        description:
-          type: string
-          description: Eine detailliertere Beschreibung der Aufgabe.
-          example: "Filterfunktion in der UI hinzufügen."
-        completed:
-          type: boolean
-          description: Gibt an, ob der To-Do-Eintrag erledigt ist.
-          default: false
-        dueDate:
-          type: string
-          format: date
-          description: Das Fälligkeitsdatum für den To-Do-Eintrag.
-          example: "2026-05-15"
-        priority:
-          type: integer
-          description: Die Wichtigkeit des Eintrags (1=Niedrig, 2=Mittel, 3=Hoch).
-          example: 2
+    delete:
+      summary: Delete a file attachment
+      description: Deletes a file attachment. Only the uploader or a group admin can delete.
+      tags: [Files]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Attachment deleted
+        '403':
+          description: Not authorized to delete this attachment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Attachment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

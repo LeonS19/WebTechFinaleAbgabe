@@ -1,0 +1,257 @@
+# ============================================
+# Learning Platform with RPG Gameplay
+# GraphQL Schema
+# ============================================
+
+
+# ============================================
+# ENUMS
+# ============================================
+
+enum Role {
+    ADMIN
+    MODERATOR
+    MEMBER
+}
+
+enum FieldType {
+    START
+    NORMAL
+    FIGHT
+    BOSS
+    HEAL
+}
+
+enum EnemyType {
+    NORMAL
+    BOSS
+}
+
+
+# ============================================
+# TYPES
+# ============================================
+
+type User {
+    id:         ID!
+    name:       String!
+    email:      String
+    createdAt:  String!
+}
+
+type Membership {
+    user:           User!
+    studyGroup:     StudyGroup!
+    role:           Role!
+    joinedAt:       String!
+}
+
+type StudyGroup {
+    id:         ID!
+    name:       String!
+    chatId:     ID!                 # references MongoDB chat document
+    members:    [Membership!]!
+    cards:      [IndexCard!]!
+    createdAt:  String!
+}
+
+# ============================================
+# INDEX CARDS
+# ============================================
+
+type Attachment {
+    id:             ID!
+    filename:       String!
+    filePath:       String!
+    mimeType:       String!
+    sizeInBytes:    Int!
+    uploadedAt:     String!
+    uploadedBy:     User!
+}
+
+type GroupStat {
+    studyGroupId:   ID!
+    totalAttempts:  Int!
+    correctAnswers: Int!
+    difficulty:     Float!          # calculated: correctAnswers / totalAttempts
+}
+
+type UserStat {
+    userId:         ID!
+    totalAttempts:  Int!
+    correctAnswers: Int!
+    lastSeenAt:     String
+}
+
+type IndexCard {
+    id:             ID!
+    studyGroupId:   ID!
+    creator:        User!
+    question:       String!
+    answer:         String!
+    tags:           [String!]!
+    attachments:    [Attachment!]!
+    groupStats:     [GroupStat!]!
+    userStats:      [UserStat!]!
+    createdAt:      String!
+    updatedAt:      String!
+}
+
+# ============================================
+# MAP & FIELDS
+# ============================================
+
+type Enemy {
+    id:             ID!
+    name:           String!
+    type:           EnemyType!
+    baseHealth:     Int!
+    baseDamage:     Int!
+}
+
+type Field {
+    id:         ID!
+    position:   Int!
+    type:       FieldType!
+    enemy:      Enemy              # null for non-combat fields
+}
+
+type Map {
+    id:     ID!
+    name:   String!
+    fields: [Field!]!
+}
+
+# ============================================
+# RUN & COMBAT
+# ============================================
+
+type Run {
+    id:                 ID!
+    user:               User!
+    studyGroup:         StudyGroup!
+    map:                Map!
+    successful:         Boolean        # null while active
+    startTime:          String!
+    duration:           Int            # in seconds, null while active
+    hitRate:            Float          # null while active
+    currentPosition:    Int!
+}
+
+type AnswerResult {
+    correct:        Boolean!
+    damageDealt:    Int!               # damage dealt to enemy if correct
+    correctAnswer:  String!            # shown to user after answering
+}
+
+# ============================================
+# CHAT
+# ============================================
+
+type Message {
+    id:         ID!
+    chatId:     ID!
+    sender:     User!
+    content:    String!
+    sentAt:     String!
+}
+
+# ============================================
+# RANKING
+# ============================================
+
+type RankingEntry {
+    rank:       Int!
+    user:       User!
+    run:        Run!
+    hitRate:    Float!
+    duration:   Int!
+}
+
+# ============================================
+# QUERIES
+# ============================================
+
+type Query {
+    # Study Groups
+    getStudyGroup(id: ID!): StudyGroup
+
+    # Index Cards - supports filtering by tags and search term
+    getIndexCards(
+        studyGroupId:   ID!
+        tags:           [String!]
+        search:         String          # searches in question and answer
+    ): [IndexCard!]!
+
+    getIndexCard(id: ID!): IndexCard
+
+    # Ranking - only successful runs, sorted by hitRate DESC then duration ASC
+    getRanking(studyGroupId: ID!): [RankingEntry!]!
+
+    # Runs - full run history of a user
+    getRuns(userId: ID!): [Run!]!
+
+    # Map - hardcoded single map with all fields
+    getMap: Map
+}
+
+# ============================================
+# MUTATIONS
+# ============================================
+
+type Mutation {
+    # Study Groups
+    createStudyGroup(name: String!): StudyGroup!
+    joinStudyGroup(studyGroupId: ID!): Membership!
+    leaveStudyGroup(studyGroupId: ID!): Boolean!
+
+    # Index Cards
+    createIndexCard(
+        studyGroupId:   ID!
+        question:       String!
+        answer:         String!
+        tags:           [String!]
+    ): IndexCard!
+
+    updateIndexCard(
+        id:         ID!
+        question:   String
+        answer:     String
+        tags:       [String!]
+    ): IndexCard!
+
+    deleteIndexCard(id: ID!): Boolean!
+
+    # Run
+    startRun(studyGroupId: ID!): Run!
+    endRun(runId: ID!): Run!
+
+    # Combat - answer a card during a run
+    # Backend compares userAnswer to card.answer (case-insensitive, trimmed)
+    answerCard(
+        runId:      ID!
+        cardId:     ID!
+        userAnswer: String!
+    ): AnswerResult!
+
+    # Chat
+    sendMessage(
+        chatId:     ID!
+        content:    String!
+    ): Message!
+}
+
+# ============================================
+# SUBSCRIPTIONS
+# ============================================
+
+type Subscription {
+    # New chat message in a group
+    onNewMessage(chatId: ID!): Message!
+
+    # Run state changes (position, hitRate, successful)
+    onRunUpdated(runId: ID!): Run!
+
+    # New index card created in a study group
+    onIndexCardCreated(studyGroupId: ID!): IndexCard!
+}
