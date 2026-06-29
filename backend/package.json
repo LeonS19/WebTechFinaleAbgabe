@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node app.js",
+    "start": "node src/app.js",
     "test": "jest todo/test.js",
     "test:ws": "jest scripts/ws.test.js",
     "test:pwa": "node scripts/pwa-check.test.js"
@@ -23,6 +23,7 @@
   "homepage": "https://github.com/elisabeth-gdt/WebTech#readme",
   "dependencies": {
     "@apollo/server": "^5.5.1",
+    "@as-integrations/express5": "^1.1.2",
     "@graphql-tools/schema": "^10.0.34",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
