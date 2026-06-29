@@ -4,7 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Todo-App</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/style.css">
+    <!-- PWA: Manifest einbinden -->
+    <link rel="manifest" href="./manifest.json">
+
+    <!-- PWA: Service Worker registrieren -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./service-worker.js')
+        .then(() => console.log('[SW] Service Worker registriert'))
+        .catch(err => console.error('[SW] Fehler:', err));
+    }
+    </script>
 </head>
 <body>
 
@@ -65,23 +76,15 @@
         </div>
 
         <!-- Hier werden die Todos per JavaScript eingefügt -->
-        <ul id="todo-list">
-            <!-- Beispiel-Struktur, die wir mit JS erzeugen werden:
-            <li class="todo-item">
-                <div class="todo-details">
-                    <h3>Titel des Todos (Prio: 3)</h3>
-                    <p>Beschreibung des Todos...</p>
-                    <small>Fällig am: 2026-12-24</small>
-                </div>
-                <div class="todo-actions">
-                    <button class="complete-btn">Erledigt</button>
-                    <button class="delete-btn">Löschen</button>
-                </div>
-            </li>
-            -->
-        </ul>
+        <ul id="todo-list"></ul>
     </main>
 
-    <script src="script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/idb@8/build/umd.js"></script>
+    <script src="js/db.js"></script>
+    <script src="js/components/todo-card.js"></script>
+    <script src="js/components/chat-window.js"></script>
+    <script src="js/components/attachment-list.js"></script>
+    <script src="js/script.js"></script>
+</body>
 </body>
 </html>
