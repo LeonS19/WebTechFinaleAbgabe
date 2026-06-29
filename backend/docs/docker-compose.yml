@@ -1,20 +1,17 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16
     container_name: learning_platform_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: learning_platform
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: yourpassword
+      POSTGRES_DB: webtech
+      POSTGRES_USER: webtech
+      POSTGRES_PASSWORD: webtech_secret
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./schema/schema.sql:/docker-entrypoint-initdb.d/schema.sql
-
 
   mongodb:
     image: mongo:7

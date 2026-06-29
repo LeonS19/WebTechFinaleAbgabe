@@ -2,11 +2,11 @@ import express from 'express';
 import http from 'http';
 import cors from 'cors';
 import { ApolloServer } from '@apollo/server';
-import { expressMiddleware } from '@apollo/server/express4';
+import { expressMiddleware } from '@as-integrations/express5';
 import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
 import { makeExecutableSchema } from '@graphql-tools/schema';
 import { WebSocketServer } from 'ws';
-import { useServer } from 'graphql-ws/lib/use/ws';
+import { useServer } from 'graphql-ws/use/ws';
 import { readFileSync } from 'fs';
 import swaggerUi from 'swagger-ui-express';
 import YAML from 'yamljs';
@@ -15,19 +15,30 @@ import { connectPostgres } from './config/db.postgres.js';
 import { connectMongo } from './config/db.mongo.js';
 import { env } from './config/env.js';
 
+// TODO Tag 2 – Person A: Google OAuth implementieren
+// TODO Tag 2 – Person A: Passkey Registration + Login implementieren
+// TODO Tag 2 – Person A: JWT Token Middleware implementieren
 import { authRoutes } from './api/rest/routes/auth.routes.js';
-import { fileRoutes } from './api/rest/routes/file.routes.js';
 import { authMiddleware } from './api/rest/middleware/auth.middleware.js';
 
-import { resolvers } from './graphql/resolvers/index.js';
+// TODO Tag 3 – Person A: File Upload/Download + Berechtigungslogik implementieren
+import { fileRoutes } from './api/rest/routes/file.routes.js';
+
+// TODO Tag 2 – Person B: GraphQL Context mit User aus JWT aufbauen
 import { createContext } from './graphql/context.js';
 
+// TODO Tag 2 – Person B: Study Group Queries + Mutations implementieren
+// TODO Tag 3 – Person B: IndexCard Queries + Mutations implementieren
+// TODO Tag 5 – Person B: Run + Kampfsystem Resolvers implementieren
+import { resolvers } from './graphql/resolvers/index.js';
+
+// TODO Tag 4 – Person A: WebSocket Server aufsetzen + Chat Nachrichten in MongoDB speichern
+// TODO Tag 4 – Person B: Chat Web Component bauen + Echtzeit Updates verdrahten
 import { initWebSocket } from './realtime/websocket.js';
 
 // ============================================
 // SCHEMA
 // ============================================
-// app.js
 const typeDefs = readFileSync('./schema/schema.graphql', 'utf8');
 const schema = makeExecutableSchema({ typeDefs, resolvers });
 
