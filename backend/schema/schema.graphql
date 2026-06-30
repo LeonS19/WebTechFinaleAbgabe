@@ -204,6 +204,7 @@ type Mutation {
     createStudyGroup(name: String!): StudyGroup!
     joinStudyGroup(studyGroupId: ID!): Membership!
     leaveStudyGroup(studyGroupId: ID!): Boolean!
+    removeMember(studyGroupId: ID!, userId: ID!): Boolean!
 
     # Index Cards
     createIndexCard(
