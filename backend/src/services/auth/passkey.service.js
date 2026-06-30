@@ -77,7 +77,7 @@ export async function verifyLogin(challengeId, response) {
         expectedRPID: env.WEBAUTHN_RP_ID,
         credential: {
             id: passkey.credential_id,
-            publicKey: new Uint8Array(Buffer.from(passkey.public_key, 'base64')),
+            publicKey: new Uint8Array(Buffer.from(passkey.publicKey, 'base64')),
             counter: passkey.counter,
         },
     })
@@ -85,7 +85,7 @@ export async function verifyLogin(challengeId, response) {
         throw new Error("Login verification fehlgeschlagen")
     }
 
-    const token = generateToken({userId: passkey.user_id})
+    const token = generateToken({userId: passkey.userId})
     await deleteChallenge(challengeId)
 
     return token
@@ -96,7 +96,7 @@ export async function removePasskey(passkeyId, userId) {
     if(!passkey){
         throw new Error("Passkey nicht gefunden")
     }
-    if(userId !== passkey.user_id){
+    if(userId !== passkey.userId){
         throw new Error("Nicht berechtigt")
     }
     await deletePasskey(passkeyId)
