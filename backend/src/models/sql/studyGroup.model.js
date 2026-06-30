@@ -24,3 +24,11 @@ export async function create(name, chatId) {
   );
   return mapRow(result.rows[0]);
 }
+
+export async function deleteById(id) {
+  const result = await pool.query(
+    'DELETE FROM study_group WHERE id = $1',
+    [id]
+  );
+  return result.rowCount > 0;
+}

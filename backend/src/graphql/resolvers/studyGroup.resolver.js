@@ -1,5 +1,5 @@
-import * as StudyGroupService from '../../services/studyGroup.service.js';
-import * as UserModel from '../../models/sql/user.model.js';
+import * as StudyGroupService from "../../services/studyGroup.service.js";
+import * as UserModel from "../../models/sql/user.model.js";
 
 export const studyGroupResolvers = {
   Query: {
@@ -7,16 +7,24 @@ export const studyGroupResolvers = {
   },
   Mutation: {
     createStudyGroup: (_, { name }, context) => {
-      if (!context.user) throw new Error('Nicht authentifiziert');
+      if (!context.user) throw new Error("Nicht authentifiziert");
       return StudyGroupService.createStudyGroup(name, context.user.id);
     },
     joinStudyGroup: (_, { studyGroupId }, context) => {
-      if (!context.user) throw new Error('Nicht authentifiziert');
+      if (!context.user) throw new Error("Nicht authentifiziert");
       return StudyGroupService.joinStudyGroup(studyGroupId, context.user.id);
     },
     leaveStudyGroup: (_, { studyGroupId }, context) => {
-      if (!context.user) throw new Error('Nicht authentifiziert');
+      if (!context.user) throw new Error("Nicht authentifiziert");
       return StudyGroupService.leaveStudyGroup(studyGroupId, context.user.id);
+    },
+    removeMember: (_, { studyGroupId, userId }, context) => {
+      if (!context.user) throw new Error("Nicht authentifiziert");
+      return StudyGroupService.removeMember(
+        studyGroupId,
+        userId,
+        context.user.id,
+      );
     },
   },
   StudyGroup: {
@@ -24,6 +32,7 @@ export const studyGroupResolvers = {
   },
   Membership: {
     user: (parent) => UserModel.findById(parent.userId),
-    studyGroup: (parent) => StudyGroupService.getStudyGroup(parent.studyGroupId),
+    studyGroup: (parent) =>
+      StudyGroupService.getStudyGroup(parent.studyGroupId),
   },
 };

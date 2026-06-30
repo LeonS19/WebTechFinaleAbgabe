@@ -41,3 +41,11 @@ export async function findOne(userId, studyGroupId) {
   );
   return mapRow(result.rows[0]);
 }
+
+export async function updateRole(userId, studyGroupId, role) {
+  const result = await pool.query(
+    'UPDATE membership SET role = $1 WHERE user_id = $2 AND study_group_id = $3 RETURNING *',
+    [role, userId, studyGroupId]
+  );
+  return mapRow(result.rows[0]);
+}
