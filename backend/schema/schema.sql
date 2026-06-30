@@ -28,6 +28,16 @@ CREATE TABLE passkey (
     created_at      TIMESTAMP DEFAULT NOW()
 );
 
+-- WebAuthn Challenge Storage (temporär, für Registration + Login Flow)
+CREATE TABLE webauthn_challenge (
+    id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id     UUID REFERENCES "user"(id) ON DELETE CASCADE,  -- nullable! beim Login weiß man User noch nicht zwingend
+    challenge   TEXT NOT NULL,
+    type        VARCHAR(20) NOT NULL,   -- 'REGISTRATION' oder 'AUTHENTICATION'
+    expires_at  TIMESTAMP NOT NULL,
+    created_at  TIMESTAMP DEFAULT NOW()
+);
+
 -- OAuth accounts (one user can have multiple providers)
 CREATE TABLE oauth_account (
     id                  UUID DEFAULT gen_random_uuid() PRIMARY KEY,
