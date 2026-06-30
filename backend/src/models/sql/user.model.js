@@ -17,3 +17,13 @@ export async function findById(id) {
   );
   return mapRow(result.rows[0]);
 }
+
+export async function createUser(name, email) {
+  const result = await pool.query(
+    `INSERT INTO "user" (name, email)
+    VALUES ($1, $2)
+    RETURNING *`,
+    [name, email]
+  );
+  return mapRow(result.rows[0]);
+}
