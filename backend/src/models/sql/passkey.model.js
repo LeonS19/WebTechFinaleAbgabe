@@ -1,5 +1,18 @@
 import { pool } from '../../config/db.postgres.js';
 
+function mapRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    userId: row.user_id,
+    credentialId: row.credential_id,
+    publicKey: row.public_key,
+    counter: row.counter,
+    deviceName: row.device_name,
+    createdAt: row.created_at,
+  };
+}
+
 export async function createPasskey(userId, credentialId, publicKey, counter, deviceName) {
   const result = await pool.query(
     `INSERT INTO passkey (user_id, credential_id, public_key, counter, device_name)
@@ -7,7 +20,7 @@ export async function createPasskey(userId, credentialId, publicKey, counter, de
      RETURNING *`,
     [userId, credentialId, publicKey, counter, deviceName]
   );
-  return result.rows[0];
+  return mapRow(result.rows[0]);
 }
 
 export async function findPasskeyByCredentialId(credentialId) {
@@ -15,7 +28,7 @@ export async function findPasskeyByCredentialId(credentialId) {
     `SELECT * FROM passkey WHERE credential_id = $1`,
     [credentialId]
   );
-  return result.rows[0];
+  return mapRow(result.rows[0]);
 }
 
 export async function findPasskeyById(passkeyId) {
@@ -23,7 +36,7 @@ export async function findPasskeyById(passkeyId) {
     `SELECT * FROM passkey WHERE id = $1`,
     [passkeyId]
   );
-  return result.rows[0];
+  return mapRow(result.rows[0]);
 }
 
 export async function deletePasskey(passkeyId) {
