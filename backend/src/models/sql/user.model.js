@@ -18,6 +18,14 @@ export async function findById(id) {
   return mapRow(result.rows[0]);
 }
 
+export async function findByEmail(email) {
+  const result = await pool.query(
+    'SELECT * FROM "user" WHERE email = $1',
+    [email]
+  );
+  return mapRow(result.rows[0]);
+}
+
 export async function createUser(name, email) {
   const result = await pool.query(
     `INSERT INTO "user" (name, email)

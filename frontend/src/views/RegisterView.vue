@@ -1,16 +1,12 @@
 <template>
   <div class="auth-container">
     <h1>Registrieren</h1>
-
     <button @click="registerWithGoogle">Mit Google registrieren</button>
-
     <hr />
-
-    <h2>Passkey hinzufügen</h2>
-    <p>Du musst zuerst per Google eingeloggt sein.</p>
+    <h2>Mit Passkey registrieren</h2>
+    <input v-model="email" type="email" placeholder="E-Mail-Adresse" />
     <input v-model="deviceName" type="text" placeholder="Gerätename (z.B. MacBook Pro)" />
     <button @click="registerPasskey">Passkey registrieren</button>
-
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="success" class="success">{{ success }}</p>
     <p>Bereits registriert? <RouterLink to="/login">Login</RouterLink></p>
@@ -19,8 +15,11 @@
 
 <script setup>
 import { ref } from 'vue';
+import { RouterLink, useRouter } from 'vue-router';
 import { startRegistration } from '@simplewebauthn/browser';
 
+const router = useRouter();
+const email = ref('');
 const deviceName = ref('');
 const error = ref('');
 const success = ref('');
@@ -34,37 +33,48 @@ async function registerPasskey() {
   error.value = '';
   success.value = '';
   try {
-    const token = localStorage.getItem('token');
-    if (!token) throw new Error('Du musst zuerst eingeloggt sein');
+    if (!email.value) throw new Error('Bitte E-Mail-Adresse eingeben');
+    if (!email.value.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      throw new Error('Bitte gültige E-Mail-Adresse eingeben');
+    }
 
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    // Schritt 1: User anlegen oder finden
+    const userRes = await fetch(`${BASE_URL}/auth/passkey/user`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.value }),
+    });
+    const userData = await userRes.json();
+    if (!userRes.ok) throw new Error(userData.error || 'User konnte nicht angelegt werden');
+    const userId = userData.userId;
 
+    // Schritt 2: Options holen
     const optionsRes = await fetch(`${BASE_URL}/auth/passkey/register/options`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: payload.id,
-        userEmail: payload.email,
-      }),
+      body: JSON.stringify({ userId, userEmail: email.value }),
     });
     const { options, challengeId } = await optionsRes.json();
 
-    const response = await startRegistration(options);
+    // Schritt 3: Browser WebAuthn API
+    const response = await startRegistration({ optionsJSON: options });
 
+    // Schritt 4: Verify + Token direkt aus Antwort nehmen
     const verifyRes = await fetch(`${BASE_URL}/auth/passkey/register/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         challengeId,
         response,
-        userId: payload.id,
+        userId,
         deviceName: deviceName.value || 'Unbekanntes Gerät',
       }),
     });
     const data = await verifyRes.json();
+    if (!verifyRes.ok) throw new Error(data.error || 'Registrierung fehlgeschlagen');
 
-    if (!verifyRes.ok) throw new Error(data.message);
-    success.value = `Passkey für "${data.deviceName}" erfolgreich registriert!`;
+    localStorage.setItem('token', data.token);
+    router.push('/dashboard');
   } catch (err) {
     error.value = err.message || 'Registrierung fehlgeschlagen';
   }

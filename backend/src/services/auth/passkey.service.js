@@ -4,6 +4,7 @@ import { createChallenge, findChallenge, deleteChallenge } from '../../models/sq
 import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { generateToken } from './token.service.js';
 import { isoUint8Array } from '@simplewebauthn/server/helpers';
+import { findById, findByEmail, createUser } from '../../models/sql/user.model.js';
 
 
 export async function startRegistration(userId, userEmail) {
@@ -89,6 +90,14 @@ export async function verifyLogin(challengeId, response) {
     await deleteChallenge(challengeId)
 
     return token
+}
+
+export async function findOrCreateUser(name, email) {
+  let user = await findByEmail(email);
+  if (!user) {
+    user = await createUser(name, email);
+  }
+  return user;
 }
 
 export async function removePasskey(passkeyId, userId) {

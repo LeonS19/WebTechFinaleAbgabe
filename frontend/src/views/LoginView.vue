@@ -1,14 +1,10 @@
 <template>
   <div class="auth-container">
     <h1>Login</h1>
-
     <button @click="loginWithGoogle">Mit Google anmelden</button>
-
     <hr />
-
     <h2>Mit Passkey anmelden</h2>
     <button @click="loginWithPasskey">Mit Passkey anmelden</button>
-
     <p v-if="error" class="error">{{ error }}</p>
     <p>Noch kein Konto? <RouterLink to="/register">Registrieren</RouterLink></p>
   </div>
@@ -16,7 +12,7 @@
 
 <script setup>
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 import { startAuthentication } from '@simplewebauthn/browser';
 
 const router = useRouter();
@@ -34,23 +30,19 @@ async function loginWithPasskey() {
       method: 'POST',
     });
     const { options, challengeId } = await optionsRes.json();
-
-    const response = await startAuthentication(options);
-
+    const response = await startAuthentication({ optionsJSON: options });
     const verifyRes = await fetch(`${BASE_URL}/auth/passkey/login/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ challengeId, response }),
     });
-
     if (!verifyRes.ok) {
       const data = await verifyRes.json();
-      throw new Error(data.message);
+      throw new Error(data.error || 'Login fehlgeschlagen');
     }
-
     const token = await verifyRes.json();
     localStorage.setItem('token', token);
-    router.push('/');
+    router.push('/dashboard');
   } catch (err) {
     error.value = err.message || 'Login fehlgeschlagen';
   }

@@ -13,6 +13,7 @@ authRoutes.post('/passkey/register/verify', authController.registerVerify)
 authRoutes.post('/passkey/login/options', authController.loginOptions)
 authRoutes.post('/passkey/login/verify', authController.loginVerify)
 authRoutes.delete('/passkey/:id', authMiddleware, authController.removePasskeyHandler)
+authRoutes.post('/passkey/user', authController.getOrCreateUser)
 
 // ============================================
 // OAUTH

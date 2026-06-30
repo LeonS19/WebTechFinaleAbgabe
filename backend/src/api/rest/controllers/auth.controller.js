@@ -2,6 +2,7 @@ import { deletePasskey } from "../../../models/sql/passkey.model.js";
 import { env } from '../../../config/env.js';
 import * as passkeyService from "../../../services/auth/passkey.service.js"
 import * as oauthService from '../../../services/auth/oauth.service.js';
+import { generateToken } from '../../../services/auth/token.service.js';
 
 // ============================================
 // PASSKEY
@@ -43,7 +44,8 @@ export async function registerVerify(req, res){
 
     try{
         const passkey = await passkeyService.verifyRegistration(challengeId, response, userId, deviceName)
-        return res.json(passkey)
+        const token = generateToken({ userId: passkey.userId })
+        return res.json({ passkey, token })
     }catch(err){
         return res.status(400).json({ error: err.message }) 
     }
@@ -95,6 +97,17 @@ export async function removePasskeyHandler(req, res) {
     }catch(err){
         return res.status(400).json({ error: err.message }) 
     }
+}
+
+export async function getOrCreateUser(req, res) {
+  const { name, email } = req.body;
+  if (!email) return res.status(400).json({ error: 'email ist erforderlich' });
+  try {
+    const user = await passkeyService.findOrCreateUser(name || email, email);
+    return res.json({ userId: user.id });
+  } catch(err) {
+    return res.status(400).json({ error: err.message });
+  }
 }
 
 

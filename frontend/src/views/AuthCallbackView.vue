@@ -15,7 +15,7 @@ onMounted(() => {
 
   if (token) {
     localStorage.setItem('token', token);
-    router.push('/');
+    router.push('/dashboard');
   } else {
     router.push(`/login?error=${errorMsg || 'OAuth fehlgeschlagen'}`);
   }
