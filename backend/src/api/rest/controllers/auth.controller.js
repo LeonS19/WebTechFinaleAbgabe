@@ -1,6 +1,11 @@
 import { deletePasskey } from "../../../models/sql/passkey.model.js";
+import { env } from '../../../config/env.js';
 import * as passkeyService from "../../../services/auth/passkey.service.js"
+import * as oauthService from '../../../services/auth/oauth.service.js';
 
+// ============================================
+// PASSKEY
+// ============================================
 export async function registerOptions(req, res) {
     const userId = req.body.userId
     const userEmail = req.body.userEmail
@@ -90,4 +95,29 @@ export async function removePasskeyHandler(req, res) {
     }catch(err){
         return res.status(400).json({ error: err.message }) 
     }
+}
+
+
+// ============================================
+// OAUTH
+// ============================================
+
+export function googleAuth(req, res) {
+  const url = oauthService.getGoogleAuthUrl();
+  res.redirect(url);
+}
+
+export async function googleCallback(req, res) {
+  // 1. code aus Query-Parameter lesen
+  const code = req.query.code
+
+  // 2. try/catch
+  try {
+    const token = await oauthService.handleGoogleCallback(code)
+    // 3. Browser zum Frontend weiterleiten mit token
+    res.redirect(`${env.FRONTEND_URL}/auth/callback?token=${token}`)
+  } catch(err) {
+    // 4. Bei Fehler: zurück zum Frontend mit Fehler
+    res.redirect(`${env.FRONTEND_URL}/auth/error?message=${err.message}`);
+  }
 }
