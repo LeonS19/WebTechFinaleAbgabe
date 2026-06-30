@@ -1,5 +1,5 @@
 import { env } from '../../config/env.js';
-import { createPasskey, findPasskey } from '../../models/sql/passkey.model.js'
+import { createPasskey, deletePasskey, findPasskeyByCredentialId, findPasskeyById } from '../../models/sql/passkey.model.js'
 import { createChallenge, findChallenge, deleteChallenge } from '../../models/sql/webauthnChallenge.model.js'
 import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { generateToken } from './token.service.js';
@@ -40,7 +40,7 @@ export async function verifyRegistration(challengeId, response, userId, deviceNa
     }
 
     const credential = verification.registrationInfo.credential
-    const passkey = await createPasskey(userId, credential.id, credential.publicKey, credential.counter, deviceName)
+    const passkey = await createPasskey(userId, credential.id, Buffer.from(credential.publicKey).toString('base64'), credential.counter, deviceName)
     await deleteChallenge(challengeId)
 
     return passkey
@@ -65,7 +65,7 @@ export async function verifyLogin(challengeId, response) {
         throw new Error("Challenge konnte nicht gefunden werden")
     }
 
-    const passkey = await findPasskey(response.id)
+    const passkey = await findPasskeyByCredentialId (response.id)
     if(!passkey){
         throw new Error("Passkey konnte nicht gefunden werden")
     }
@@ -77,12 +77,12 @@ export async function verifyLogin(challengeId, response) {
         expectedRPID: env.WEBAUTHN_RP_ID,
         credential: {
             id: passkey.credential_id,
-            publicKey: passkey.public_key,
+            publicKey: new Uint8Array(Buffer.from(passkey.public_key, 'base64')),
             counter: passkey.counter,
         },
     })
     if(!verification.verified){
-        throw new Error("Login verification failed")
+        throw new Error("Login verification fehlgeschlagen")
     }
 
     const token = generateToken({userId: passkey.user_id})
@@ -91,3 +91,13 @@ export async function verifyLogin(challengeId, response) {
     return token
 }
 
+export async function removePasskey(passkeyId, userId) {
+    const passkey = await findPasskeyById(passkeyId)
+    if(!passkey){
+        throw new Error("Passkey nicht gefunden")
+    }
+    if(userId !== passkey.user_id){
+        throw new Error("Nicht berechtigt")
+    }
+    await deletePasskey(passkeyId)
+}

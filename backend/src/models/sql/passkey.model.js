@@ -10,10 +10,18 @@ export async function createPasskey(userId, credentialId, publicKey, counter, de
   return result.rows[0];
 }
 
-export async function findPasskey(credentialId) {
+export async function findPasskeyByCredentialId(credentialId) {
   const result = await pool.query(
     `SELECT * FROM passkey WHERE credential_id = $1`,
     [credentialId]
+  );
+  return result.rows[0];
+}
+
+export async function findPasskeyById(passkeyId) {
+  const result = await pool.query(
+    `SELECT * FROM passkey WHERE id = $1`,
+    [passkeyId]
   );
   return result.rows[0];
 }
