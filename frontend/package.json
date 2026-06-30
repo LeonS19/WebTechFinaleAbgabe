@@ -13,6 +13,7 @@
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^13.3.0",
     "vue": "^3.5.38",
     "vue-router": "^5.1.0"
   },
