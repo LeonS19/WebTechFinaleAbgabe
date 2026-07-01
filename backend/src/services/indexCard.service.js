@@ -1,4 +1,5 @@
 import { IndexCard } from '../models/mongo/indexCard.model.js';
+import { checkPermission } from './permission.service.js';
 
 export async function getIndexCards(studyGroupId, tags, search, creatorId) {
   const filter = { study_group_id: studyGroupId };
@@ -21,22 +22,25 @@ export async function getIndexCards(studyGroupId, tags, search, creatorId) {
   return await IndexCard.find(filter);
 }
 
-// Eine einzelne Karte holen
-export async function getIndexCard(id) {
-  // ???
+export async function getIndexCard(cardId) {
+  return await IndexCard.findById(cardId); // cardId nicht id!
 }
 
-// Neue Karte anlegen
-export async function createIndexCard(data) {
-  // ???
+export async function updateIndexCard(cardId, data, userId) {
+  const card = await IndexCard.findById(cardId);
+  if (!card){ 
+    throw new Error('Karteikarte nicht gefunden');
+  }
+
+  await checkPermission(userId, card.study_group_id, ['ADMIN', 'MODERATOR']);
+  return await IndexCard.findByIdAndUpdate(cardId, data, { new: true });
 }
 
-// Karte bearbeiten
-export async function updateIndexCard(id, data) {
-  // ???
-}
-
-// Karte löschen
-export async function deleteIndexCard(id) {
-  // ???
+export async function deleteIndexCard(cardId, userId) {
+  const card = await IndexCard.findById(cardId);
+  if (!card){
+    throw new Error('Karteikarte nicht gefunden');
+  }
+  await checkPermission(userId, card.study_group_id, ['ADMIN', 'MODERATOR']);
+  return await IndexCard.findByIdAndDelete(cardId);
 }
