@@ -13,16 +13,16 @@ function mapRow(row) {
   };
 }
 
-export async function findOAuthAccount(provider, providerUserId) {
-    const result = await pool.query(
-        'SELECT * FROM oauth_account WHERE provider = $1 AND provider_user_id = $2',
-        [provider, providerUserId]
-    );
-    return mapRow(result.rows[0]);
+export async function findOAuthAccount(provider, providerUserId, client = pool) {
+  const result = await client.query(
+    'SELECT * FROM oauth_account WHERE provider = $1 AND provider_user_id = $2',
+    [provider, providerUserId]
+  );
+  return mapRow(result.rows[0]);
 }
 
-export async function createOAuthAccount(userId, provider, providerUserId, accessToken, refreshToken) {
-  const result = await pool.query(
+export async function createOAuthAccount(userId, provider, providerUserId, accessToken, refreshToken, client = pool) {
+  const result = await client.query(
     `INSERT INTO oauth_account (user_id, provider, provider_user_id, access_token, refresh_token)
     VALUES ($1, $2, $3, $4, $5)
     RETURNING *`,

@@ -10,24 +10,24 @@ function mapRow(row) {
   };
 }
 
-export async function findById(id) {
-  const result = await pool.query(
+export async function findById(id, client = pool) {
+  const result = await client.query(
     'SELECT * FROM "user" WHERE id = $1',
     [id]
   );
   return mapRow(result.rows[0]);
 }
 
-export async function findByEmail(email) {
-  const result = await pool.query(
+export async function findByEmail(email, client = pool) {
+  const result = await client.query(
     'SELECT * FROM "user" WHERE email = $1',
     [email]
   );
   return mapRow(result.rows[0]);
 }
 
-export async function createUser(name, email) {
-  const result = await pool.query(
+export async function createUser(name, email, client = pool) {
+  const result = await client.query(
     `INSERT INTO "user" (name, email)
     VALUES ($1, $2)
     RETURNING *`,

@@ -13,8 +13,8 @@ function mapRow(row) {
   };
 }
 
-export async function createPasskey(userId, credentialId, publicKey, counter, deviceName) {
-  const result = await pool.query(
+export async function createPasskey(userId, credentialId, publicKey, counter, deviceName, client = pool) {
+  const result = await client.query(
     `INSERT INTO passkey (user_id, credential_id, public_key, counter, device_name)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
@@ -23,24 +23,24 @@ export async function createPasskey(userId, credentialId, publicKey, counter, de
   return mapRow(result.rows[0]);
 }
 
-export async function findPasskeyByCredentialId(credentialId) {
-  const result = await pool.query(
+export async function findPasskeyByCredentialId(credentialId, client = pool) {
+  const result = await client.query(
     `SELECT * FROM passkey WHERE credential_id = $1`,
     [credentialId]
   );
   return mapRow(result.rows[0]);
 }
 
-export async function findPasskeyById(passkeyId) {
-  const result = await pool.query(
+export async function findPasskeyById(passkeyId, client = pool) {
+  const result = await client.query(
     `SELECT * FROM passkey WHERE id = $1`,
     [passkeyId]
   );
   return mapRow(result.rows[0]);
 }
 
-export async function deletePasskey(passkeyId) {
-  await pool.query(
+export async function deletePasskey(passkeyId, client = pool) {
+  await client.query(
     `DELETE FROM passkey WHERE id = $1`,
     [passkeyId]
   );
