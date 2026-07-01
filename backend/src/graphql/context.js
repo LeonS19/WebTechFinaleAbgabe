@@ -1,13 +1,13 @@
 import { verifyToken } from '../services/auth/token.service.js';
 
-export async function createContext({ req } = {}) {
+export async function createContext({ req, token: directToken } = {}) {
   try {
     const authHeader = req?.headers?.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = directToken ?? (authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : null);
+    if (!token) {
       return { user: null };
     }
 
-    const token = authHeader.split(' ')[1];
     const payload = verifyToken(token);
 
     return {
@@ -15,7 +15,8 @@ export async function createContext({ req } = {}) {
         id: payload.userId,
       }
     };
-  } catch {
+  } catch (err) {
+    console.error('[context] verifyToken failed:', err.message);
     return { user: null };
   }
 }

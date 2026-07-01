@@ -1,3 +1,3 @@
 - Lösch funktionen für User
 -TODO für Reflexion: JWT wird beim Google OAuth Callback als Query-Parameter ?token=... in der Redirect-URL ans Frontend übergeben. Das ist praktisch und weit verbreitet, hat aber Sicherheitsbedenken (Browser-History, Server-Logs, Referrer-Header). Sicherere Alternativen wären HttpOnly Cookie oder ein kurzlebiger Einmal-Code statt dem JWT direkt in der URL.
-- Lerngruppen suchen können zum Joinen (alles sollen angezeigt werden)
+- Status nach Admin gegangen wird nicht korrekt an Member weitergegeben

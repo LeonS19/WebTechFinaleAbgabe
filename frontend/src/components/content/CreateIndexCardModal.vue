@@ -47,9 +47,12 @@
           </div>
         </div>
 
+        <p v-if="error" class="error-msg">{{ error }}</p>
         <div class="modal-actions">
           <button class="cancel-btn" @click="$emit('close')">Abbrechen</button>
-          <button class="primary-btn" @click="submit">Erstellen</button>
+          <button class="primary-btn" @click="submit" :disabled="loading">
+            {{ loading ? 'Wird erstellt...' : 'Erstellen' }}
+          </button>
         </div>
       </div>
 
@@ -59,6 +62,8 @@
 
 <script setup>
 import { ref } from 'vue';
+import { useMutation } from '@vue/apollo-composable';
+import { gql } from '@apollo/client/core';
 
 const props = defineProps({
   studyGroupId: String,
@@ -69,6 +74,24 @@ const emit = defineEmits(['close', 'created']);
 const form = ref({ question: '', answer: '', tags: [] });
 const tagInput = ref('');
 const selectedFiles = ref([]);
+const error = ref('');
+const loading = ref(false);
+
+const CREATE_INDEX_CARD = gql`
+  mutation CreateIndexCard($studyGroupId: ID!, $question: String!, $answer: String!, $tags: [String!]) {
+    createIndexCard(studyGroupId: $studyGroupId, question: $question, answer: $answer, tags: $tags) {
+      id
+      studyGroupId
+      question
+      answer
+      tags
+      createdAt
+      creator { id name }
+    }
+  }
+`;
+
+const { mutate: createIndexCard } = useMutation(CREATE_INDEX_CARD);
 
 function addTag() {
   const t = tagInput.value.trim();
@@ -92,10 +115,23 @@ function formatSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function submit() {
+async function submit() {
   if (!form.value.question.trim() || !form.value.answer.trim()) return;
-  // TODO: createIndexCard Mutation + File Upload via REST aufrufen
-  emit('created', { ...form.value, studyGroupId: props.studyGroupId, files: selectedFiles.value });
-  emit('close');
+  loading.value = true;
+  error.value = '';
+  try {
+    const result = await createIndexCard({
+      studyGroupId: props.studyGroupId,
+      question: form.value.question.trim(),
+      answer: form.value.answer.trim(),
+      tags: form.value.tags,
+    });
+    emit('created', result.data.createIndexCard);
+    emit('close');
+  } catch (err) {
+    error.value = err.message || 'Fehler beim Erstellen';
+  } finally {
+    loading.value = false;
+  }
 }
 </script>

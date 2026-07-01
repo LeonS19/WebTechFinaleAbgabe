@@ -97,9 +97,10 @@ function openDetail(card) {
   detailCard.value = card;
 }
 
+const emit = defineEmits(['created']);
+
 function onCreated(card) {
-  // TODO: nach echtem Backend-Call ersetzen
-  console.log('Neue Karte:', card);
+  emit('created', card);
 }
 
 const filteredCards = computed(() => {

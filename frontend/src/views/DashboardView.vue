@@ -35,6 +35,7 @@
             :studyGroupId="selectedGroup.id"
             :cards="indexCards"
             :userRole="currentMemberRole"
+            @created="refetchCards"
           />
           <RankingView v-else-if="activeView === 'bestenliste'" :studyGroupId="selectedGroup.id" />
           <RunHistoryView v-else-if="activeView === 'historie'" :studyGroupId="selectedGroup.id" />
@@ -100,7 +101,7 @@ onMounted(() => {
   }
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
-    currentUser.value = { id: payload.id, name: payload.name, email: payload.email };
+    currentUser.value = { id: payload.userId, name: payload.name, email: payload.email };
   } catch {
     router.push('/login');
   }
@@ -111,7 +112,6 @@ const GET_STUDY_GROUP = gql`
   query GetStudyGroup($id: ID!) {
     getStudyGroup(id: $id) {
       members {
-        userId
         role
         user {
           id
@@ -176,7 +176,7 @@ const LEAVE_STUDY_GROUP = gql`
 
 const currentMemberRole = computed(() => {
   if (!selectedGroup.value) return null
-  const me = members.value.find((m) => m.userId === currentUser.value?.id)
+  const me = members.value.find((m) => m.user?.id === currentUser.value?.id)
   return me?.role || 'MEMBER'
 })
 
@@ -228,16 +228,18 @@ async function leaveGroup() {
 }
 
 function onGroupCreated(group) {
-  studyGroups.value.push(group);
+  studyGroups.value = [...studyGroups.value, group];
   selectedGroup.value = group;
+  groupIdToLoad.value = group.id;
   activeView.value = 'karteikarten';
 }
 
 function onGroupJoined(group) {
   if (!studyGroups.value.find(g => g.id === group.id)) {
-    studyGroups.value.push(group);
+    studyGroups.value = [...studyGroups.value, group];
   }
   selectedGroup.value = group;
+  groupIdToLoad.value = group.id;
   showJoinGroup.value = false;
   activeView.value = 'karteikarten';
 }
@@ -245,7 +247,7 @@ function onGroupJoined(group) {
 const { result: myGroupsResult } = useQuery(GET_MY_STUDY_GROUPS)
 
 watch(myGroupsResult, (val) => {
-  studyGroups.value = val?.getMyStudyGroups ?? []
+  studyGroups.value = [...(val?.getMyStudyGroups ?? [])]
 })
 
 function startRun() {

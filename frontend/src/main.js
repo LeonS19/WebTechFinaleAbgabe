@@ -16,7 +16,7 @@ const authLink = new ApolloLink((operation, forward) => {
 });
 
 const httpLink = createHttpLink({
-  uri: 'http://localhost:4000/graphql',
+  uri: 'http://localhost:3000/graphql',
 });
 
 const apolloClient = new ApolloClient({
