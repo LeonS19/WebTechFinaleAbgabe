@@ -1,19 +1,17 @@
-import { studyGroupResolvers } from './studyGroup.resolver.js';
+import { studyGroupResolvers } from "./studyGroup.resolver.js";
+import { indexCardResolvers } from './indexCard.resolver.js';
 
 export const resolvers = {
   Query: {
     ...studyGroupResolvers.Query,
-    getIndexCards: () => [],
-    getIndexCard: () => null,
+    ...indexCardResolvers.Query,
     getRanking: () => [],
     getRuns: () => [],
     getMap: () => null,
   },
   Mutation: {
     ...studyGroupResolvers.Mutation,
-    createIndexCard: () => null,
-    updateIndexCard: () => null,
-    deleteIndexCard: () => null,
+    ...indexCardResolvers.Mutation,
     startRun: () => null,
     endRun: () => null,
     answerCard: () => null,
@@ -24,6 +22,9 @@ export const resolvers = {
   },
   Membership: {
     ...studyGroupResolvers.Membership,
+  },
+  IndexCard: {
+    ...indexCardResolvers.IndexCard,
   },
   Subscription: {},
 };

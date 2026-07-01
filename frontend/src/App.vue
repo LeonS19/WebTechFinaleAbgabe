@@ -12,6 +12,14 @@ import { RouterLink, RouterView } from 'vue-router'
   <RouterView />
 </template>
 
+<!-- <script setup>
+import { RouterView } from 'vue-router'
+</script>
+
+<template>
+  <RouterView />
+</template> -->
+
 <style scoped>
 header {
   padding: 1rem;

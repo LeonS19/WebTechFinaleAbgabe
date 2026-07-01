@@ -4,6 +4,14 @@ import * as UserModel from "../../models/sql/user.model.js";
 export const studyGroupResolvers = {
   Query: {
     getStudyGroup: (_, { id }) => StudyGroupService.getStudyGroup(id),
+    getStudyGroups: async (_, { search }, context) => {
+      if (!context.user) throw new Error("Nicht authentifiziert");
+      return StudyGroupService.getStudyGroups(search);
+    },
+    getMyStudyGroups: async (_, __, context) => {
+      if (!context.user) throw new Error("Nicht authentifiziert");
+      return StudyGroupService.getMyStudyGroups(context.user.id);
+    },
   },
   Mutation: {
     createStudyGroup: (_, { name }, context) => {

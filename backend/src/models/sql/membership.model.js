@@ -18,6 +18,14 @@ export async function findByStudyGroup(studyGroupId) {
   return result.rows.map(mapRow);
 }
 
+export async function findByUser(userId) {
+  const result = await pool.query(
+    'SELECT * FROM membership WHERE user_id = $1',
+    [userId]
+  );
+  return result.rows.map(mapRow);
+}
+
 export async function create(userId, studyGroupId, role) {
   const result = await pool.query(
     'INSERT INTO membership (user_id, study_group_id, role, joined_at) VALUES ($1, $2, $3, NOW()) RETURNING *',
