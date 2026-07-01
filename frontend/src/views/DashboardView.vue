@@ -91,7 +91,6 @@ const showCreateGroup = ref(false)
 const newGroupName = ref('')
 const currentUser = ref(null)
 const showJoinGroup = ref(false)
-const { mutate: leaveStudyGroupMutation } = useMutation(LEAVE_STUDY_GROUP)
 
 onMounted(() => {
   // TODO: Auth wieder einschalten nach Merge mit Person A
@@ -192,6 +191,7 @@ function logout() {
   router.push('/login')
 }
 
+const { mutate: leaveStudyGroupMutation } = useMutation(LEAVE_STUDY_GROUP)
 const groupIdToLoad = ref(null)
 
 const { result: groupResult } = useQuery(
