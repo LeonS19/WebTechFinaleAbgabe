@@ -1,4 +1,4 @@
-import { studyGroupResolvers } from './studyGroup.resolver.js';
+import { studyGroupResolvers } from "./studyGroup.resolver.js";
 
 export const resolvers = {
   Query: {
@@ -24,6 +24,9 @@ export const resolvers = {
   },
   Membership: {
     ...studyGroupResolvers.Membership,
+  },
+  IndexCard: {
+    ...indexCardResolvers.IndexCard,
   },
   Subscription: {},
 };

@@ -181,6 +181,7 @@ type Query {
         studyGroupId:   ID!
         tags:           [String!]
         search:         String          # searches in question and answer
+        creatorId:      ID              # filter by creator
     ): [IndexCard!]!
 
     getIndexCard(id: ID!): IndexCard
