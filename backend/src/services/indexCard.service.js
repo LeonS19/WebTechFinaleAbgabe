@@ -44,3 +44,9 @@ export async function deleteIndexCard(cardId, userId) {
   await checkPermission(userId, card.study_group_id, ['ADMIN', 'MODERATOR']);
   return await IndexCard.findByIdAndDelete(cardId);
 }
+
+export async function createIndexCard(data, userId) {
+  await checkPermission(userId, data.study_group_id, ['ADMIN', 'MODERATOR']);
+  // creator_id immer aus dem JWT setzen, nicht vom Frontend übernehmen
+  return await IndexCard.create({ ...data, creator_id: userId });
+}
