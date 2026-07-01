@@ -93,25 +93,18 @@ const currentUser = ref(null)
 const showJoinGroup = ref(false)
 
 onMounted(() => {
-  // TODO: Auth wieder einschalten nach Merge mit Person A
-  // const token = localStorage.getItem('token');
-  // if (!token) {
-  //   router.push('/login');
-  //   return;
-  // }
-  // try {
-  //   const payload = JSON.parse(atob(token.split('.')[1]));
-  //   currentUser.value = { id: payload.id, name: payload.name, email: payload.email };
-  // } catch {
-  //   router.push('/login');
-  // }
+  const token = localStorage.getItem('token');
+  if (!token) {
+    router.push('/login');
+    return;
+  }
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    currentUser.value = { id: payload.id, name: payload.name, email: payload.email };
+  } catch {
+    router.push('/login');
+  }
 
-  currentUser.value = { id: '1', name: 'Test User', email: 'test@test.com' }
-  // TODO: per GraphQL laden
-  studyGroups.value = [
-    { id: '1', name: 'Webtech' },
-    { id: '2', name: 'Datenbanken' },
-  ]
 })
 
 const GET_STUDY_GROUP = gql`
@@ -129,17 +122,16 @@ const GET_STUDY_GROUP = gql`
   }
 `
 
-const LEAVE_STUDY_GROUP = gql`
-  mutation LeaveStudyGroup($studyGroupId: ID!) {
-    leaveStudyGroup(studyGroupId: $studyGroupId)
+const GET_MY_STUDY_GROUPS = gql`
+  query GetMyStudyGroups {
+    getMyStudyGroups {
+      id
+      name
+      chatId
+      createdAt
+    }
   }
 `
-
-const currentMemberRole = computed(() => {
-  if (!selectedGroup.value) return null
-  const me = members.value.find((m) => m.userId === currentUser.value?.id)
-  return me?.role || 'MEMBER'
-})
 
 const GET_INDEX_CARDS = gql`
   query GetIndexCards($studyGroupId: ID!) {
@@ -175,6 +167,18 @@ const GET_INDEX_CARDS = gql`
     }
   }
 `
+
+const LEAVE_STUDY_GROUP = gql`
+  mutation LeaveStudyGroup($studyGroupId: ID!) {
+    leaveStudyGroup(studyGroupId: $studyGroupId)
+  }
+`
+
+const currentMemberRole = computed(() => {
+  if (!selectedGroup.value) return null
+  const me = members.value.find((m) => m.userId === currentUser.value?.id)
+  return me?.role || 'MEMBER'
+})
 
 const studyGroupIdForQuery = computed(() => selectedGroup.value?.id ?? null)
 
@@ -236,7 +240,13 @@ function onGroupJoined(group) {
   selectedGroup.value = group;
   showJoinGroup.value = false;
   activeView.value = 'karteikarten';
-}s
+}
+
+const { result: myGroupsResult } = useQuery(GET_MY_STUDY_GROUPS)
+
+watch(myGroupsResult, (val) => {
+  studyGroups.value = val?.getMyStudyGroups ?? []
+})
 
 function startRun() {
   // TODO: startRun Mutation aufrufen

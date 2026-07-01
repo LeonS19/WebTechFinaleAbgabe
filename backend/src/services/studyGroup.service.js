@@ -10,6 +10,14 @@ export async function getStudyGroups(search) {
   return StudyGroupModel.findAll(search);
 }
 
+export async function getMyStudyGroups(userId) {
+  const memberships = await MembershipModel.findByUser(userId);
+  const groups = await Promise.all(
+    memberships.map(m => StudyGroupModel.findById(m.studyGroupId))
+  );
+  return groups.filter(Boolean);
+}
+
 export async function createStudyGroup(name, creatorUserId) {
   const chatId = crypto.randomUUID(); // referenziert später ein MongoDB Chat-Dokument
   const studyGroup = await StudyGroupModel.create(name, chatId);
