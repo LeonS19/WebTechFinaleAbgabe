@@ -1,14 +1,22 @@
-<script setup>
+<!-- <script setup>
 import { RouterLink, RouterView } from 'vue-router'
-</script>
+</script> -->
 
-<template>
+<!-- <template>
   <header>
     <nav>
       <RouterLink to="/login">Login</RouterLink>
       <RouterLink to="/register">Registrieren</RouterLink>
     </nav>
   </header>
+  <RouterView />
+</template> -->
+
+<script setup>
+import { RouterView } from 'vue-router'
+</script>
+
+<template>
   <RouterView />
 </template>
 

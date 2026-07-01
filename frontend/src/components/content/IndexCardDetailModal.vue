@@ -1,0 +1,118 @@
+<template>
+  <div class="modal-overlay" @click.self="$emit('close')">
+    <div class="modal modal-large">
+
+      <div class="modal-header">
+        <h2>Karteikarte</h2>
+        <button class="modal-close" @click="$emit('close')">✕</button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- Frage & Antwort -->
+        <div class="detail-section">
+          <p class="detail-label">Frage</p>
+          <p class="detail-value">{{ card.question }}</p>
+        </div>
+        <div class="detail-section">
+          <p class="detail-label">Antwort</p>
+          <p class="detail-value">{{ card.answer }}</p>
+        </div>
+
+        <!-- Tags -->
+        <div class="detail-section">
+          <p class="detail-label">Tags</p>
+          <div class="card-tags">
+            <span v-for="tag in card.tags" :key="tag" class="tag-chip">{{ tag }}</span>
+          </div>
+        </div>
+
+        <!-- Meta -->
+        <div class="detail-section detail-meta">
+          <span>Erstellt von <strong>{{ card.creator?.name }}</strong></span>
+          <span>{{ formatDate(card.createdAt) }}</span>
+        </div>
+
+        <!-- Stats -->
+        <div class="detail-section">
+          <p class="detail-label">Gruppenstatistik</p>
+          <div class="stats-grid">
+            <div class="stat-box" v-for="stat in card.groupStats" :key="stat.studyGroupId">
+              <span class="stat-value">{{ difficulty(stat) }}%</span>
+              <span class="stat-label">Schwierigkeitsgrad</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <p class="detail-label">Meine Statistik</p>
+          <div class="stats-grid">
+            <div class="stat-box" v-for="stat in card.userStats" :key="stat.userId">
+              <span class="stat-value">{{ stat.correctAnswers }} / {{ stat.totalAttempts }}</span>
+              <span class="stat-label">Richtige Antworten</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Anhänge -->
+        <div class="detail-section">
+          <p class="detail-label">Anhänge</p>
+          <div v-if="card.attachments?.length" class="attachments-list">
+            <div v-for="att in card.attachments" :key="att.id" class="attachment-item">
+              <span>{{ att.filename }}</span>
+              <a :href="downloadUrl(att.id)" target="_blank" class="download-btn">⬇ Herunterladen</a>
+            </div>
+          </div>
+          <p v-else class="placeholder-small">Keine Anhänge vorhanden</p>
+
+          <!-- Upload nur für Admin/Moderator -->
+          <div v-if="canUpload" class="upload-area">
+            <input type="file" @change="handleUpload" />
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+const props = defineProps({
+  card: Object,
+  userRole: String,
+});
+
+defineEmits(['close']);
+
+const BASE_URL = 'http://localhost:3000/api/v1';
+
+const canUpload = props.userRole === 'ADMIN' || props.userRole === 'MODERATOR';
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleDateString('de-DE');
+}
+
+function difficulty(stat) {
+  if (!stat.totalAttempts) return 0;
+  return Math.round((stat.correctAnswers / stat.totalAttempts) * 100);
+}
+
+function downloadUrl(attachmentId) {
+  return `${BASE_URL}/index-cards/${props.card.id}/attachments/${attachmentId}`;
+}
+
+async function handleUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('file', file);
+  const token = localStorage.getItem('token');
+  // TODO: Upload via REST API wenn Backend fertig
+  await fetch(`${BASE_URL}/index-cards/${props.card.id}/attachments`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+}
+</script>
