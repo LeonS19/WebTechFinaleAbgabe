@@ -32,7 +32,7 @@
           <IndexCardsView
             v-else-if="activeView === 'karteikarten'"
             :studyGroupId="selectedGroup.id"
-            :cards="placeholderCards"
+            :cards="indexCards"
             :userRole="currentMemberRole"
           />
           <RankingView v-else-if="activeView === 'bestenliste'" :studyGroupId="selectedGroup.id" />
@@ -60,6 +60,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useQuery } from '@vue/apollo-composable'
+import { gql } from '@apollo/client/core'
 import GroupSwitcher from '../components/layout/GroupSwitcher.vue'
 import DashboardHeader from '../components/layout/DashboardHeader.vue'
 import ContentNav from '../components/layout/ContentNav.vue'
@@ -110,41 +112,50 @@ const currentMemberRole = computed(() => {
   return me?.role || 'MEMBER'
 })
 
-const placeholderCards = ref([
-  {
-    id: '1',
-    question: 'Was ist eine REST API?',
-    answer: 'Ein Architekturstil für verteilte Systeme der auf HTTP basiert.',
-    tags: ['REST', 'API', 'Backend'],
-    creator: { id: '1', name: 'Anna' },
-    createdAt: '2026-06-01T10:00:00Z',
-    attachments: [],
-    groupStats: [{ studyGroupId: '1', totalAttempts: 10, correctAnswers: 7 }],
-    userStats: [{ userId: '1', totalAttempts: 5, correctAnswers: 4 }],
-  },
-  {
-    id: '2',
-    question: 'Was ist GraphQL?',
-    answer: 'Eine Abfragesprache für APIs entwickelt von Facebook.',
-    tags: ['GraphQL', 'API'],
-    creator: { id: '2', name: 'Ben' },
-    createdAt: '2026-06-02T10:00:00Z',
-    attachments: [],
-    groupStats: [],
-    userStats: [],
-  },
-  {
-    id: '3',
-    question: 'Was ist Vue.js?',
-    answer: 'Ein progressives JavaScript Framework für Benutzeroberflächen.',
-    tags: ['Vue', 'Frontend'],
-    creator: { id: '1', name: 'Anna' },
-    createdAt: '2026-06-03T10:00:00Z',
-    attachments: [],
-    groupStats: [],
-    userStats: [],
-  },
-])
+const GET_INDEX_CARDS = gql`
+  query GetIndexCards($studyGroupId: ID!) {
+    getIndexCards(studyGroupId: $studyGroupId) {
+      id
+      studyGroupId
+      question
+      answer
+      tags
+      createdAt
+      creator {
+        id
+        name
+      }
+      attachments {
+        id
+        filename
+        mimeType
+        sizeInBytes
+        uploadedAt
+      }
+      groupStats {
+        studyGroupId
+        totalAttempts
+        correctAnswers
+      }
+      userStats {
+        userId
+        totalAttempts
+        correctAnswers
+        lastSeenAt
+      }
+    }
+  }
+`
+
+const studyGroupIdForQuery = computed(() => selectedGroup.value?.id ?? null)
+
+const { result: cardsResult, refetch: refetchCards } = useQuery(
+  GET_INDEX_CARDS,
+  () => ({ studyGroupId: studyGroupIdForQuery.value }),
+  () => ({ enabled: !!studyGroupIdForQuery.value }),
+)
+
+const indexCards = computed(() => cardsResult.value?.getIndexCards ?? [])
 
 function selectGroup(group) {
   selectedGroup.value = group
