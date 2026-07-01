@@ -170,7 +170,12 @@ paths:
   /auth/google/callback:
     get:
       summary: Google OAuth callback
-      description: Google redirects here after successful login. Returns a JWT token.
+      description: |
+        Google redirects here after successful login.
+        The server exchanges the code for tokens, finds or creates the user,
+        and redirects the browser to the frontend with a JWT token as a query parameter.
+        Example redirect: `http://localhost:5173/auth/callback?token=eyJ...`
+        The frontend reads the token from the URL and stores it for subsequent requests.
       tags: [Authentication]
       parameters:
         - name: code
@@ -178,110 +183,23 @@ paths:
           required: true
           schema:
             type: string
-        - name: state
-          in: query
-          required: true
-          schema:
-            type: string
+          description: Authorization code from Google
       responses:
-        '200':
-          description: Login successful
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '401':
-          description: OAuth failed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+        '302':
+          description: Redirect to frontend with JWT token as query parameter (?token=...)
+        '302 (error)':
+          description: Redirect to frontend error page (?message=...) if OAuth failed
 
   # ------------------------------------------
-  # PASSKEY - Registration
+  # PASSKEY - User anlegen / finden
   # ------------------------------------------
-  /auth/passkey/register/options:
+  /auth/passkey/user:
     post:
-      summary: Get passkey registration options
-      description: Returns WebAuthn registration options (challenge, rp info, user info). Call this before registering a new passkey on a device.
-      tags: [Authentication]
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                deviceName:
-                  type: string
-                  example: MacBook Pro
-              required: [deviceName]
-      responses:
-        '200':
-          description: Registration options
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PasskeyRegistrationOptions'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /auth/passkey/register/verify:
-    post:
-      summary: Verify and save passkey registration
-      description: Verifies the WebAuthn registration response from the device and saves the passkey.
-      tags: [Authentication]
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                credential:
-                  type: object
-                  description: WebAuthn credential response from navigator.credentials.create()
-                deviceName:
-                  type: string
-              required: [credential, deviceName]
-      responses:
-        '201':
-          description: Passkey registered successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    format: uuid
-                  deviceName:
-                    type: string
-                  createdAt:
-                    type: string
-                    format: date-time
-        '400':
-          description: Verification failed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  # ------------------------------------------
-  # PASSKEY - Login
-  # ------------------------------------------
-  /auth/passkey/login/options:
-    post:
-      summary: Get passkey authentication options
-      description: Returns WebAuthn authentication options (challenge, allowed credentials). Call this to initiate a passkey login.
+      summary: Find or create user for passkey registration
+      description: |
+        Finds an existing user by email or creates a new one.
+        Call this before registering a passkey to get the userId.
+        This enables usernameless passkey registration without requiring Google OAuth first.
       tags: [Authentication]
       requestBody:
         required: true
@@ -293,19 +211,37 @@ paths:
                 email:
                   type: string
                   format: email
-                  description: Optional — narrows down which passkeys to offer
+                  example: test@example.com
+                name:
+                  type: string
+                  example: Max Mustermann
+                  description: Optional — defaults to email if not provided
+              required: [email]
       responses:
         '200':
-          description: Authentication options
+          description: User found or created — returns userId
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PasskeyAuthenticationOptions'
+                type: object
+                properties:
+                  userId:
+                    type: string
+                    format: uuid
+        '400':
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
-  /auth/passkey/login/verify:
+  # ------------------------------------------
+  # PASSKEY - Registration
+  # ------------------------------------------
+  /auth/passkey/register/options:
     post:
-      summary: Verify passkey login
-      description: Verifies the WebAuthn authentication response, updates the passkey counter, and returns a JWT token.
+      summary: Get passkey registration options
+      description: Returns WebAuthn registration options (challenge, rp info, user info). Call this before registering a new passkey on a device. Returns both the WebAuthn options (for the browser) and a challengeId (to be sent back with the verify call).
       tags: [Authentication]
       requestBody:
         required: true
@@ -314,19 +250,149 @@ paths:
             schema:
               type: object
               properties:
-                credential:
-                  type: object
-                  description: WebAuthn credential response from navigator.credentials.get()
-              required: [credential]
+                userId:
+                  type: string
+                  format: uuid
+                  example: 11782402-754c-48e5-a26a-65906d7c1557
+                userEmail:
+                  type: string
+                  format: email
+                  example: test@example.com
+              required: [userId, userEmail]
       responses:
         '200':
-          description: Login successful
+          description: Registration options + challengeId
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '401':
-          description: Verification failed
+                type: object
+                properties:
+                  options:
+                    $ref: '#/components/schemas/PasskeyRegistrationOptions'
+                  challengeId:
+                    type: string
+                    format: uuid
+        '400':
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/passkey/register/verify:
+    post:
+      summary: Verify and save passkey registration
+      description: Verifies the WebAuthn registration response from the device and saves the passkey. Send the challengeId received from the options call along with the browser's credential response.
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                challengeId:
+                  type: string
+                  format: uuid
+                  description: The challengeId received from the register/options call
+                response:
+                  type: object
+                  description: WebAuthn credential response from navigator.credentials.create() via @simplewebauthn/browser
+                userId:
+                  type: string
+                  format: uuid
+                deviceName:
+                  type: string
+                  example: Chrome Virtual Authenticator
+                  description: Optional — defaults to 'Unbekanntes Gerät' if not provided
+              required: [challengeId, response, userId]
+      responses:
+        '200':
+          description: Passkey registered successfully — returns passkey data and JWT token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  passkey:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      userId:
+                        type: string
+                        format: uuid
+                      credentialId:
+                        type: string
+                      deviceName:
+                        type: string
+                      createdAt:
+                        type: string
+                        format: date-time
+                  token:
+                    type: string
+                    description: JWT token — store and use for subsequent requests
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '400':
+          description: Verification failed or missing fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ------------------------------------------
+  # PASSKEY - Login
+  # ------------------------------------------
+  /auth/passkey/login/options:
+    post:
+      summary: Get passkey authentication options
+      description: Returns WebAuthn authentication options for usernameless login. No request body needed — the browser discovers available passkeys automatically. Returns both options (for the browser) and a challengeId (to be sent back with the verify call).
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Authentication options + challengeId
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  options:
+                    $ref: '#/components/schemas/PasskeyAuthenticationOptions'
+                  challengeId:
+                    type: string
+                    format: uuid
+
+  /auth/passkey/login/verify:
+    post:
+      summary: Verify passkey login
+      description: Verifies the WebAuthn authentication response, updates the passkey counter, and returns a JWT token. Send the challengeId received from the login/options call along with the browser's credential response.
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                challengeId:
+                  type: string
+                  format: uuid
+                  description: The challengeId received from the login/options call
+                response:
+                  type: object
+                  description: WebAuthn credential response from navigator.credentials.get() via @simplewebauthn/browser
+              required: [challengeId, response]
+      responses:
+        '200':
+          description: Login successful — returns JWT token string directly
+          content:
+            application/json:
+              schema:
+                type: string
+                example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '400':
+          description: Verification failed or missing fields
           content:
             application/json:
               schema:
@@ -335,31 +401,32 @@ paths:
   # ------------------------------------------
   # PASSKEY - Management
   # ------------------------------------------
-  /auth/passkey/{passkeyId}:
+  /auth/passkey/{id}:
     delete:
       summary: Remove a passkey
-      description: Removes a registered passkey from the user's account. Requires at least one remaining login method.
+      description: Removes a registered passkey from the user's account. Only the owner of the passkey can delete it (verified via JWT token).
       tags: [Authentication]
       security:
         - bearerAuth: []
       parameters:
-        - name: passkeyId
+        - name: id
           in: path
           required: true
           schema:
             type: string
             format: uuid
+          description: The passkey ID (not the credential_id, but the internal database UUID)
       responses:
-        '200':
-          description: Passkey removed
+        '204':
+          description: Passkey removed successfully (no content)
         '400':
-          description: Cannot remove last login method
+          description: Passkey not found or not authorized
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '404':
-          description: Passkey not found
+        '401':
+          description: Unauthorized — missing or invalid JWT token
           content:
             application/json:
               schema:
