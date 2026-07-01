@@ -5,6 +5,7 @@
       :selectedGroupId="selectedGroup?.id"
       @select="selectGroup"
       @create="showCreateGroup = true"
+      @search="showJoinGroup = true"
     />
 
     <div class="main">
@@ -45,22 +46,26 @@
 
     <ChatPanel :visible="chatOpen" />
 
-    <!-- Create Group Modal -->
-    <div v-if="showCreateGroup" class="modal-overlay" @click.self="showCreateGroup = false">
-      <div class="modal">
-        <h2>Neue Lerngruppe</h2>
-        <input v-model="newGroupName" type="text" placeholder="Gruppenname" />
-        <button @click="createGroup">Erstellen</button>
-        <button class="cancel-btn" @click="showCreateGroup = false">Abbrechen</button>
-      </div>
-    </div>
+    <CreateStudyGroupModal
+      v-if="showCreateGroup"
+      @close="showCreateGroup = false"
+      @created="onGroupCreated"
+    />
+
+    <JoinStudyGroupModal
+      v-if="showJoinGroup"
+      :joinedGroupIds="studyGroups.map(g => g.id)"
+      @close="showJoinGroup = false"
+      @joined="onGroupJoined"
+    />
+
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useQuery } from '@vue/apollo-composable'
+import { useQuery, useMutation } from '@vue/apollo-composable'
 import { gql } from '@apollo/client/core'
 import GroupSwitcher from '../components/layout/GroupSwitcher.vue'
 import DashboardHeader from '../components/layout/DashboardHeader.vue'
@@ -70,6 +75,8 @@ import ChatPanel from '../components/layout/ChatPanel.vue'
 import IndexCardsView from '../components/content/IndexCardsView.vue'
 import RankingView from '../components/content/RankingView.vue'
 import RunHistoryView from '../components/content/RunHistoryView.vue'
+import CreateStudyGroupModal from '../components/layout/CreateStudyGroupModal.vue'
+import JoinStudyGroupModal from '../components/layout/JoinStudyGroupModal.vue'
 import '../assets/dashboard.css'
 
 const router = useRouter()
@@ -83,6 +90,8 @@ const chatOpen = ref(false)
 const showCreateGroup = ref(false)
 const newGroupName = ref('')
 const currentUser = ref(null)
+const showJoinGroup = ref(false)
+const { mutate: leaveStudyGroupMutation } = useMutation(LEAVE_STUDY_GROUP)
 
 onMounted(() => {
   // TODO: Auth wieder einschalten nach Merge mit Person A
@@ -105,6 +114,27 @@ onMounted(() => {
     { id: '2', name: 'Datenbanken' },
   ]
 })
+
+const GET_STUDY_GROUP = gql`
+  query GetStudyGroup($id: ID!) {
+    getStudyGroup(id: $id) {
+      members {
+        userId
+        role
+        user {
+          id
+          name
+        }
+      }
+    }
+  }
+`
+
+const LEAVE_STUDY_GROUP = gql`
+  mutation LeaveStudyGroup($studyGroupId: ID!) {
+    leaveStudyGroup(studyGroupId: $studyGroupId)
+  }
+`
 
 const currentMemberRole = computed(() => {
   if (!selectedGroup.value) return null
@@ -157,35 +187,56 @@ const { result: cardsResult, refetch: refetchCards } = useQuery(
 
 const indexCards = computed(() => cardsResult.value?.getIndexCards ?? [])
 
-function selectGroup(group) {
-  selectedGroup.value = group
-  activeView.value = 'karteikarten'
-  // TODO: per GraphQL laden
-  members.value = [
-    { userId: '1', user: { name: 'Anna' }, role: 'ADMIN' },
-    { userId: '2', user: { name: 'Ben' }, role: 'MEMBER' },
-  ]
-}
-
 function logout() {
   localStorage.removeItem('token')
   router.push('/login')
 }
 
-function leaveGroup() {
-  // TODO: leaveStudyGroup Mutation aufrufen
-  selectedGroup.value = null
-  members.value = []
-  userMenuOpen.value = false
+const groupIdToLoad = ref(null)
+
+const { result: groupResult } = useQuery(
+  GET_STUDY_GROUP,
+  () => ({ id: groupIdToLoad.value }),
+  () => ({ enabled: !!groupIdToLoad.value })
+)
+
+watch(groupResult, (val) => {
+  members.value = val?.getStudyGroup?.members ?? []
+})
+
+function selectGroup(group) {
+  selectedGroup.value = group
+  activeView.value = 'karteikarten'
+  groupIdToLoad.value = group.id
 }
 
-function createGroup() {
-  if (!newGroupName.value.trim()) return
-  // TODO: createStudyGroup Mutation aufrufen
-  studyGroups.value.push({ id: Date.now().toString(), name: newGroupName.value })
-  newGroupName.value = ''
-  showCreateGroup.value = false
+async function leaveGroup() {
+  if (!selectedGroup.value) return
+  try {
+    await leaveStudyGroupMutation({ studyGroupId: selectedGroup.value.id })
+    studyGroups.value = studyGroups.value.filter(g => g.id !== selectedGroup.value.id)
+    selectedGroup.value = null
+    members.value = []
+    userMenuOpen.value = false
+  } catch (err) {
+    console.error('Fehler beim Verlassen:', err)
+  }
 }
+
+function onGroupCreated(group) {
+  studyGroups.value.push(group);
+  selectedGroup.value = group;
+  activeView.value = 'karteikarten';
+}
+
+function onGroupJoined(group) {
+  if (!studyGroups.value.find(g => g.id === group.id)) {
+    studyGroups.value.push(group);
+  }
+  selectedGroup.value = group;
+  showJoinGroup.value = false;
+  activeView.value = 'karteikarten';
+}s
 
 function startRun() {
   // TODO: startRun Mutation aufrufen

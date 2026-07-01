@@ -766,3 +766,37 @@
   opacity: 0.5;
   font-size: 0.8rem;
 }
+
+/* ============================================
+   GROUP LIST (Join Modal)
+   ============================================ */
+
+.groups-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 20rem;
+  overflow-y: auto;
+  margin-top: 0.5rem;
+}
+
+.group-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.9rem;
+  background: var(--color-background-mute);
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.already-joined {
+  font-size: 0.85rem;
+  color: var(--color-success);
+}
+
+.error-msg {
+  color: var(--color-error);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}

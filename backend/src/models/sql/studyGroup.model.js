@@ -10,6 +10,18 @@ function mapRow(row) {
   };
 }
 
+export async function findAll(search) {
+  let query = 'SELECT * FROM study_group';
+  const params = [];
+  if (search) {
+    query += ' WHERE name ILIKE $1';
+    params.push(`%${search}%`);
+  }
+  query += ' ORDER BY created_at DESC';
+  const result = await pool.query(query, params);
+  return result.rows.map(mapRow);
+}
+
 export async function findById(id) {
   const result = await pool.query("SELECT * FROM study_group WHERE id = $1", [
     id

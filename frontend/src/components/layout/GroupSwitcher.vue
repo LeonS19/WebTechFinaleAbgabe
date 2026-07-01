@@ -1,6 +1,6 @@
 <template>
   <aside class="group-switcher">
-    <button class="icon-btn" title="Suche">🔍</button>
+    <button class="icon-btn" title="Gruppe suchen" @click="$emit('search')">🔍</button>
     <div class="group-list">
       <button
         v-for="group in groups"

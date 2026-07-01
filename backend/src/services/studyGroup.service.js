@@ -6,6 +6,10 @@ export async function getStudyGroup(id) {
   return StudyGroupModel.findById(id);
 }
 
+export async function getStudyGroups(search) {
+  return StudyGroupModel.findAll(search);
+}
+
 export async function createStudyGroup(name, creatorUserId) {
   const chatId = crypto.randomUUID(); // referenziert später ein MongoDB Chat-Dokument
   const studyGroup = await StudyGroupModel.create(name, chatId);

@@ -175,6 +175,7 @@ type RankingEntry {
 type Query {
     # Study Groups
     getStudyGroup(id: ID!): StudyGroup
+    getStudyGroups(search: String): [StudyGroup!]!
 
     # Index Cards - supports filtering by tags and search term
     getIndexCards(
