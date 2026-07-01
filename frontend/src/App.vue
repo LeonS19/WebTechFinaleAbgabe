@@ -1,8 +1,8 @@
-<!-- <script setup>
+<script setup>
 import { RouterLink, RouterView } from 'vue-router'
-</script> -->
+</script>
 
-<!-- <template>
+<template>
   <header>
     <nav>
       <RouterLink to="/login">Login</RouterLink>
@@ -10,15 +10,15 @@ import { RouterLink, RouterView } from 'vue-router'
     </nav>
   </header>
   <RouterView />
-</template> -->
+</template>
 
-<script setup>
+<!-- <script setup>
 import { RouterView } from 'vue-router'
 </script>
 
 <template>
   <RouterView />
-</template>
+</template> -->
 
 <style scoped>
 header {
