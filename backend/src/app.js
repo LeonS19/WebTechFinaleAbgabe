@@ -15,13 +15,9 @@ import { connectPostgres } from './config/db.postgres.js';
 import { connectMongo } from './config/db.mongo.js';
 import { env } from './config/env.js';
 
-// TODO Tag 2 – Person A: Google OAuth implementieren
-// TODO Tag 2 – Person A: Passkey Registration + Login implementieren
-// TODO Tag 2 – Person A: JWT Token Middleware implementieren
 import { authRoutes } from './api/rest/routes/auth.routes.js';
 import { authMiddleware } from './api/rest/middleware/auth.middleware.js';
 
-// TODO Tag 3 – Person A: File Upload/Download + Berechtigungslogik implementieren
 import { fileRoutes } from './api/rest/routes/file.routes.js';
 
 // TODO Tag 2 – Person B: GraphQL Context mit User aus JWT aufbauen
@@ -32,9 +28,8 @@ import { createContext } from './graphql/context.js';
 // TODO Tag 5 – Person B: Run + Kampfsystem Resolvers implementieren
 import { resolvers } from './graphql/resolvers/index.js';
 
-// TODO Tag 4 – Person A: WebSocket Server aufsetzen + Chat Nachrichten in MongoDB speichern
 // TODO Tag 4 – Person B: Chat Web Component bauen + Echtzeit Updates verdrahten
-import { initWebSocket } from './realtime/websocket.js';
+import { handleChatConnection } from './realtime/handlers/chat.handler.js';
 
 // ============================================
 // SCHEMA
@@ -49,18 +44,32 @@ const app = express();
 const httpServer = http.createServer(app);
 
 // ============================================
-// WEBSOCKET SERVER (für Chat)
+// WEBSOCKET SERVER
 // ============================================
-const wsServer = new WebSocketServer({
-  server: httpServer,
-  path: '/graphql',         // GraphQL Subscriptions laufen hier
+const wsServer = new WebSocketServer({ noServer: true });
+const chatServer = new WebSocketServer({ noServer: true });
+
+// Manuelles Routing per Pfad
+httpServer.on('upgrade', (request, socket, head) => {
+  const pathname = new URL(request.url, 'http://localhost').pathname;
+  
+  if (pathname === '/graphql') {
+    wsServer.handleUpgrade(request, socket, head, (ws) => {
+      wsServer.emit('connection', ws, request);
+    });
+  } else if (pathname === '/chat') {
+    chatServer.handleUpgrade(request, socket, head, (ws) => {
+      chatServer.emit('connection', ws, request);
+    });
+  } else {
+    socket.destroy();
+  }
 });
 
 const wsServerCleanup = useServer(
   {
     schema,
     context: async (ctx) => {
-      // Auth Token aus WebSocket Connection Params auslesen
       const token = ctx.connectionParams?.authorization?.replace('Bearer ', '');
       return createContext({ token });
     },
@@ -68,8 +77,11 @@ const wsServerCleanup = useServer(
   wsServer
 );
 
-// Chat WebSocket läuft auf eigenem Pfad
-initWebSocket(httpServer);
+// Chat WebSocket
+chatServer.on('connection', (ws) => {
+  handleChatConnection(ws);
+});
+console.log('Chat WebSocket ready on /chat');
 
 // ============================================
 // APOLLO SERVER (GraphQL)

@@ -101,9 +101,15 @@ export async function removePasskeyHandler(req, res) {
 
 export async function getOrCreateUser(req, res) {
   const { name, email } = req.body;
-  if (!email) return res.status(400).json({ error: 'email ist erforderlich' });
+  if (!email){
+    return res.status(400).json({ error: 'email ist erforderlich' });
+  }
+  if (!name){
+    return res.status(400).json({ error: 'name ist erforderlich' });
+  }
+
   try {
-    const user = await passkeyService.findOrCreateUser(name || email, email);
+    const user = await passkeyService.findOrCreateUser(name, email);
     return res.json({ userId: user.id });
   } catch(err) {
     return res.status(400).json({ error: err.message });
