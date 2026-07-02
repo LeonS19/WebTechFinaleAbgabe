@@ -37,6 +37,14 @@ export async function create(name, chatId) {
   return mapRow(result.rows[0]);
 }
 
+export async function findByChatId(chatId) {
+  const result = await pool.query(
+    'SELECT * FROM study_group WHERE chat_id = $1',
+    [chatId]
+  );
+  return mapRow(result.rows[0]);
+}
+
 export async function deleteById(id) {
   const result = await pool.query(
     'DELETE FROM study_group WHERE id = $1',

@@ -4,6 +4,7 @@
     <button @click="registerWithGoogle">Mit Google registrieren</button>
     <hr />
     <h2>Mit Passkey registrieren</h2>
+    <input v-model="name" type="text" placeholder="Benutzername" />
     <input v-model="email" type="email" placeholder="E-Mail-Adresse" />
     <input v-model="deviceName" type="text" placeholder="Gerätename (z.B. MacBook Pro)" />
     <button @click="registerPasskey">Passkey registrieren</button>
@@ -19,6 +20,7 @@ import { RouterLink, useRouter } from 'vue-router';
 import { startRegistration } from '@simplewebauthn/browser';
 
 const router = useRouter();
+const name = ref('');
 const email = ref('');
 const deviceName = ref('');
 const error = ref('');
@@ -33,6 +35,7 @@ async function registerPasskey() {
   error.value = '';
   success.value = '';
   try {
+    if (!name.value) throw new Error('Bitte Benutzername eingeben');
     if (!email.value) throw new Error('Bitte E-Mail-Adresse eingeben');
     if (!email.value.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
       throw new Error('Bitte gültige E-Mail-Adresse eingeben');
@@ -42,7 +45,7 @@ async function registerPasskey() {
     const userRes = await fetch(`${BASE_URL}/auth/passkey/user`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.value }),
+      body: JSON.stringify({ name: name.value, email: email.value }),
     });
     const userData = await userRes.json();
     if (!userRes.ok) throw new Error(userData.error || 'User konnte nicht angelegt werden');
@@ -72,7 +75,6 @@ async function registerPasskey() {
     });
     const data = await verifyRes.json();
     if (!verifyRes.ok) throw new Error(data.error || 'Registrierung fehlgeschlagen');
-
     localStorage.setItem('token', data.token);
     router.push('/dashboard');
   } catch (err) {
