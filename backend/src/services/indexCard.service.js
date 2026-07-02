@@ -1,7 +1,8 @@
 import { IndexCard } from '../models/mongo/indexCard.model.js';
 import { checkPermission } from './permission.service.js';
 
-export async function getIndexCards(studyGroupId, tags, search, creatorId) {
+export async function getIndexCards(studyGroupId, tags, search, creatorId, userId) {
+  await checkPermission(userId, studyGroupId, ['ADMIN', 'MODERATOR', 'MEMBER']);
   const filter = { study_group_id: studyGroupId };
   
   if (tags && tags.length > 0) {
@@ -22,8 +23,13 @@ export async function getIndexCards(studyGroupId, tags, search, creatorId) {
   return await IndexCard.find(filter);
 }
 
-export async function getIndexCard(cardId) {
-  return await IndexCard.findById(cardId); // cardId nicht id!
+export async function getIndexCard(cardId, userId) {
+  const card = await IndexCard.findById(cardId);
+  if (!card) {
+    throw new Error('Karteikarte nicht gefunden');
+  }
+  await checkPermission(userId, card.study_group_id, ['ADMIN', 'MODERATOR', 'MEMBER']);
+  return card;
 }
 
 export async function updateIndexCard(cardId, data, userId) {

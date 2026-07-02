@@ -48,12 +48,13 @@ export const indexCardResolvers = {
         tags,
         search,
         creatorId,
+        context.user.id,
       );
       return cards.map(mapCard);
     },
     getIndexCard: async (_, { id }, context) => {
       if (!context.user) throw new Error("Nicht authentifiziert");
-      const card = await IndexCardService.getIndexCard(id);
+      const card = await IndexCardService.getIndexCard(id, context.user.id);
       return mapCard(card);
     },
   },

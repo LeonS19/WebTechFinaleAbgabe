@@ -483,3 +483,6 @@ Erreichbar unter:
 - [ ] README.md für Abgabe
 - [ ] Reflexion schreiben (inkl. JWT-in-URL Sicherheitsbedenken)
 - [ ] Präsentation erstellen
+
+Manuelles WebSocket-Routing:
+Die ws Library hat einen bekannten Bug: wenn mehrere WebSocketServer-Instanzen mit der path Option auf demselben httpServer registriert werden, überschreibt die zweite Instanz den upgrade Event-Handler der ersten — einer der Server akzeptiert dann keine Verbindungen mehr (400 Bad Request). Wir lösen das mit noServer: true für beide Server (GraphQL Subscriptions + Chat) und manuellem Routing über den upgrade Event des httpServer, wo wir anhand des URL-Pfads (/graphql vs /chat) entscheiden welcher Server die Verbindung behandelt.
