@@ -4,6 +4,7 @@ import { DefaultApolloClient } from '@vue/apollo-composable'
 import { ApolloClient, InMemoryCache, createHttpLink, ApolloLink } from '@apollo/client/core'
 import App from './App.vue'
 import router from './router'
+import './web-components/index.js'
 
 const authLink = new ApolloLink((operation, forward) => {
   const token = localStorage.getItem('token');
