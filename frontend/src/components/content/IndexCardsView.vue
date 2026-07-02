@@ -51,6 +51,7 @@
       :card="detailCard"
       :userRole="userRole"
       @close="detailCard = null"
+      @attachmentUploaded="emit('cardCreated')"
     />
 
     <CreateIndexCardModal
@@ -107,8 +108,10 @@ function openDetail(cardId) {
   detailCard.value = props.cards.find((c) => c.id === cardId) || null
 }
 
+const emit = defineEmits(['cardCreated'])
+
 function onCreated(card) {
-  console.log('Neue Karte:', card)
+  emit('cardCreated', card)
 }
 
 const filteredCards = computed(() => {

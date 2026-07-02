@@ -185,8 +185,10 @@ type Query {
         search:         String          # searches in question and answer
         creatorId:      ID              # filter by creator
     ): [IndexCard!]!
-
     getIndexCard(id: ID!): IndexCard
+
+    # Messages
+    getMessages(chatId: ID!, limit: Int, before: ID): [Message!]!
 
     # Ranking - only successful runs, sorted by hitRate DESC then duration ASC
     getRanking(studyGroupId: ID!): [RankingEntry!]!
@@ -258,4 +260,7 @@ type Subscription {
 
     # New index card created in a study group
     onIndexCardCreated(studyGroupId: ID!): IndexCard!
+
+    # New Attachment for IndexCard
+    onIndexCardUpdated(studyGroupId: ID!): IndexCard!
 }

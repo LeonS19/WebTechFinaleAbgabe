@@ -173,7 +173,7 @@ class IndexCardElement extends HTMLElement {
       <div class="card-wrapper">
         <div class="card ${this._flipped ? 'flipped' : ''}">
           <div class="card-front">
-            <span class="card-creator">${this.creator}</span>
+            <span class="card-creator">Ersteller: ${this.creator}</span>
             <p class="card-question">${this.question}</p>
             <div class="card-tags">
               ${this.tags.map((tag) => `<span class="tag-chip">${tag}</span>`).join('')}

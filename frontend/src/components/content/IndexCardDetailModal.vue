@@ -1,15 +1,12 @@
 <template>
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal modal-large">
-
       <div class="modal-header">
         <h2>Karteikarte</h2>
         <button class="modal-close" @click="$emit('close')">✕</button>
       </div>
 
       <div class="modal-body">
-
-        <!-- Frage & Antwort -->
         <div class="detail-section">
           <p class="detail-label">Frage</p>
           <p class="detail-value">{{ card.question }}</p>
@@ -19,7 +16,6 @@
           <p class="detail-value">{{ card.answer }}</p>
         </div>
 
-        <!-- Tags -->
         <div class="detail-section">
           <p class="detail-label">Tags</p>
           <div class="card-tags">
@@ -27,13 +23,11 @@
           </div>
         </div>
 
-        <!-- Meta -->
         <div class="detail-section detail-meta">
           <span>Erstellt von <strong>{{ card.creator?.name }}</strong></span>
           <span>{{ formatDate(card.createdAt) }}</span>
         </div>
 
-        <!-- Stats -->
         <div class="detail-section">
           <p class="detail-label">Gruppenstatistik</p>
           <div class="stats-grid">
@@ -54,39 +48,42 @@
           </div>
         </div>
 
-        <!-- Anhänge -->
         <div class="detail-section">
           <p class="detail-label">Anhänge</p>
-          <div v-if="card.attachments?.length" class="attachments-list">
-            <div v-for="att in card.attachments" :key="att.id" class="attachment-item">
+          <div v-if="localAttachments.length" class="attachments-list">
+            <div v-for="att in localAttachments" :key="att.id" class="attachment-item">
               <span>{{ att.filename }}</span>
               <a :href="downloadUrl(att.id)" target="_blank" class="download-btn">⬇ Herunterladen</a>
             </div>
           </div>
           <p v-else class="placeholder-small">Keine Anhänge vorhanden</p>
 
-          <!-- Upload nur für Admin/Moderator -->
           <div v-if="canUpload" class="upload-area">
             <input type="file" @change="handleUpload" />
           </div>
         </div>
-
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref, computed } from 'vue';
+
 const props = defineProps({
   card: Object,
   userRole: String,
 });
 
-defineEmits(['close']);
+const emit = defineEmits(['close', 'attachmentUploaded']);
 
 const BASE_URL = 'http://localhost:3000/api/v1';
 
-const canUpload = props.userRole === 'ADMIN' || props.userRole === 'MODERATOR';
+const localAttachments = ref([...(props.card.attachments || [])]);
+
+const canUpload = computed(() =>
+  props.userRole === 'ADMIN' || props.userRole === 'MODERATOR'
+);
 
 function formatDate(dateStr) {
   if (!dateStr) return '';
@@ -108,11 +105,18 @@ async function handleUpload(event) {
   const formData = new FormData();
   formData.append('file', file);
   const token = localStorage.getItem('token');
-  // TODO: Upload via REST API wenn Backend fertig
-  await fetch(`${BASE_URL}/index-cards/${props.card.id}/attachments`, {
+
+  const res = await fetch(`${BASE_URL}/index-cards/${props.card.id}/attachments`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: formData,
   });
+
+  if (res.ok) {
+    const newAttachment = await res.json();
+    localAttachments.value.push(newAttachment);
+    event.target.value = '';
+    emit('attachmentUploaded', props.card.id);
+  }
 }
 </script>

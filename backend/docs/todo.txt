@@ -2,3 +2,6 @@
 -TODO für Reflexion: JWT wird beim Google OAuth Callback als Query-Parameter ?token=... in der Redirect-URL ans Frontend übergeben. Das ist praktisch und weit verbreitet, hat aber Sicherheitsbedenken (Browser-History, Server-Logs, Referrer-Header). Sicherere Alternativen wären HttpOnly Cookie oder ein kurzlebiger Einmal-Code statt dem JWT direkt in der URL.
 - Status nach Admin gegangen wird nicht korrekt an Member weitergegeben
 - Profilbilder für Gruppen und User
+- umgestaltung run-rangliste: 1. anzahl richtig beantworteter fragen 2. fehlerquote 3. zeit
+- nach handdeck leergespielt (5 Fragen richtig) kriegt man eine heilung, danach 5 karten in neuer Runde ziehen ->skillreward
+- nach normaler runde nur 1 karte ziehen (max 5 Handkarten)
