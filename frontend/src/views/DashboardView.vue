@@ -35,7 +35,7 @@
             :studyGroupId="selectedGroup.id"
             :cards="indexCards"
             :userRole="currentMemberRole"
-            @created="refetchCards"
+            @cardCreated="refetchCards()"
           />
           <RankingView v-else-if="activeView === 'bestenliste'" :studyGroupId="selectedGroup.id" />
           <RunHistoryView v-else-if="activeView === 'historie'" :studyGroupId="selectedGroup.id" />
@@ -45,7 +45,7 @@
       </div>
     </div>
 
-    <ChatPanel :visible="chatOpen" />
+    <ChatPanel :visible="chatOpen" :chatId="selectedGroup?.chatId" :username="currentUser?.name" />
 
     <CreateStudyGroupModal
       v-if="showCreateGroup"
@@ -55,18 +55,18 @@
 
     <JoinStudyGroupModal
       v-if="showJoinGroup"
-      :joinedGroupIds="studyGroups.map(g => g.id)"
+      :joinedGroupIds="studyGroups.map((g) => g.id)"
       @close="showJoinGroup = false"
       @joined="onGroupJoined"
     />
-
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuery, useMutation } from '@vue/apollo-composable'
+import { useSubscription } from '@vue/apollo-composable'
 import { gql } from '@apollo/client/core'
 import GroupSwitcher from '../components/layout/GroupSwitcher.vue'
 import DashboardHeader from '../components/layout/DashboardHeader.vue'
@@ -94,18 +94,17 @@ const currentUser = ref(null)
 const showJoinGroup = ref(false)
 
 onMounted(() => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token')
   if (!token) {
-    router.push('/login');
-    return;
+    router.push('/login')
+    return
   }
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    currentUser.value = { id: payload.userId, name: payload.name, email: payload.email };
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    currentUser.value = { id: payload.userId, name: payload.name, email: payload.email }
   } catch {
-    router.push('/login');
+    router.push('/login')
   }
-
 })
 
 const GET_STUDY_GROUP = gql`
@@ -174,6 +173,52 @@ const LEAVE_STUDY_GROUP = gql`
   }
 `
 
+const ON_INDEX_CARD_CREATED = gql`
+  subscription OnIndexCardCreated($studyGroupId: ID!) {
+    onIndexCardCreated(studyGroupId: $studyGroupId) {
+      id
+      studyGroupId
+      question
+      answer
+      tags
+      createdAt
+      creator {
+        id
+        name
+      }
+      attachments {
+        id
+        filename
+      }
+      groupStats {
+        studyGroupId
+        totalAttempts
+        correctAnswers
+      }
+      userStats {
+        userId
+        totalAttempts
+        correctAnswers
+        lastSeenAt
+      }
+    }
+  }
+`
+
+const { result: newCardResult } = useSubscription(
+  ON_INDEX_CARD_CREATED,
+  () => ({ studyGroupId: selectedGroup.value?.id }),
+  () => ({ enabled: !!selectedGroup.value?.id }),
+)
+
+watch(newCardResult, (val) => {
+  const newCard = val?.onIndexCardCreated
+  if (newCard && !indexCards.value.find((c) => c.id === newCard.id)) {
+    // Apollo Cache wird automatisch aktualisiert durch refetch
+    refetchCards()
+  }
+})
+
 const currentMemberRole = computed(() => {
   if (!selectedGroup.value) return null
   const me = members.value.find((m) => m.user?.id === currentUser.value?.id)
@@ -201,7 +246,7 @@ const groupIdToLoad = ref(null)
 const { result: groupResult } = useQuery(
   GET_STUDY_GROUP,
   () => ({ id: groupIdToLoad.value }),
-  () => ({ enabled: !!groupIdToLoad.value })
+  () => ({ enabled: !!groupIdToLoad.value }),
 )
 
 watch(groupResult, (val) => {
@@ -218,7 +263,7 @@ async function leaveGroup() {
   if (!selectedGroup.value) return
   try {
     await leaveStudyGroupMutation({ studyGroupId: selectedGroup.value.id })
-    studyGroups.value = studyGroups.value.filter(g => g.id !== selectedGroup.value.id)
+    studyGroups.value = studyGroups.value.filter((g) => g.id !== selectedGroup.value.id)
     selectedGroup.value = null
     members.value = []
     userMenuOpen.value = false
@@ -228,26 +273,39 @@ async function leaveGroup() {
 }
 
 function onGroupCreated(group) {
-  studyGroups.value = [...studyGroups.value, group];
-  selectedGroup.value = group;
-  groupIdToLoad.value = group.id;
-  activeView.value = 'karteikarten';
+  studyGroups.value = [...studyGroups.value, group]
+  selectedGroup.value = group
+  groupIdToLoad.value = group.id
+  activeView.value = 'karteikarten'
 }
 
 function onGroupJoined(group) {
-  if (!studyGroups.value.find(g => g.id === group.id)) {
-    studyGroups.value = [...studyGroups.value, group];
+  if (!studyGroups.value.find((g) => g.id === group.id)) {
+    studyGroups.value = [...studyGroups.value, group]
   }
-  selectedGroup.value = group;
-  groupIdToLoad.value = group.id;
-  showJoinGroup.value = false;
-  activeView.value = 'karteikarten';
+  selectedGroup.value = group
+  groupIdToLoad.value = group.id
+  showJoinGroup.value = false
+  activeView.value = 'karteikarten'
 }
 
 const { result: myGroupsResult } = useQuery(GET_MY_STUDY_GROUPS)
 
 watch(myGroupsResult, (val) => {
   studyGroups.value = [...(val?.getMyStudyGroups ?? [])]
+})
+
+onMounted(() => {
+  // ...bestehender Code...
+  document.addEventListener('chat-close', () => {
+    chatOpen.value = false
+  })
+})
+
+onUnmounted(() => {
+  document.removeEventListener('chat-close', () => {
+    chatOpen.value = false
+  })
 })
 
 function startRun() {

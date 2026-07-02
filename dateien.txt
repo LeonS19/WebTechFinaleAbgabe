@@ -1,0 +1,126 @@
+.
+├── backend
+│   ├── docs
+│   │   ├── PROJEKT.md
+│   │   ├── backend_structure.txt
+│   │   ├── docker-compose.yml
+│   │   ├── env.example
+│   │   ├── openapi.yaml
+│   │   ├── schema
+│   │   │   └── schema.sql
+│   │   └── todo.txt
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── schema
+│   │   ├── mongodb_schema.js
+│   │   ├── schema.graphql
+│   │   └── schema.sql
+│   ├── src
+│   │   ├── api
+│   │   │   └── rest
+│   │   │       ├── controllers
+│   │   │       │   ├── auth.controller.js
+│   │   │       │   └── file.controller.js
+│   │   │       ├── middleware
+│   │   │       │   ├── auth.middleware.js
+│   │   │       │   ├── role.middleware.js
+│   │   │       │   └── upload.middleware.js
+│   │   │       └── routes
+│   │   │           ├── auth.routes.js
+│   │   │           └── file.routes.js
+│   │   ├── app.js
+│   │   ├── config
+│   │   │   ├── db.mongo.js
+│   │   │   ├── db.postgres.js
+│   │   │   └── env.js
+│   │   ├── graphql
+│   │   │   ├── context.js
+│   │   │   └── resolvers
+│   │   │       ├── chat.resolver.js
+│   │   │       ├── index.js
+│   │   │       ├── indexCard.resolver.js
+│   │   │       ├── ranking.resolver.js
+│   │   │       ├── run.resolver.js
+│   │   │       └── studyGroup.resolver.js
+│   │   ├── index.js
+│   │   ├── models
+│   │   │   ├── mongo
+│   │   │   │   ├── indexCard.model.js
+│   │   │   │   └── message.model.js
+│   │   │   └── sql
+│   │   │       ├── enemy.model.js
+│   │   │       ├── field.model.js
+│   │   │       ├── map.model.js
+│   │   │       ├── membership.model.js
+│   │   │       ├── oauth.model.js
+│   │   │       ├── passkey.model.js
+│   │   │       ├── run.model.js
+│   │   │       ├── studyGroup.model.js
+│   │   │       ├── user.model.js
+│   │   │       └── webauthnChallenge.model.js
+│   │   ├── realtime
+│   │   │   ├── handlers
+│   │   │   │   └── chat.handler.js
+│   │   │   └── websocket.js
+│   │   └── services
+│   │       ├── auth
+│   │       │   ├── oauth.service.js
+│   │       │   ├── passkey.service.js
+│   │       │   └── token.service.js
+│   │       ├── chat.service.js
+│   │       ├── combat.service.js
+│   │       ├── file.service.js
+│   │       ├── indexCard.service.js
+│   │       ├── permission.service.js
+│   │       ├── ranking.service.js
+│   │       ├── run.service.js
+│   │       ├── statistics.service.js
+│   │       └── studyGroup.service.js
+│   └── uploads
+└── frontend
+    ├── eslint.config.js
+    ├── index.html
+    ├── jsconfig.json
+    ├── package-lock.json
+    ├── package.json
+    ├── public
+    │   └── favicon.ico
+    ├── src
+    │   ├── App.vue
+    │   ├── assets
+    │   │   ├── base.css
+    │   │   ├── dashboard.css
+    │   │   ├── logo.svg
+    │   │   └── main.css
+    │   ├── components
+    │   │   ├── content
+    │   │   │   ├── CreateIndexCardModal.vue
+    │   │   │   ├── IndexCardDetailModal.vue
+    │   │   │   ├── IndexCardItem.vue
+    │   │   │   ├── IndexCardsView.vue
+    │   │   │   ├── RankingView.vue
+    │   │   │   └── RunHistoryView.vue
+    │   │   ├── layout
+    │   │   │   ├── ChatPanel.vue
+    │   │   │   ├── ContentNav.vue
+    │   │   │   ├── CreateStudyGroupModal.vue
+    │   │   │   ├── DashboardHeader.vue
+    │   │   │   ├── GroupSwitcher.vue
+    │   │   │   ├── JoinStudyGroupModal.vue
+    │   │   │   └── MembersSidebar.vue
+    │   │   └── members
+    │   │       └── MembersList.vue
+    │   ├── main.js
+    │   ├── router
+    │   │   └── index.js
+    │   ├── views
+    │   │   ├── AuthCallbackView.vue
+    │   │   ├── DashboardView.vue
+    │   │   ├── LoginView.vue
+    │   │   └── RegisterView.vue
+    │   └── web-components
+    │       ├── IndexCardElement.js
+    │       └── index.js
+    └── vite.config.js
+
+34 directories, 90 files

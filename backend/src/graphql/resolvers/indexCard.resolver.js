@@ -1,5 +1,7 @@
 import * as IndexCardService from "../../services/indexCard.service.js";
 import * as UserModel from "../../models/sql/user.model.js";
+import { pubsub } from "../pubsub.js";
+import { withFilter } from 'graphql-subscriptions';
 
 function mapCard(card) {
   if (!card) return null;
@@ -34,6 +36,8 @@ function mapCard(card) {
     updatedAt: obj.updated_at?.toString(),
   };
 }
+
+const INDEX_CARD_CREATED = "INDEX_CARD_CREATED";
 
 export const indexCardResolvers = {
   Query: {
@@ -74,7 +78,16 @@ export const indexCardResolvers = {
         },
         context.user.id,
       );
-      return mapCard(card);
+
+      const mapped = mapCard(card); // ← erst mappen
+
+      pubsub.publish(INDEX_CARD_CREATED, {
+        // ← dann publishen
+        onIndexCardCreated: mapped,
+        studyGroupId,
+      });
+
+      return mapped; // ← dann returnen
     },
     updateIndexCard: async (_, { id, question, answer, tags }, context) => {
       if (!context.user) throw new Error("Nicht authentifiziert");
@@ -97,5 +110,14 @@ export const indexCardResolvers = {
   },
   IndexCard: {
     creator: (parent) => UserModel.findById(parent.creatorId),
+  },
+  Subscription: {
+    onIndexCardCreated: {
+      subscribe: withFilter(
+        () => pubsub.asyncIterableIterator([INDEX_CARD_CREATED]),
+        (payload, variables) => payload.studyGroupId === variables.studyGroupId,
+      ),
+      resolve: (payload) => payload.onIndexCardCreated,
+    },
   },
 };

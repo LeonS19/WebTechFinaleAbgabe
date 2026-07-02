@@ -144,7 +144,6 @@ app.use(
   '/graphql',
   expressMiddleware(apolloServer, {
     context: async ({ req }) => {
-      console.log('[graphql] authorization header:', req.headers.authorization);
       const token = req.headers.authorization?.replace('Bearer ', '');
       return createContext({ token });
     },

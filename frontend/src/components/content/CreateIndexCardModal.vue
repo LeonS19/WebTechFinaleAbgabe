@@ -119,14 +119,33 @@ async function submit() {
   if (!form.value.question.trim() || !form.value.answer.trim()) return;
   loading.value = true;
   error.value = '';
+
   try {
+    // 1. Karteikarte erstellen
     const result = await createIndexCard({
       studyGroupId: props.studyGroupId,
       question: form.value.question.trim(),
       answer: form.value.answer.trim(),
       tags: form.value.tags,
     });
-    emit('created', result.data.createIndexCard);
+
+    const card = result.data.createIndexCard;
+
+    // 2. Dateien hochladen falls vorhanden
+    if (selectedFiles.value.length > 0) {
+      const token = localStorage.getItem('token');
+      await Promise.all(selectedFiles.value.map(file => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return fetch(`http://localhost:3000/api/v1/index-cards/${card.id}/attachments`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+      }));
+    }
+
+    emit('created', card);
     emit('close');
   } catch (err) {
     error.value = err.message || 'Fehler beim Erstellen';
@@ -134,4 +153,5 @@ async function submit() {
     loading.value = false;
   }
 }
+
 </script>

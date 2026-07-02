@@ -1,10 +1,12 @@
 import { studyGroupResolvers } from "./studyGroup.resolver.js";
 import { indexCardResolvers } from './indexCard.resolver.js';
+import { chatResolvers } from './chat.resolver.js';
 
 export const resolvers = {
   Query: {
     ...studyGroupResolvers.Query,
     ...indexCardResolvers.Query,
+    ...chatResolvers.Query,
     getRanking: () => [],
     getRuns: () => [],
     getMap: () => null,
@@ -26,5 +28,10 @@ export const resolvers = {
   IndexCard: {
     ...indexCardResolvers.IndexCard,
   },
-  Subscription: {},
+  Message: {
+    ...chatResolvers.Message,
+  },
+  Subscription: {
+    ...indexCardResolvers.Subscription,
+  },
 };

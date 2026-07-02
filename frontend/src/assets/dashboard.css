@@ -242,6 +242,8 @@
   gap: 1rem;
   background: var(--color-background-soft);
   flex-shrink: 0;
+  height: 100%;
+  overflow-y: auto;
 }
 
 .member {
@@ -264,7 +266,10 @@
   flex-shrink: 0;
 }
 
-.sidebar-bottom { margin-top: auto; }
+.sidebar-bottom {
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
 
 /* ============================================
    CHAT
@@ -799,4 +804,24 @@
   color: var(--color-error);
   font-size: 0.85rem;
   margin-top: 0.5rem;
+}
+
+/* ============================================
+   CHAT PANEL OVERLAY
+   ============================================ */
+
+.chat-panel-overlay {
+  position: fixed;
+  right: 0;
+  top: 0;
+  width: 20rem;
+  height: 100vh;
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -0.25rem 0 1rem rgba(0,0,0,0.1);
+}
+
+.chat-panel-overlay chat-window {
+  flex: 1;
 }
