@@ -1,9 +1,9 @@
 import * as IndexCardService from "../../services/indexCard.service.js";
 import * as UserModel from "../../models/sql/user.model.js";
 import { pubsub } from "../pubsub.js";
-import { withFilter } from 'graphql-subscriptions';
+import { withFilter } from "graphql-subscriptions";
 
-function mapCard(card) {
+export function mapCard(card) {
   if (!card) return null;
   const obj = card.toObject ? card.toObject() : card;
   return {
@@ -38,6 +38,7 @@ function mapCard(card) {
 }
 
 const INDEX_CARD_CREATED = "INDEX_CARD_CREATED";
+const INDEX_CARD_UPDATED = "INDEX_CARD_UPDATED";
 
 export const indexCardResolvers = {
   Query: {
@@ -118,6 +119,13 @@ export const indexCardResolvers = {
         (payload, variables) => payload.studyGroupId === variables.studyGroupId,
       ),
       resolve: (payload) => payload.onIndexCardCreated,
+    },
+    onIndexCardUpdated: {
+      subscribe: withFilter(
+        () => pubsub.asyncIterableIterator([INDEX_CARD_UPDATED]),
+        (payload, variables) => payload.studyGroupId === variables.studyGroupId,
+      ),
+      resolve: (payload) => payload.onIndexCardUpdated,
     },
   },
 };
