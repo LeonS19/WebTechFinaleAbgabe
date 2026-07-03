@@ -22,6 +22,7 @@
 
       <div class="content-wrapper">
         <ContentNav
+          v-if="activeView !== 'run'"
           :activeView="activeView"
           :visible="!!selectedGroup"
           @change="activeView = $event"
@@ -30,6 +31,7 @@
 
         <main class="content-area">
           <p v-if="!selectedGroup" class="placeholder">Wähle eine Lerngruppe aus</p>
+          <RunView v-else-if="activeView === 'run'" />
           <IndexCardsView
             v-else-if="activeView === 'karteikarten'"
             :studyGroupId="selectedGroup.id"
@@ -78,6 +80,7 @@ import RankingView from '../components/content/RankingView.vue'
 import RunHistoryView from '../components/content/RunHistoryView.vue'
 import CreateStudyGroupModal from '../components/layout/CreateStudyGroupModal.vue'
 import JoinStudyGroupModal from '../components/layout/JoinStudyGroupModal.vue'
+import RunView from '../components/content/RunView.vue'
 import '../assets/dashboard.css'
 
 const router = useRouter()
@@ -214,7 +217,10 @@ const ON_INDEX_CARD_UPDATED = gql`
       answer
       tags
       createdAt
-      creator { id name }
+      creator {
+        id
+        name
+      }
       attachments {
         id
         filename
@@ -222,8 +228,17 @@ const ON_INDEX_CARD_UPDATED = gql`
         sizeInBytes
         uploadedAt
       }
-      groupStats { studyGroupId totalAttempts correctAnswers }
-      userStats { userId totalAttempts correctAnswers lastSeenAt }
+      groupStats {
+        studyGroupId
+        totalAttempts
+        correctAnswers
+      }
+      userStats {
+        userId
+        totalAttempts
+        correctAnswers
+        lastSeenAt
+      }
     }
   }
 `
@@ -258,6 +273,13 @@ const { result: cardsResult, refetch: refetchCards } = useQuery(
 
 const indexCards = computed(() => cardsResult.value?.getIndexCards ?? [])
 
+const runActive = ref(false)
+
+function startRun() {
+  runActive.value = true
+  activeView.value = 'run'
+}
+
 function logout() {
   localStorage.removeItem('token')
   router.push('/login')
@@ -279,7 +301,7 @@ watch(groupResult, (val) => {
 const { result: updatedCardResult } = useSubscription(
   ON_INDEX_CARD_UPDATED,
   () => ({ studyGroupId: selectedGroup.value?.id }),
-  () => ({ enabled: !!selectedGroup.value?.id })
+  () => ({ enabled: !!selectedGroup.value?.id }),
 )
 
 watch(updatedCardResult, () => {
@@ -340,8 +362,4 @@ onUnmounted(() => {
     chatOpen.value = false
   })
 })
-
-function startRun() {
-  // TODO: startRun Mutation aufrufen
-}
 </script>
