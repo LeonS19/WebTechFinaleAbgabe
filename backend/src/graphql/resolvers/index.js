@@ -1,15 +1,17 @@
 import { studyGroupResolvers } from "./studyGroup.resolver.js";
 import { indexCardResolvers } from './indexCard.resolver.js';
 import { chatResolvers } from './chat.resolver.js';
+import { runResolvers } from './run.resolver.js';
 
 export const resolvers = {
   Query: {
     ...studyGroupResolvers.Query,
     ...indexCardResolvers.Query,
     ...chatResolvers.Query,
+    ...runResolvers.Query,
     getRanking: () => [],
     getRuns: () => [],
-    getMap: () => null,
+  
   },
   Mutation: {
     ...studyGroupResolvers.Mutation,

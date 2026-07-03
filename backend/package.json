@@ -7,7 +7,8 @@
     "start": "node src/app.js",
     "test": "jest todo/test.js",
     "test:ws": "jest scripts/ws.test.js",
-    "test:pwa": "node scripts/pwa-check.test.js"
+    "test:pwa": "node scripts/pwa-check.test.js",
+    "seed": "node --env-file=.env src/scripts/seedMap.js"
   },
   "repository": {
     "type": "git",
