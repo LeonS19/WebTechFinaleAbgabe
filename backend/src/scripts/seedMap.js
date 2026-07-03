@@ -33,7 +33,7 @@ for (const [x, positions] of Object.entries(columns)) {
 
 // Spalten-basierter Damage — je weiter rechts, desto stärker
 // Spalte 0: 30hp / 5dmg, Spalte 15: 480hp / 80dmg
-function enemy(position, name = 'Skeleton', type = 'NORMAL') {
+function enemy(position, name = 'Schleim', type = 'NORMAL') {
   const x = coords[position].x;
   return [{
     name,
