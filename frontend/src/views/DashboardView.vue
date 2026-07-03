@@ -205,6 +205,29 @@ const ON_INDEX_CARD_CREATED = gql`
   }
 `
 
+const ON_INDEX_CARD_UPDATED = gql`
+  subscription OnIndexCardUpdated($studyGroupId: ID!) {
+    onIndexCardUpdated(studyGroupId: $studyGroupId) {
+      id
+      studyGroupId
+      question
+      answer
+      tags
+      createdAt
+      creator { id name }
+      attachments {
+        id
+        filename
+        mimeType
+        sizeInBytes
+        uploadedAt
+      }
+      groupStats { studyGroupId totalAttempts correctAnswers }
+      userStats { userId totalAttempts correctAnswers lastSeenAt }
+    }
+  }
+`
+
 const { result: newCardResult } = useSubscription(
   ON_INDEX_CARD_CREATED,
   () => ({ studyGroupId: selectedGroup.value?.id }),
@@ -251,6 +274,16 @@ const { result: groupResult } = useQuery(
 
 watch(groupResult, (val) => {
   members.value = val?.getStudyGroup?.members ?? []
+})
+
+const { result: updatedCardResult } = useSubscription(
+  ON_INDEX_CARD_UPDATED,
+  () => ({ studyGroupId: selectedGroup.value?.id }),
+  () => ({ enabled: !!selectedGroup.value?.id })
+)
+
+watch(updatedCardResult, () => {
+  refetchCards()
 })
 
 function selectGroup(group) {
