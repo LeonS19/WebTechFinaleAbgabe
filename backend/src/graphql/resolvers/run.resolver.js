@@ -1,4 +1,9 @@
 import * as MapService from '../../services/map.service.js';
+import * as RunService from '../../services/run.service.js';
+import * as CombatService from '../../services/combat.service.js';
+import * as IndexCardService from '../../services/indexCard.service.js';
+import * as RunDeckService from '../../services/runDeck.service.js';
+
 
 function mapField(field) {
   return {
@@ -35,5 +40,64 @@ export const runResolvers = {
       };
     },
   },
-  Mutation: {},
+  Mutation: {
+    startRun: async (_, { studyGroupId, selectedStartFieldPosition }, context) => {
+      if (!context.user) {
+        throw new Error('Nicht authentifiziert');
+      }
+      return await RunService.startRun(context.user.id, studyGroupId, selectedStartFieldPosition);
+    },
+
+    endRun: async (_, { runId, successful }, context) => {
+      if (!context.user) {
+        throw new Error('Nicht authentifiziert');
+      }
+      return await RunService.endRun(runId, context.user.id, successful);
+    },
+    moveToField: async (_, { runId, targetPosition }, context) => {
+        if (!context.user) {
+          throw new Error('Nicht authentifiziert');
+        }
+        return await RunService.moveToField(runId, context.user.id, targetPosition);
+      },
+
+    answerCard: async (_, { runId, cardId, userAnswer }, context) => {
+      if (!context.user) {
+        throw new Error('Nicht authentifiziert');
+      }
+      return await CombatService.answerCard(runId, context.user.id, cardId, userAnswer);
+    },
+  },
+  Combat: {
+    id: (combat) => combat._id.toString(),
+    isPlayerTurn: (combat) => combat.is_player_turn,
+    status: (combat) => combat.status,
+    hand: async (combat) => {
+      return await IndexCardService.getIndexCardsByIds(combat.hand);
+    },
+    enemy: (combat) => ({
+      name: combat.enemy.name,
+      type: combat.enemy.type,
+      maxHealth: combat.enemy.max_health,
+      currentHealth: combat.enemy.current_health,
+      baseDamage: combat.enemy.base_damage,
+    }),
+  },
+  Run: {
+    player: (run) => ({
+      level: run.level,
+      maxHealth: run.maxHealth,
+      currentHealth: run.currentHealth,
+    }),
+    deck: async (run) => {
+      const runDeck = await RunDeckService.findRunDeck(run.id);
+      if (!runDeck) return [];
+      return await IndexCardService.getIndexCardsByIds(runDeck.deck);
+    },
+    discardPile: async (run) => {
+      const runDeck = await RunDeckService.findRunDeck(run.id);
+      if (!runDeck) return [];
+      return await IndexCardService.getIndexCardsByIds(runDeck.discard_pile);
+    },
+  },
 };

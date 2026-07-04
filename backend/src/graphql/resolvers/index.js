@@ -11,15 +11,12 @@ export const resolvers = {
     ...runResolvers.Query,
     getRanking: () => [],
     getRuns: () => [],
-  
   },
   Mutation: {
     ...studyGroupResolvers.Mutation,
     ...indexCardResolvers.Mutation,
-    startRun: () => null,
-    endRun: () => null,
-    answerCard: () => null,
-    sendMessage: () => null,
+    ...runResolvers.Mutation,
+    ...chatResolvers.Mutation,
   },
   StudyGroup: {
     ...studyGroupResolvers.StudyGroup,
@@ -32,6 +29,12 @@ export const resolvers = {
   },
   Message: {
     ...chatResolvers.Message,
+  },
+  Combat: {
+    ...runResolvers.Combat,
+  },
+  Run: {
+  ...runResolvers.Run,
   },
   Subscription: {
     ...indexCardResolvers.Subscription,

@@ -83,6 +83,10 @@ CREATE TABLE run (
     successful          BOOLEAN,                    -- NULL while run is active
     start_time          TIMESTAMP DEFAULT NOW(),
     duration            INTEGER,                    -- in seconds, NULL while active
-    hit_rate            FLOAT,                      -- % of correctly answered cards
-    current_position    INTEGER NOT NULL DEFAULT 0
+    correct_answers     INTEGER DEFAULT 0,                      -- absolute count, used for ranking
+    total_answers       INTEGER DEFAULT 0,                      -- absolute count, hit_rate = correct/total
+    current_position    INTEGER NOT NULL DEFAULT 0,
+    level               INTEGER NOT NULL DEFAULT 1,
+    max_health           INTEGER NOT NULL DEFAULT 100,
+    current_health       INTEGER NOT NULL DEFAULT 100
 );
