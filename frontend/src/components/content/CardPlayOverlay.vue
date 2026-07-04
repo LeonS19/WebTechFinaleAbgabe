@@ -7,10 +7,10 @@
       <!-- Frage -->
       <h2 class="overlay-question">{{ card.question }}</h2>
 
-      <!-- Feedback -->
-      <div v-if="feedback === 'correct'" class="feedback feedback-correct">✓ Korrekt!</div>
-      <div v-else-if="feedback === 'wrong'" class="feedback feedback-wrong">
-        ✗ Falsch — Richtige Antwort: <strong>{{ card.answer }}</strong>
+      <!-- Feedback (kommt vom Server über CombatView, sobald answerCard geantwortet hat) -->
+      <div v-if="feedback?.correct === true" class="feedback feedback-correct">✓ Korrekt!</div>
+      <div v-else-if="feedback?.correct === false" class="feedback feedback-wrong">
+        ✗ Falsch — Richtige Antwort: <strong>{{ feedback.correctAnswer }}</strong>
       </div>
 
       <!-- Eingabe -->
@@ -20,10 +20,13 @@
           type="text"
           placeholder="Deine Antwort..."
           :class="{ 'input-shake': shake }"
+          :disabled="submitting"
           @keydown.enter="confirm"
           ref="inputRef"
         />
-        <button class="primary-btn" @click="confirm">Bestätigen</button>
+        <button class="primary-btn" :disabled="submitting" @click="confirm">
+          {{ submitting ? 'Wird geprüft...' : 'Bestätigen' }}
+        </button>
       </div>
     </div>
   </div>
@@ -34,13 +37,16 @@ import { ref, nextTick, onMounted } from 'vue'
 
 const props = defineProps({
   card: Object,
+  // { correct: Boolean, correctAnswer: String } | null — wird von CombatView gesetzt,
+  // sobald das Ergebnis der answerCard-Mutation da ist.
+  feedback: { type: Object, default: null },
 })
 
 const emit = defineEmits(['confirm', 'close'])
 
 const userAnswer = ref('')
-const feedback = ref(null)
 const shake = ref(false)
+const submitting = ref(false)
 const inputRef = ref(null)
 
 onMounted(() => {
@@ -48,25 +54,21 @@ onMounted(() => {
 })
 
 function confirm() {
-  const correct = userAnswer.value.trim().toLowerCase() === props.card.answer.trim().toLowerCase()
+  if (submitting.value) return
 
-  if (correct) {
-    feedback.value = 'correct'
-    setTimeout(() => {
-      emit('confirm', userAnswer.value)
-    }, 1000)
-  } else {
+  if (!userAnswer.value.trim()) {
     shake.value = true
     setTimeout(() => {
       shake.value = false
     }, 500)
-    setTimeout(() => {
-      feedback.value = 'wrong'
-      setTimeout(() => {
-        emit('confirm', userAnswer.value)
-      }, 2000)
-    }, 500)
+    return
   }
+
+  // Ob die Antwort richtig ist, weiß nur der Server (answerCard-Mutation).
+  // Wir geben die rohe Antwort nach oben weiter und warten hier auf das
+  // `feedback`-Prop, das CombatView setzt, sobald die Antwort da ist.
+  submitting.value = true
+  emit('confirm', userAnswer.value)
 }
 </script>
 
@@ -179,5 +181,10 @@ function confirm() {
 .feedback-wrong {
   background: #fee2e2;
   color: #991b1b;
+}
+
+.primary-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

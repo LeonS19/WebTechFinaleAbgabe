@@ -30,7 +30,7 @@
 
         <main class="content-area">
           <p v-if="!selectedGroup" class="placeholder">Wähle eine Lerngruppe aus</p>
-          <RunView v-else-if="activeView === 'run'" />
+          <RunView v-else-if="activeView === 'run'" :studyGroupId="selectedGroup.id" />
           <IndexCardsView
             v-else-if="activeView === 'karteikarten'"
             :studyGroupId="selectedGroup.id"

@@ -10,7 +10,7 @@
       <img
         v-for="n in 5"
         :key="n"
-        :src="n <= difficulty ? starFilled : starEmpty"
+        :src="n <= stars ? starFilled : starEmpty"
         class="star-icon"
       />
     </div>
@@ -19,7 +19,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import cardBg from '../../assets/gui/index_card.png';
 import starFilled from '../../assets/gui/star_filled.png';
 import starEmpty from '../../assets/gui/star_empty.png';
@@ -28,16 +28,40 @@ const props = defineProps({
   card: Object,
   index: Number,
   total: Number,
+  // true, wenn die Karte gerade neu nachgezogen wurde -> spielt die Fly-in-Animation
+  isNew: { type: Boolean, default: false },
+  // optionale Verzögerung (ms), falls mehrere Karten gestaffelt nachgezogen werden
+  enterDelay: { type: Number, default: 0 },
 });
 
 defineEmits(['play']);
 
 const hovered = ref(false);
+// Solange `entering` true ist, wird die Karte unterhalb des Stapels und unsichtbar
+// gerendert (ohne Transition). Direkt danach (nächster Frame) wird sie auf false
+// gesetzt, wodurch die normale Transition sie an ihre Fächer-Position hochgleiten lässt.
+const entering = ref(props.isNew);
+
+onMounted(async () => {
+  if (!props.isNew) return;
+  await nextTick();
+  requestAnimationFrame(() => {
+    entering.value = false;
+  });
+});
+
+// Spiegelt die Backend-Formel aus deckBuilder/combat: kartenSchaden = 1 + (1 - difficulty) * 4
+// difficulty = correctAnswers / totalAttempts (0, falls noch nie beantwortet)
+const groupStat = computed(() => props.card.groupStats?.[0] ?? null);
 
 const difficulty = computed(() => {
-  const stats = props.card.groupStats?.[0];
-  if (!stats || stats.totalAttempts === 0) return 0;
-  return Math.round((stats.correctAnswers / stats.totalAttempts) * 5);
+  if (!groupStat.value || !groupStat.value.totalAttempts) return 0;
+  return groupStat.value.correctAnswers / groupStat.value.totalAttempts;
+});
+
+const stars = computed(() => {
+  const rawDamage = 1 + (1 - difficulty.value) * 4;
+  return Math.min(5, Math.max(1, Math.round(rawDamage)));
 });
 
 const cardStyle = computed(() => {
@@ -45,14 +69,31 @@ const cardStyle = computed(() => {
   const offset = props.index - mid;
   const rotate = offset * 7;
   const translateX = offset * 85;
+
+  if (entering.value) {
+    // Startzustand: weit unten, leicht verkleinert, unsichtbar, ohne Transition
+    return {
+      transform: `translateX(${translateX}px) translateY(400px) rotate(${rotate}deg) scale(0.8)`,
+      opacity: 0,
+      zIndex: props.index,
+      transition: 'none',
+      position: 'absolute',
+      backgroundImage: `url(${cardBg})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+    };
+  }
+
   const translateY = hovered.value ? -3 * 16 : Math.abs(offset) * 15;
   const scale = hovered.value ? 1.1 : 1;
   const zIndex = hovered.value ? 10 : props.index;
 
   return {
     transform: `translateX(${translateX}px) translateY(${translateY}px) rotate(${rotate}deg) scale(${scale})`,
+    opacity: 1,
     zIndex,
-    transition: 'transform 0.2s ease',
+    transition: `transform 0.4s ease, opacity 0.4s ease`,
+    transitionDelay: `${props.enterDelay}ms`,
     position: 'absolute',
     backgroundImage: `url(${cardBg})`,
     backgroundSize: 'cover',

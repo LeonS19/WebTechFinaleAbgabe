@@ -52,6 +52,7 @@
           :card="card"
           :index="index"
           :total="hand.length"
+          :isNew="card._isNew"
           @play="onPlayCard"
         />
       </div>
@@ -60,6 +61,7 @@
     <CardPlayOverlay
       v-if="activeCard"
       :card="activeCard"
+      :feedback="answerFeedback"
       @confirm="onConfirm"
       @close="activeCard = null"
     />
@@ -97,6 +99,9 @@ const props = defineProps({
 
 const emit = defineEmits(['cardPlayed'])
 const activeCard = ref(null)
+// { correct: Boolean, correctAnswer: String } | null — an CardPlayOverlay durchgereicht.
+// Wird von RunView über resolveAnswer() gesetzt, sobald die answerCard-Mutation antwortet.
+const answerFeedback = ref(null)
 
 const playerHealthPercent = computed(() =>
   Math.max(0, Math.min(100, (props.playerHp / props.playerMaxHp) * 100)),
@@ -172,7 +177,7 @@ function playCombatAnimation(correct) {
   })
 }
 
-defineExpose({ playCombatAnimation })
+defineExpose({ playCombatAnimation, resolveAnswer })
 
 onBeforeUnmount(() => {
   clearTimeout(playerTimer)
@@ -182,11 +187,32 @@ onBeforeUnmount(() => {
 
 function onPlayCard(card) {
   activeCard.value = card
+  answerFeedback.value = null
 }
 
 function onConfirm(answer) {
+  // Overlay bleibt offen — RunView ruft nach der answerCard-Mutation resolveAnswer()
+  // auf, das zunächst das Feedback anzeigt und danach das Overlay selbst schließt.
   emit('cardPlayed', { card: activeCard.value, answer })
-  activeCard.value = null
+}
+
+/**
+ * Zeigt das Antwort-Feedback im Overlay an (richtig/falsch + korrekte Antwort),
+ * wartet kurz damit der Nutzer es lesen kann, und schließt dann das Overlay.
+ * Gibt ein Promise zurück, damit der Aufrufer (RunView) parallel dazu z.B. die
+ * Sprite-Animation laufen lassen und auf beides zusammen warten kann.
+ */
+function resolveAnswer({ correct, correctAnswer }) {
+  answerFeedback.value = { correct, correctAnswer }
+  const readDuration = correct ? 900 : 1800 // falsche Antwort braucht mehr Lesezeit
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      activeCard.value = null
+      answerFeedback.value = null
+      resolve()
+    }, readDuration)
+  })
 }
 </script>
 

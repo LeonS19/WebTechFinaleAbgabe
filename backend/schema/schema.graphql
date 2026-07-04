@@ -150,6 +150,7 @@ type Run {
     player:             Player!
     deck:               [IndexCard!]!
     discardPile:        [IndexCard!]!
+    activeCombat: Combat
 }
 
 type CombatEnemy {
@@ -177,6 +178,8 @@ type AnswerResult {
     correct:        Boolean!
     damageDealt:    Int!
     correctAnswer:  String!
+    combat:         Combat!
+    player:         Player!
 }
 
 # ============================================
@@ -231,6 +234,7 @@ type Query {
 
     # Runs - full run history of a user
     getRuns(userId: ID!): [Run!]!
+    getActiveRun(studyGroupId: ID!): Run
 
     # Map - hardcoded single map with all fields
     getMap: Map

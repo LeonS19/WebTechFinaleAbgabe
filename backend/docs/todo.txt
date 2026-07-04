@@ -23,3 +23,6 @@ dass ihr bewusst einen Scope-Cut gemacht habt, nicht aus Versehen.
 dynamische Neuberechnung bei jeder Antwort, keine Fixierung. Passt auch gut als Reflexions-Punkt später:
 "Kartenschaden wird dynamisch aus der aktuellen Gruppen-Statistik berechnet,
 wodurch sich die Balance im Verlauf eines Runs organisch mitentwickelt."
+
+- bei Run: hinzufügen, dass man sich die gelaufenen Felder merkt als darstellung wo man schon was nachdem man einen Run abgebrochen und wieder aufgenommen hat
+- Frage und Antwort einer Karteikarte lassen sich nicht ändern
