@@ -14,18 +14,25 @@ const indexCardSchema = new mongoose.Schema({
     uploaded_at: {type: Date, default: Date.now},
     uploaded_by: {type: String, required: true},
   }],
-  group_stats: [{
-    study_group_id: {type: String, required: true},
-    total_attempts: {type: Number, required: true},
-    correct_answers: {type: Number, required: true},
-  }],
-  user_stats: [{
-    user_id: {type: String, required: true},
-    total_attempts: {type: Number, required: true},
-    correct_answers: {type: Number, required: true},
-    last_seen_at: {type: Date, required: true}
-  }],
-},{
+  group_stats: {
+    type: [{
+      study_group_id: {type: String, required: true},
+      total_attempts: {type: Number, required: true},
+      correct_answers: {type: Number, required: true},
+    }],
+    default: [],
+  },
+
+  user_stats: {
+    type: [{
+      user_id: {type: String, required: true},
+      total_attempts: {type: Number, required: true},
+      correct_answers: {type: Number, required: true},
+      last_seen_at: {type: Date},
+    }],
+    default: [],
+  },
+  },{
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }   // timestamps: Mongoose setzt created_at und updated_at automatisch
 
 });

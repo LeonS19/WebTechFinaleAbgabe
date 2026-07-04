@@ -129,22 +129,54 @@ type Map {
 # RUN & COMBAT
 # ============================================
 
+type Player {
+    level:          Int!
+    maxHealth:      Int!
+    currentHealth:  Int!
+}
+
 type Run {
     id:                 ID!
     user:               User!
     studyGroup:         StudyGroup!
     map:                Map!
-    successful:         Boolean        # null while active
+    successful:         Boolean
     startTime:          String!
-    duration:           Int            # in seconds, null while active
-    hitRate:            Float          # null while active
+    duration:           Int
+    correctAnswers:     Int!
+    totalAnswers:       Int!
+    hitRate:            Float
     currentPosition:    Int!
+    player:             Player!
+    deck:               [IndexCard!]!
+    discardPile:        [IndexCard!]!
+}
+
+type CombatEnemy {
+    name:           String!
+    type:           EnemyType!
+    maxHealth:      Int!
+    currentHealth:  Int!
+    baseDamage:     Int!
+}
+
+type Combat {
+    id:                 ID!
+    enemy:              CombatEnemy!
+    hand:               [IndexCard!]!
+    isPlayerTurn:       Boolean!
+    status:             String!
+}
+
+type MoveResult {
+    run:    Run!
+    combat: Combat
 }
 
 type AnswerResult {
     correct:        Boolean!
-    damageDealt:    Int!               # damage dealt to enemy if correct
-    correctAnswer:  String!            # shown to user after answering
+    damageDealt:    Int!
+    correctAnswer:  String!
 }
 
 # ============================================
@@ -164,11 +196,12 @@ type Message {
 # ============================================
 
 type RankingEntry {
-    rank:       Int!
-    user:       User!
-    run:        Run!
-    hitRate:    Float!
-    duration:   Int!
+    rank:               Int!
+    user:               User!
+    run:                Run!
+    correctAnswers:     Int!           # primary sort criterion
+    hitRate:            Float!         # secondary sort criterion
+    duration:           Int!           # tertiary sort criterion
 }
 
 # ============================================
@@ -193,7 +226,7 @@ type Query {
     # Messages
     getMessages(chatId: ID!, limit: Int, before: ID): [Message!]!
 
-    # Ranking - only successful runs, sorted by hitRate DESC then duration ASC
+    # Ranking - only successful runs, sorted by correctAnswers DESC, then hitRate DESC, then duration ASC
     getRanking(studyGroupId: ID!): [RankingEntry!]!
 
     # Runs - full run history of a user
@@ -232,8 +265,9 @@ type Mutation {
     deleteIndexCard(id: ID!): Boolean!
 
     # Run
-    startRun(studyGroupId: ID!): Run!
-    endRun(runId: ID!): Run!
+    startRun(studyGroupId: ID!, selectedStartFieldPosition: Int!): Run!
+    endRun(runId: ID!, successful: Boolean!): Run!
+    moveToField(runId: ID!, targetPosition: Int!): MoveResult!
 
     # Combat - answer a card during a run
     # Backend compares userAnswer to card.answer (case-insensitive, trimmed)
