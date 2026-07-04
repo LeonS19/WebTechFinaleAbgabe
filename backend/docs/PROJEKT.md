@@ -33,12 +33,18 @@ Eine kollaborative Lernplattform mit RPG-Gameplay. Nutzer schreiben Karteikarten
 **SQL (PostgreSQL)** – strukturierte, relationale Daten mit festen Beziehungen:
 - `user`, `passkey`, `oauth_account`
 - `study_group`, `membership`
-- `map`, `field`, `enemy`
-- `run`
+- `run` (inkl. Spieler-Fortschritt: Level, HP, Position, Antwort-Statistik)
+
 **MongoDB** – flexible, dokumentenorientierte Daten:
 - `indexcards` – Karteikarten mit eingebetteten Tags, Dateianhängen und Stats
+- `maps` – die (hardcoded) Karte mit eingebetteten Feldern und Gegnern
+- `combats` – Zustand eines einzelnen, laufenden Kampfes
+- `run_decks` – Deck/Ablagestapel eines Runs (persistiert über mehrere Kämpfe hinweg)
 - `messages` – Chat-Nachrichten
-**Begründung:** Karteikarten haben variable Inhalte (Tags als Array, eingebettete Stats pro Gruppe und pro User, Dateianhänge) → MongoDB. Alles mit klaren Fremdschlüsselbeziehungen → SQL.
+
+**Begründung:** Karteikarten haben variable Inhalte (Tags als Array, eingebettete Stats pro Gruppe und pro User, Dateianhänge) → MongoDB. Die Map wurde bewusst nach MongoDB verschoben (ursprünglich als SQL-Tabellen `map`/`field`/`enemy` geplant): für zukünftige Random-Map-Generierung ist MongoDB flexibler, verschachtelte Strukturen (Felder mit eingebetteten Gegnern, Koordinaten, `nextFields`) sind dort natürlicher abzubilden, ohne mehrere SQL-Tabellen mit Fremdschlüsseln aufzublähen. `combats` und `run_decks` sind ebenfalls verschachtelte, kurzlebige Zustandsobjekte (Handkarten-Arrays, eingebettetes Gegner-Objekt) – passen ebenfalls besser zu MongoDBs Dokumentmodell als zu starren SQL-Tabellen.
+
+`run` selbst bleibt in SQL, weil es klare 1:1/1:n-Beziehungen zu `user` und `study_group` hat (Fremdschlüssel) und aus einfachen skalaren Werten besteht (kein verschachteltes Array/Objekt) – auch der laufende Spieler-Zustand (Level, HP, Position) gehört fachlich untrennbar zum Run-Datensatz und wird deshalb nicht in eine separate `Player`-Tabelle/Collection ausgelagert (siehe Abschnitt "Player-Modellierung").
  
 ### REST vs GraphQL
  
@@ -46,10 +52,12 @@ Eine kollaborative Lernplattform mit RPG-Gameplay. Nutzer schreiben Karteikarten
 - Auth (OAuth Redirect, Passkey Registration/Login)
 - Datei-Upload / Download (Multipart Form Data)
 - Health Check
+
 **GraphQL** für alles andere:
 - Alle CRUD Operationen
 - Flexible Abfragen (Filter, Suche)
 - Echtzeit via Subscriptions
+
 ### Authentifizierung
  
 - **Google OAuth** – Redirect Flow, JWT nach erfolgreichem Login
@@ -68,12 +76,16 @@ Eine kollaborative Lernplattform mit RPG-Gameplay. Nutzer schreiben Karteikarten
   - Challenges werden nach einmaligem Verbrauch gelöscht (Replay-Schutz)
 - Credentials werden in eigenen Tabellen gespeichert (`passkey`, `oauth_account`) – nicht direkt in `user`
 - Ein User kann mehrere Passkeys (verschiedene Geräte) und mehrere OAuth-Provider haben
+
 ### Rollen
  
 Rollen sind **kontextabhängig pro Lerngruppe** – nicht global am User. Gespeichert in der `membership` Zwischentabelle:
 - `ADMIN` – kann alles, auch Mitglieder entfernen
 - `MODERATOR` – kann Karteikarten bearbeiten/löschen
 - `MEMBER` – kann Karteikarten erstellen, lesen
+
+`answerCard`/`moveToField`/`endRun` prüfen bewusst **nicht** zusätzlich `checkPermission`, sondern nur, ob der aufrufende User der Owner des jeweiligen Runs ist (`run.userId === userId`) – das ist ausreichend, weil man nur Mitglied der Lerngruppe sein konnte, wenn man den Run überhaupt erst starten durfte (Permission-Check läuft einmalig bei `startRun`).
+
 ### Dynamischer Schwierigkeitsgrad
  
 Kein gespeichertes Attribut – wird immer berechnet:
@@ -82,27 +94,74 @@ schwierigkeitsgrad = correct_answers / total_attempts
 ```
 Gespeichert werden nur Rohdaten in `group_stats` (eingebettet in MongoDB Karteikarte).
 Zusätzlich `user_stats` pro Karteikarte für persönlichen Lernfortschritt.
- 
+
+**Cold-Start-Schutz:** Sowohl bei der Kartenschaden-Berechnung (Gruppen-Statistik) als auch bei der Deck-Priorisierung (User-Statistik) gilt: eine Karte mit weniger als 10 Beantwortungen wird noch nicht als "verlässlich schwer/leicht" eingestuft, um zu vermeiden, dass ein einzelner früher Versuch (z.B. 1x richtig beantwortet = 100% Erfolgsquote) die Bewertung verzerrt. Vor Erreichen der Schwelle wird ein neutraler Default-Wert verwendet.
+
 ### Schadensberechnung
  
-- **Spieler → Gegner:** `schaden = getSchwierigkeitsgrad()` der beantworteten Karte
-- **Gegner → Spieler:** `schaden = f(aktuellePosition)` – je weiter im Run, desto mehr Schaden
+- **Spieler → Gegner:** `schaden = round(kartenSchaden(1-5) * levelMultiplikator)`
+  - `kartenSchaden` wird dynamisch aus der Gruppen-Statistik der Karte berechnet (`1 + (1 - difficulty) * 4`, gerundet), Cold-Start-Schutz ab 10 Versuchen (Default: 3)
+  - `levelMultiplikator = 1 + (level - 1) * 0.15` – steigt mit dem Spieler-Level
+  - Der Schaden derselben Karte kann sich **innerhalb eines Runs** ändern, da die Gruppen-Statistik durch jede neue Antwort (auch von anderen Gruppenmitgliedern) live aktualisiert wird – bewusste Design-Entscheidung, keine Fixierung pro Run.
+- **Gegner → Spieler:** `schaden = enemy.base_damage` des aktuellen Kampf-Feldes, skaliert nach Spalten-Position auf der Map (`base_damage = x * 5`) – je weiter im Run, desto mehr Schaden.
+
+### Level-Up-System
+
+Nach jedem gewonnenen Kampf (Gegner-HP ≤ 0):
+- `level += 1`
+- `max_health` wird neu berechnet: `100 + (level - 1) * 20`
+- `current_health` bleibt **prozentual** erhalten (nicht absolut): `current_health_neu = round(max_health_neu * (current_health_alt / max_health_alt))` – ein Level-Up bei niedrigem HP-Stand heilt also nicht künstlich auf, sondern skaliert den bestehenden Prozentsatz auf die neue Maximalgrenze.
+- Kein automatisches Voll-Heal – Heilung passiert nur über `HEAL`-Felder oder die Perfekt-Runden-Belohnung (s.u.).
+
+### Kampfsystem (Karten-Zug-Mechanik)
+
+Jeder Kampf läuft rundenbasiert ab, Spieler zuerst:
+1. Spieler zieht (zu Kampfbeginn oder nach Reshuffle) bis zu 5 Handkarten aus dem Run-Deck.
+2. Spieler spielt Handkarten einzeln nacheinander (`answerCard`). Drei Szenarien:
+   - **Alle 5 Handkarten richtig beantwortet** ("perfekte Runde"): Belohnung = Heilung um 100% des aktuellen Gegner-Schadens. Zug endet danach automatisch (keine Handkarten mehr), Gegner greift an, nächste Runde werden sofort wieder 5 neue Karten gezogen.
+   - **Spieler beendet den Zug freiwillig**, ohne alle Handkarten gespielt zu haben: keine Belohnung, Zug endet, Gegner greift an, nächste Runde wird nur 1 Karte nachgezogen (Resthand + 1 neue Karte).
+   - **Falsche Antwort**: Zug endet sofort (unabhängig vom Hand-Zustand), keine Belohnung, Gegner greift an, nächste Runde wird nur 1 Karte nachgezogen.
+3. Die "perfekte Runde"-Belohnung gilt nur, wenn die Runde mit **genau 5** Handkarten gestartet ist (nicht bei einer kleineren Resthand, die z.B. wegen eines fast leeren Decks entstanden ist).
+4. **Deck-Nachschub:** Solange noch Karten im Deck sind, werden diese zuerst gezogen (auch wenn das bedeutet, dass eine neue Hand kleiner als 5 ist). Erst wenn **Deck UND Hand** gleichzeitig leer sind, wird der Ablagestapel gemischt und zurück ins Deck gelegt (Reshuffle).
+5. Wird der Gegner besiegt: Level-Up, verbleibende Handkarten wandern zurück ins Deck (nicht in den Ablagestapel). War es ein `BOSS`-Kampf, ist damit der gesamte Run erfolgreich beendet.
+6. Sinkt die Spieler-HP auf 0: Run gilt als gescheitert (`successful = false`), verbleibende Handkarten wandern ebenfalls zurück ins Deck.
+
+### Deck-Zusammenstellung (`deckBuilder.service.js`)
+
+Beim `startRun` werden bis zu 20 Karten aus dem Kartenpool der Lerngruppe für das Run-Deck ausgewählt (weniger, falls der Pool kleiner ist – Mindestanforderung: 5 Karten in der Lerngruppe). Die Auswahl ist **gewichtet nach individueller Lernschwäche**: Karten, die der User schlecht beantwortet (niedrige persönliche Erfolgsquote in `user_stats`), werden bevorzugt gezogen (gewichtetes Sampling ohne Zurücklegen). Auch hier greift der Cold-Start-Schutz (ab 10 Versuchen "verlässlich"), damit eine einzelne frühe Antwort nicht überproportional die Gewichtung verzerrt. Das Deck bleibt für die gesamte Dauer des Runs bestehen (über mehrere Kämpfe hinweg), nur der Ablagestapel und die aktuelle Hand ändern sich pro Kampf.
+
+### HEAL-Felder
+
+Betritt der Spieler ein `HEAL`-Feld (außerhalb eines Kampfes), wird er um 50% seiner `max_health` geheilt (geclampt, kann `max_health` nicht überschreiten).
+
+### Player-Modellierung
+
+Das ursprüngliche Klassendiagramm sah `Player` als eigenständige Entität mit eigenem Zustand vor. Da der Spieler-Zustand (Level, HP) 1:1 an einen laufenden `Run` gebunden ist und nie unabhängig davon existiert, wurde bewusst darauf verzichtet, eine eigene Tabelle/Collection dafür anzulegen – die Werte leben direkt in `run` (SQL). Im **GraphQL-Schema** gibt es trotzdem einen eigenen `Player`-Typ (Level, maxHealth, currentHealth) als reinen Value-Typ, der im Resolver aus den `run`-Feldern zusammengesetzt wird – das bildet die fachliche Trennung (Run-Metadaten vs. Spieler-Zustand) im API-Design ab, ohne eine zusätzliche Persistenzschicht zu benötigen.
+
 ### Rangliste
  
 Kein eigenes Datenbankmodell – `RanglistenService` filtert direkt auf `run`:
 - Nur `successful = true`
 - Nur Runs von Mitgliedern der Lerngruppe
-- Sortiert nach `hit_rate DESC`, bei Gleichstand `duration ASC`
+- Sortiert dreistufig: 1. `correctAnswers` (absolute Anzahl richtiger Antworten) DESC, 2. `hitRate` (Genauigkeit, berechnet aus `correctAnswers / totalAnswers`) DESC, 3. `duration` ASC
+
 ### PWA
  
 - `ServiceWorker` – Cache First für Assets, Network First für API Calls
 - `OfflineStorageService` – cached Karteikarten, Runs und Nachrichten via IndexedDB
 - `Web App Manifest` – App Name, Icons, Theme Color
+
 ### Web Components
  
 Zwei eigene Web Components:
 1. **Chat Component** – Echtzeit Chat Fenster einer Lerngruppe
 2. **IndexCard Component** – Karteikarte mit Frage/Antwort, Tags, Dateianhängen
+
+### Bekannte Einschränkungen (Scope-Cuts)
+
+- **Nur ein Gegner pro Kampf** – `combat.enemy` ist aktuell ein einzelnes Objekt statt eines Arrays. Die Architektur wäre grundsätzlich auf mehrere Gegner erweiterbar, wurde aber aus Zeitgründen bewusst auf einen Gegner reduziert, um die Zug-Logik (Zielauswahl, Schadensverteilung, Sieg-Bedingung) nicht unnötig zu verkomplizieren.
+- **Kämpfe sind rein solo** – kein gemeinsames Kämpfen mehrerer Gruppenmitglieder in Echtzeit, keine Subscription für den Kampf-Zustand nötig.
+ 
 ---
  
 ## Klassendiagramm Übersicht
@@ -121,28 +180,33 @@ Zwei eigene Web Components:
 | `Karteikarte` | Frage, Antwort, Tags, Stats |
 | `KarteikarteStat` | Statistik pro Karte+Gruppe und pro Karte+User |
 | `Dateianhang` | Datei an einer Karteikarte |
-| `Deck` | 20 Karteikarten für einen Run |
-| `Handkarten` | 5 gezogene Karten während eines Kampfes |
-| `Run` | Ein Dungeon-Run eines Users |
-| `Map` | Die (hardcoded) Karte mit Feldern |
-| `Feld` | Abstrakt – Start, Normal, Kampf, Heil |
-| `Kampf` | Zustand eines einzelnen Kampfes |
-| `Gegner` | Abstrakt – Normal oder Boss |
+| `Run` | Ein Dungeon-Run eines Users – enthält auch den Spieler-Zustand (Level, HP, Position) |
+| `RunDeck` | Deck + Ablagestapel eines Runs (MongoDB, persistiert über mehrere Kämpfe) |
+| `Combat` | Zustand eines einzelnen, laufenden Kampfes (Handkarten, Gegner-HP, wer am Zug ist) |
+| `Map` | Die (hardcoded) Karte mit eingebetteten Feldern und Gegnern (MongoDB) |
 | `Historie` | Alle Runs eines Users |
+
+> Hinweis: `Deck`/`Handkarten` und `Player` aus dem ursprünglichen Klassendiagramm wurden zu `RunDeck`/`Combat.hand` bzw. in `run`-Felder + GraphQL-`Player`-Typ umgesetzt (siehe "Player-Modellierung" oben). `Feld`/`Gegner` sind keine eigenständigen Model-Klassen mehr, sondern eingebettete Sub-Dokumente innerhalb von `Map`.
  
 ### Enums
  
 ```
-Rolle:    ADMIN | MODERATOR | MEMBER
-KampfTyp: NORMAL | BOSS (→ NormalerGegner / BossGegner Klassen)
+Rolle:      ADMIN | MODERATOR | MEMBER
+FeldTyp:    START | NORMAL | FIGHT | BOSS | HEAL
+GegnerTyp:  NORMAL | BOSS
+KampfStatus: ACTIVE | WON | LOST
 ```
  
 ### Services
  
 | Service | Aufgabe |
 |---|---|
-| `StatistikService` | Aggregiert User-Statistiken über alle Runs |
-| `RanglistenService` | Berechnet Rangliste einer Lerngruppe |
+| `run.service.js` | Run starten/beenden, Feldbewegung, HEAL-Feld-Logik |
+| `combat.service.js` | Kampf starten, Karten beantworten, Schaden/Heilung/Level-Up, Sieg/Niederlage |
+| `deckBuilder.service.js` | Gewichtete Auswahl der 20 Run-Deck-Karten (Cold-Start-geschützt) |
+| `runDeck.service.js` | Deck/Ablagestapel-Verwaltung (ziehen, ablegen, reshuffle) |
+| `utils/playerStats.util.js` | Gemeinsame Kampf-Mathematik (heal, takeDamage, levelUp, damageMultiplier) – genutzt von `run.service.js` und `combat.service.js`, um zirkuläre Imports zu vermeiden |
+| `RanglistenService` | Berechnet Rangliste einer Lerngruppe (dreistufige Sortierung) |
 | `ServiceWorker` | PWA Cache-Strategie |
 | `OfflineStorageService` | IndexedDB Lese/Schreib-Operationen |
  
@@ -153,27 +217,28 @@ KampfTyp: NORMAL | BOSS (→ NormalerGegner / BossGegner Klassen)
 ### Tabellen
  
 ```
-user              – id, name, email, created_at
-passkey           – id, user_id, credential_id, public_key (Base64), counter, device_name
-oauth_account     – id, user_id, provider, provider_user_id, access_token, refresh_token
+user               – id, name, email, created_at
+passkey            – id, user_id, credential_id, public_key (Base64), counter, device_name
+oauth_account      – id, user_id, provider, provider_user_id, access_token, refresh_token
 webauthn_challenge – id, user_id (nullable), challenge, type (REGISTRATION|AUTHENTICATION), expires_at
-study_group       – id, name, chat_id (MongoDB Ref), created_at
-membership        – user_id, study_group_id, role, joined_at  [PK: user_id + study_group_id]
-map               – id, name
-field             – id, map_id, position, type, enemy_id
-enemy             – id, name, type, base_health, base_damage
-run               – id, user_id, study_group_id, map_id, successful, start_time, duration, hit_rate, current_position
+study_group        – id, name, chat_id (MongoDB Ref), created_at
+membership         – user_id, study_group_id, role, joined_at  [PK: user_id + study_group_id]
+run                – id, user_id, study_group_id, map_id, successful, start_time, duration,
+                     correct_answers, total_answers, current_position, level, max_health, current_health
 ```
  
 ### Wichtige Hinweise
  
 - `user` in Anführungszeichen da reserviertes Wort in PostgreSQL
-- `field.enemy_id` ist nullable – nur FIGHT und BOSS Felder haben einen Gegner
 - `run.successful` ist nullable – `NULL` = Run läuft noch, `true/false` = beendet
+- `run.hit_rate` gibt es **nicht** als Spalte – wird immer live aus `correct_answers / total_answers` berechnet (analog zum Karten-`Schwierigkeitsgrad`-Prinzip), um keine redundanten/inkonsistenten Daten zu speichern
+- `run.duration` wird in **Sekunden** gespeichert (nicht Minuten), um Rundungsverluste bei knappen Rangliste-Platzierungen zu vermeiden; Formatierung (z.B. `mm:ss`) übernimmt das Frontend
 - `study_group.chat_id` ist eine UUID Referenz auf ein MongoDB Dokument (kein FK)
-- `role` und `field_type` und `enemy_type` sind PostgreSQL ENUMs
+- `role` ist PostgreSQL ENUM
 - `webauthn_challenge.user_id` ist nullable – beim Login (AUTHENTICATION) ist der User noch nicht bekannt
 - `passkey.public_key` wird als Base64-String gespeichert (Uint8Array → Base64 beim Speichern, Base64 → Uint8Array beim Lesen)
+- `map`, `field`, `enemy` existieren **nicht** als SQL-Tabellen (ursprünglich so geplant) – komplett nach MongoDB (`maps`-Collection) verschoben, siehe Architekturentscheidungen
+
 ### Schema einlesen
  
 ```bash
@@ -210,7 +275,7 @@ docker compose up -d
   }],
  
   group_stats: [{
-    study_group_id: UUID,
+    study_group_id: String,
     total_attempts: Number,
     correct_answers: Number
     // difficulty = correct_answers / total_attempts (immer berechnet, nie gespeichert)
@@ -236,6 +301,72 @@ docker compose up -d
   sent_at: Date
 }
 ```
+
+### Collection: `maps`
+ 
+```javascript
+{
+  _id: ObjectId,
+  name: String,
+  fields: [{
+    position: Number,         // eindeutige Positions-Nummer (0-60)
+    x: Number,                // Spalte (für Frontend-Darstellung)
+    y: Number,                // Zeile (für Frontend-Darstellung)
+    type: String,             // 'START' | 'NORMAL' | 'FIGHT' | 'BOSS' | 'HEAL'
+    nextFields: [Number],     // erreichbare nächste Positionen (Pfeile)
+    enemies: [{               // leer bei nicht-Kampf-Feldern, aktuell max. 1 Eintrag genutzt
+      name: String,
+      type: String,           // 'NORMAL' | 'BOSS'
+      base_health: Number,    // x * 30
+      base_damage: Number     // x * 5
+    }]
+  }]
+}
+```
+ 
+**Damage-Skalierung:** `base_health = x * 30`, `base_damage = x * 5` — je weiter rechts (höhere x-Koordinate / Spalte), desto stärker der Gegner.
+ 
+**Branching:** Spieler wählt aktiv welches `nextField` er betritt. Keine Rückwärtsbewegung.
+ 
+**4 Startfelder** (Position 0-3) — Spieler wählt beim `startRun` den Einstiegspunkt (`selectedStartFieldPosition`).
+
+### Collection: `combats`
+
+```javascript
+{
+  _id: ObjectId,
+  run_id: UUID,                     // → SQL run.id
+  field_position: Number,           // welches Map-Feld den Kampf ausgelöst hat
+
+  enemy: {
+    name: String,
+    type: String,                   // 'NORMAL' | 'BOSS'
+    max_health: Number,
+    current_health: Number,         // sinkt bei richtigen Antworten
+    base_damage: Number
+  },
+
+  hand: [ObjectId],                 // Referenzen auf indexcards._id, max. 5 Karten
+  turn_start_hand_size: Number,     // Hand-Größe zu Rundenbeginn (für "perfekte Runde"-Erkennung)
+  is_player_turn: Boolean,
+  status: String                    // 'ACTIVE' | 'WON' | 'LOST'
+}
+```
+
+Kein `deck`/`discard_pile` in `combats` – die liegen separat in `run_decks`, weil sie über mehrere Kämpfe hinweg innerhalb eines Runs bestehen bleiben, während `combats` pro Kampf neu erstellt wird. Kein `timestamps`-Feld, da `combats` ein kurzlebiges, run-gebundenes Zustandsobjekt ist, für das keine eigenständige Zeithistorie gebraucht wird.
+
+### Collection: `run_decks`
+
+```javascript
+{
+  _id: ObjectId,
+  run_id: UUID,                     // → SQL run.id
+  deck: [ObjectId],                 // Referenzen auf indexcards._id
+  discard_pile: [ObjectId]          // Referenzen auf indexcards._id
+}
+```
+
+Ein Dokument pro Run, bleibt über mehrere Kämpfe hinweg bestehen. Wird beim `startRun` mit bis zu 20 gewichtet ausgewählten Karten befüllt (siehe `deckBuilder.service.js`).
  
 ### Empfohlene Indexes
  
@@ -243,6 +374,8 @@ docker compose up -d
 db.indexcards.createIndex({ study_group_id: 1 })
 db.indexcards.createIndex({ study_group_id: 1, tags: 1 })
 db.messages.createIndex({ chat_id: 1, sent_at: -1 })
+db.combats.createIndex({ run_id: 1, status: 1 })
+db.run_decks.createIndex({ run_id: 1 })
 ```
  
 ---
@@ -256,7 +389,7 @@ db.messages.createIndex({ chat_id: 1, sent_at: -1 })
 | `getStudyGroup(id)` | Gruppe mit Mitgliedern |
 | `getIndexCards(studyGroupId, tags?, search?, creatorId?)` | Karteikarten gefiltert |
 | `getIndexCard(id)` | Einzelne Karte mit Stats |
-| `getRanking(studyGroupId)` | Rangliste der Gruppe |
+| `getRanking(studyGroupId)` | Rangliste der Gruppe (dreistufig sortiert) |
 | `getRuns(userId)` | Run-Historie eines Users |
 | `getMap` | Die hardcoded Map mit Feldern |
  
@@ -270,9 +403,10 @@ db.messages.createIndex({ chat_id: 1, sent_at: -1 })
 | `createIndexCard(...)` | Karteikarte erstellen |
 | `updateIndexCard(...)` | Karteikarte bearbeiten |
 | `deleteIndexCard(id)` | Karteikarte löschen |
-| `startRun(studyGroupId)` | Run starten |
-| `endRun(runId)` | Run beenden |
-| `answerCard(runId, cardId, userAnswer)` | Karte beantworten (case-insensitive, trimmed) |
+| `startRun(studyGroupId, selectedStartFieldPosition)` | Run starten (mit gewähltem Startfeld) – gibt bestehenden aktiven Run zurück, falls schon einer läuft (idempotent) |
+| `endRun(runId, successful)` | Run manuell beenden/abbrechen |
+| `moveToField(runId, targetPosition)` | Zu einem erreichbaren Feld bewegen – löst je nach Feldtyp automatisch Kampf (`FIGHT`/`BOSS`) oder Heilung (`HEAL`) aus |
+| `answerCard(runId, cardId, userAnswer)` | Karte im aktiven Kampf beantworten (case-insensitive, trimmed) |
 | `sendMessage(chatId, content)` | Chat-Nachricht senden |
  
 ### Subscriptions
@@ -288,8 +422,17 @@ db.messages.createIndex({ chat_id: 1, sent_at: -1 })
 ```graphql
 type AnswerResult {
   correct:       Boolean!   # richtig oder falsch
-  damageDealt:   Int!       # Schaden wenn richtig (= Schwierigkeitsgrad der Karte)
+  damageDealt:   Int!       # tatsächlich verursachter Schaden (Kartenschaden × Level-Multiplikator)
   correctAnswer: String!    # wird immer zurückgegeben für Frontend-Anzeige
+}
+```
+
+### `moveToField` Rückgabe
+
+```graphql
+type MoveResult {
+  run:    Run!      # aktualisierter Run-Zustand (neue Position, ggf. Heilung)
+  combat: Combat     # nur befüllt, wenn das Zielfeld ein FIGHT/BOSS-Feld war
 }
 ```
  
@@ -346,6 +489,7 @@ WebTechFinaleAbgabe/
 │   ├── src/
 │   │   ├── app.js                    # Einstiegspunkt
 │   │   ├── config/
+│   │   │   ├── env.js
 │   │   │   ├── db.postgres.js
 │   │   │   └── db.mongo.js
 │   │   ├── api/rest/
@@ -364,7 +508,7 @@ WebTechFinaleAbgabe/
 │   │   │   └── resolvers/
 │   │   │       ├── studyGroup.resolver.js
 │   │   │       ├── indexCard.resolver.js
-│   │   │       ├── run.resolver.js
+│   │   │       ├── run.resolver.js   # inkl. Run/Map/Combat-Feld-Resolver
 │   │   │       ├── chat.resolver.js
 │   │   │       └── ranking.resolver.js
 │   │   ├── services/
@@ -372,11 +516,17 @@ WebTechFinaleAbgabe/
 │   │   │   │   ├── oauth.service.js
 │   │   │   │   ├── passkey.service.js
 │   │   │   │   └── token.service.js
+│   │   │   ├── utils/
+│   │   │   │   └── playerStats.util.js   # gemeinsame Kampf-Mathematik (heal, takeDamage, levelUp)
+│   │   │   ├── permission.service.js
 │   │   │   ├── studyGroup.service.js
 │   │   │   ├── indexCard.service.js
 │   │   │   ├── file.service.js
+│   │   │   ├── map.service.js
 │   │   │   ├── run.service.js
 │   │   │   ├── combat.service.js
+│   │   │   ├── deckBuilder.service.js    # gewichtete Deck-Zusammenstellung
+│   │   │   ├── runDeck.service.js        # Deck/Ablagestapel-Verwaltung
 │   │   │   ├── chat.service.js
 │   │   │   ├── ranking.service.js
 │   │   │   └── statistics.service.js
@@ -385,23 +535,28 @@ WebTechFinaleAbgabe/
 │   │   │   │   ├── user.model.js
 │   │   │   │   ├── passkey.model.js
 │   │   │   │   ├── oauth.model.js
+│   │   │   │   ├── webauthnChallenge.model.js
 │   │   │   │   ├── studyGroup.model.js
 │   │   │   │   ├── membership.model.js
-│   │   │   │   ├── map.model.js
-│   │   │   │   ├── field.model.js
-│   │   │   │   ├── enemy.model.js
 │   │   │   │   └── run.model.js
 │   │   │   └── mongo/
 │   │   │       ├── indexCard.model.js
-│   │   │       └── message.model.js
-│   │   └── realtime/
-│   │       ├── websocket.js
-│   │       └── handlers/
-│   │           └── chat.handler.js
+│   │   │       ├── message.model.js
+│   │   │       ├── map.model.js
+│   │   │       ├── combat.model.js
+│   │   │       └── runDeck.model.js
+│   │   ├── realtime/
+│   │   │   ├── websocket.js
+│   │   │   └── handlers/
+│   │   │       └── chat.handler.js
+│   │   └── scripts/
+│   │       └── seedMap.js
 │   └── uploads/
 └── frontend/
     └── ...
 ```
+
+> Hinweis: `models/sql/map.model.js`, `field.model.js`, `enemy.model.js` gab es in einer früheren Planungsphase – wurden komplett entfernt, da Map/Feld/Gegner ausschließlich in MongoDB leben (`models/mongo/map.model.js`).
  
 ---
  
@@ -413,12 +568,16 @@ WebTechFinaleAbgabe/
 - Variablen/Funktionen: `camelCase`
 - Datenbank-Spalten: `snake_case`
 - GraphQL Felder: `camelCase`
+- Mongoose-Feldresolver übersetzen `snake_case` (DB) ↔ `camelCase` (GraphQL) explizit im Resolver, wo kein automatisches Mapping greift (z.B. `Combat.isPlayerTurn`, `Run.player`)
+
 ### Architektur Pattern
 ```
 Route/Resolver → Controller/Resolver → Service → Model → Datenbank
 ```
-Controller und Resolver rufen **nur Services** auf – nie direkt die Datenbank.
- 
+Controller und Resolver rufen **nur Services** auf – nie direkt die Datenbank. Bei MongoDB greifen Services aus Pragmatismus direkt auf die Mongoose-Models zu (kein zusätzlicher Repository-Layer), da Mongoose selbst schon die Abstraktionsebene zur Datenbank darstellt – konsistent gehandhabt in `chat.service.js`, `combat.service.js`, `runDeck.service.js`.
+
+Services dürfen sich gegenseitig aufrufen, wenn fachliche Logik zusammengehört (z.B. `combat.service.js` nutzt `indexCard.service.js` für Statistik-Updates). Zirkuläre Imports zwischen zwei Services werden vermieden, indem gemeinsam genutzte, reine Berechnungsfunktionen (ohne Seiteneffekte) in eine neutrale Utility-Datei ausgelagert werden (`utils/playerStats.util.js`), statt dass sich zwei Services direkt gegenseitig importieren.
+
 ### Auth
 - JWT Token kommt im Header: `Authorization: Bearer <token>`
 - `authMiddleware` verifiziert Token und hängt `req.user` ans Request
@@ -426,6 +585,7 @@ Controller und Resolver rufen **nur Services** auf – nie direkt die Datenbank.
 - **Google OAuth Callback:** JWT wird als Query-Parameter ans Frontend übergeben: `FRONTEND_URL/auth/callback?token=eyJ...`
   - Frontend liest Token aus URL: `new URLSearchParams(window.location.search).get('token')`
   - Frontend speichert Token und navigiert zur Hauptseite
+
 ### Antwortvergleich (answerCard)
 ```javascript
 answer.toLowerCase().trim() === userAnswer.toLowerCase().trim()
@@ -464,6 +624,15 @@ Erreichbar unter:
 - GraphQL: `http://localhost:3000/graphql`
 - Swagger: `http://localhost:3000/api/docs`
 - Health:  `http://localhost:3000/api/v1/health`
+
+---
+
+## Technische Notizen
+
+### Manuelles WebSocket-Routing
+
+Die `ws` Library hat einen bekannten Bug: wenn mehrere `WebSocketServer`-Instanzen mit der `path`-Option auf demselben `httpServer` registriert werden, überschreibt die zweite Instanz den `upgrade`-Event-Handler der ersten — einer der Server akzeptiert dann keine Verbindungen mehr (400 Bad Request). Gelöst mit `noServer: true` für beide Server (GraphQL Subscriptions + Chat) und manuellem Routing über den `upgrade`-Event des `httpServer`, wo anhand des URL-Pfads (`/graphql` vs. `/chat`) entschieden wird, welcher Server die Verbindung behandelt.
+
 ---
  
 ## TODOs / Offene Punkte
@@ -473,16 +642,16 @@ Erreichbar unter:
 - [x] Passkey Registration + Login implementieren
 - [x] Google OAuth implementieren
 - [x] Refactoring: `mapRow` Pattern konsistent in allen SQL-Models einführen (`passkey.model.js`, `webauthnChallenge.model.js`)
+- [x] Run-Logik (start/end/Feldbewegung, inkl. HEAL-Felder)
+- [x] Deck-Zusammenstellung (gewichtet, Cold-Start-geschützt)
+- [x] Kampfsystem (`answerCard`, Schaden, Heilung, Level-Up, Sieg/Niederlage, Boss-Erkennung)
+- [x] Karteikarten-Statistik-Update nach jeder Antwort
 - [ ] Frontend Vue 3 Struktur aufsetzen
-- [ ] GraphQL Resolvers implementieren
-- [ ] Services implementieren
-- [ ] Mongoose Models anlegen
+- [ ] Restliche GraphQL Resolvers implementieren (StudyGroup, IndexCard, Ranking, Chat)
+- [ ] Restliche Services implementieren (statistics, ranking)
 - [ ] Service Worker + Web App Manifest
 - [ ] IndexedDB Offline Storage
 - [ ] Tests schreiben
 - [ ] README.md für Abgabe
-- [ ] Reflexion schreiben (inkl. JWT-in-URL Sicherheitsbedenken)
+- [ ] Reflexion schreiben (inkl. JWT-in-URL Sicherheitsbedenken, Scope-Cuts wie "nur 1 Gegner pro Kampf")
 - [ ] Präsentation erstellen
-
-Manuelles WebSocket-Routing:
-Die ws Library hat einen bekannten Bug: wenn mehrere WebSocketServer-Instanzen mit der path Option auf demselben httpServer registriert werden, überschreibt die zweite Instanz den upgrade Event-Handler der ersten — einer der Server akzeptiert dann keine Verbindungen mehr (400 Bad Request). Wir lösen das mit noServer: true für beide Server (GraphQL Subscriptions + Chat) und manuellem Routing über den upgrade Event des httpServer, wo wir anhand des URL-Pfads (/graphql vs /chat) entscheiden welcher Server die Verbindung behandelt.

@@ -58,7 +58,7 @@ for (let i = 0; i <= 60; i++) {
 }
 
 // Spalten-basierter Damage
-function enemy(position, name = 'Skeleton', type = 'NORMAL') {
+function enemy(position, name = 'Schleim', type = 'NORMAL') {
   const x = coords[position].x;
   return [{
     name,
