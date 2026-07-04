@@ -10,6 +10,7 @@
 
     <CombatView
       v-if="phase === 'combat'"
+      ref="combatViewRef"
       :enemy="currentEnemy"
       :hand="placeholderHand"
       :deckCount="20"
@@ -61,6 +62,7 @@ const currentPosition = ref(null);
 const currentEnemy = ref(null);
 const playerHp = ref(100);
 const enemyHp = ref(0);
+const combatViewRef = ref(null);
 
 // Placeholder Handkarten bis Backend fertig
 const placeholderHand = ref([
@@ -79,7 +81,7 @@ const placeholderHand = ref([
   {
     id: '3',
     question: 'Was ist Vue.js?',
-    answer: 'Ein progressives JavaScript Framework',
+    answer: 'test',
     groupStats: [{ totalAttempts: 8, correctAnswers: 8 }],
   },
   {
@@ -111,9 +113,14 @@ function onFieldSelected(field) {
   }
 }
 
-function onCardPlayed({ card, answer }) {
+async function onCardPlayed({ card, answer }) {
   // TODO: answerCard Mutation aufrufen
   const correct = answer.trim().toLowerCase() === card.answer.trim().toLowerCase();
+
+  // CombatView kennt seine eigene Animations-Timing und meldet sich,
+  // wenn der Treffer visuell "einschlägt" — erst dann wenden wir den Schaden an.
+  await combatViewRef.value?.playCombatAnimation(correct);
+
   if (correct) {
     enemyHp.value = Math.max(0, enemyHp.value - 20);
   } else {

@@ -44,8 +44,8 @@ const cardStyle = computed(() => {
   const mid = (props.total - 1) / 2;
   const offset = props.index - mid;
   const rotate = offset * 7;
-  const translateX = offset * 100;  // ← mehr Abstand
-  const translateY = hovered.value ? -4 * 16 : Math.abs(offset) * 15;
+  const translateX = offset * 85;
+  const translateY = hovered.value ? -3 * 16 : Math.abs(offset) * 15;
   const scale = hovered.value ? 1.1 : 1;
   const zIndex = hovered.value ? 10 : props.index;
 
@@ -63,14 +63,14 @@ const cardStyle = computed(() => {
 
 <style scoped>
 .hand-card {
-  width: 26rem;
-  height: 18rem;
+  width: 22rem;
+  height: 15rem;
   border-radius: 0.5rem;
-  padding: 1.5rem 1.5rem 1rem 1.5rem;
+  padding: 1.25rem 1.25rem 0.85rem 1.25rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
   cursor: pointer;
   box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.2);
 }
@@ -83,13 +83,13 @@ const cardStyle = computed(() => {
 }
 
 .star-icon {
-  width: 2rem;      /* ← größer */
-  height: 2rem;
+  width: 1.6rem;
+  height: 1.6rem;
   image-rendering: pixelated;
 }
 
 .hand-card-question {
-  font-size: 1.5rem;  /* ← größer */
+  font-size: 1.25rem;
   flex: 1;
   overflow: hidden;
   display: -webkit-box;
