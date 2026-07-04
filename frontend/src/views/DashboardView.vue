@@ -22,7 +22,6 @@
 
       <div class="content-wrapper">
         <ContentNav
-          v-if="activeView !== 'run'"
           :activeView="activeView"
           :visible="!!selectedGroup"
           @change="activeView = $event"
