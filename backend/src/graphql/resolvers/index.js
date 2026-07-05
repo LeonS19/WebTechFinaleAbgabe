@@ -38,5 +38,6 @@ export const resolvers = {
   },
   Subscription: {
     ...indexCardResolvers.Subscription,
+    ...runResolvers.Subscription,
   },
 };

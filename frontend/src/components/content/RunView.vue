@@ -113,7 +113,12 @@ const GET_ACTIVE_RUN = gql`
 const { result: activeRunResult, loading: activeRunLoading, error: activeRunError } = useQuery(
   GET_ACTIVE_RUN,
   () => ({ studyGroupId: props.studyGroupId }),
-  () => ({ enabled: !!props.studyGroupId }),
+  () => ({
+    enabled: !!props.studyGroupId,
+    // Immer frisch vom Server holen — sonst zeigt ein Remount (z.B. nach Rückkehr
+    // von der Historie) den gecachten Stand eines bereits beendeten Runs an.
+    fetchPolicy: 'network-only',
+  }),
 );
 
 // ---- Run-Updates in Echtzeit (z.B. bei zwei offenen Tabs, oder falls jemand
@@ -337,9 +342,16 @@ watch(
     mapPhase.value = 'select-next';
 
     if (activeRun.activeCombat) {
-      currentCombat.value = activeRun.activeCombat;
-      hand.value = currentCombat.value.hand.map((c) => ({ ...c, _isNew: false }));
-      phase.value = 'combat';
+      // Defensiv: falls das Backend einen bereits abgeschlossenen Kampf (WON/LOST)
+      // noch als "aktiv" zurückgibt (z.B. weil der Run nie offiziell beendet wurde),
+      // nicht blind die Kampf-Ansicht zeigen, sondern wie ein normales Kampfende behandeln.
+      if (activeRun.activeCombat.status === 'ACTIVE') {
+        currentCombat.value = activeRun.activeCombat;
+        hand.value = currentCombat.value.hand.map((c) => ({ ...c, _isNew: false }));
+        phase.value = 'combat';
+      } else {
+        handleCombatEnd(activeRun.activeCombat);
+      }
     }
   },
   { immediate: true },
