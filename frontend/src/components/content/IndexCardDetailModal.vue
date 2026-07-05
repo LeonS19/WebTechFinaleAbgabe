@@ -10,10 +10,14 @@
         <div class="detail-section">
           <div class="detail-label-row">
             <p class="detail-label">Frage</p>
-            <button v-if="canEdit && !isEditing" class="edit-btn" @click="startEdit">
-              Bearbeiten
-            </button>
+            <div v-if="canEdit && !isEditing" class="detail-actions">
+              <button class="edit-btn" @click="startEdit">Bearbeiten</button>
+              <button class="delete-card-btn" :disabled="deleting" @click="confirmDeleteCard">
+                {{ deleting ? 'Wird gelöscht...' : 'Karte löschen' }}
+              </button>
+            </div>
           </div>
+          <p v-if="deleteError" class="edit-error">{{ deleteError }}</p>
           <p v-if="!isEditing" class="detail-value">{{ question }}</p>
           <textarea v-else v-model="editQuestion" class="edit-textarea" rows="2"></textarea>
         </div>
@@ -69,6 +73,14 @@
             <div v-for="att in localAttachments" :key="att.id" class="attachment-item">
               <span>{{ att.filename }}</span>
               <a :href="downloadUrl(att.id)" target="_blank" class="download-btn">⬇ Herunterladen</a>
+              <button
+                v-if="canUpload"
+                class="delete-attachment-btn"
+                :disabled="deletingAttachmentId === att.id"
+                @click="deleteAttachment(att.id)"
+              >
+                {{ deletingAttachmentId === att.id ? '...' : '🗑' }}
+              </button>
             </div>
           </div>
           <p v-else class="placeholder-small">Keine Anhänge vorhanden</p>
@@ -92,7 +104,7 @@ const props = defineProps({
   userRole: String,
 });
 
-const emit = defineEmits(['close', 'attachmentUploaded', 'cardUpdated']);
+const emit = defineEmits(['close', 'attachmentUploaded', 'attachmentDeleted', 'cardUpdated', 'cardDeleted']);
 
 const BASE_URL = 'http://localhost:3000/api/v1';
 
@@ -168,6 +180,38 @@ async function saveEdit() {
   }
 }
 
+// ---- Karte löschen ----
+const DELETE_INDEX_CARD = gql`
+  mutation DeleteIndexCard($id: ID!) {
+    deleteIndexCard(id: $id)
+  }
+`;
+const { mutate: deleteIndexCardMutation } = useMutation(DELETE_INDEX_CARD);
+
+const deleting = ref(false);
+const deleteError = ref(null);
+
+async function confirmDeleteCard() {
+  const confirmed = window.confirm(
+    'Diese Karteikarte wirklich unwiderruflich löschen? Das kann nicht rückgängig gemacht werden.',
+  );
+  if (!confirmed) return;
+
+  deleting.value = true;
+  deleteError.value = null;
+
+  try {
+    await deleteIndexCardMutation({ id: props.card.id });
+    emit('cardDeleted', props.card.id);
+    emit('close');
+  } catch (err) {
+    deleteError.value = err.message ?? 'Löschen fehlgeschlagen.';
+    console.error('deleteIndexCard failed:', err);
+  } finally {
+    deleting.value = false;
+  }
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return '';
   return new Date(dateStr).toLocaleDateString('de-DE');
@@ -180,6 +224,37 @@ function difficulty(stat) {
 
 function downloadUrl(attachmentId) {
   return `${BASE_URL}/index-cards/${props.card.id}/attachments/${attachmentId}`;
+}
+
+const deletingAttachmentId = ref(null);
+
+async function deleteAttachment(attachmentId) {
+  const confirmed = window.confirm('Diesen Anhang wirklich löschen?');
+  if (!confirmed) return;
+
+  deletingAttachmentId.value = attachmentId;
+  const token = localStorage.getItem('token');
+
+  try {
+    const res = await fetch(
+      `${BASE_URL}/index-cards/${props.card.id}/attachments/${attachmentId}`,
+      {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    if (res.ok) {
+      localAttachments.value = localAttachments.value.filter((a) => a.id !== attachmentId);
+      emit('attachmentDeleted', props.card.id);
+    } else {
+      console.error('Löschen des Anhangs fehlgeschlagen:', res.status);
+    }
+  } catch (err) {
+    console.error('Löschen des Anhangs fehlgeschlagen:', err);
+  } finally {
+    deletingAttachmentId.value = null;
+  }
 }
 
 async function handleUpload(event) {
@@ -196,7 +271,15 @@ async function handleUpload(event) {
   });
 
   if (res.ok) {
-    const newAttachment = await res.json();
+    const raw = await res.json();
+    // Defensiv gemappt: das Backend gibt aktuell teils noch _id/snake_case zurück
+    const newAttachment = {
+      id: raw.id ?? raw._id,
+      filename: raw.filename,
+      mimeType: raw.mimeType ?? raw.mime_type,
+      sizeInBytes: raw.sizeInBytes ?? raw.size_in_bytes,
+      uploadedAt: raw.uploadedAt ?? raw.uploaded_at,
+    };
     localAttachments.value.push(newAttachment);
     event.target.value = '';
     emit('attachmentUploaded', props.card.id);
