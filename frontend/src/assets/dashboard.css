@@ -356,12 +356,49 @@
   font-weight: 700;
   font-size: 0.9rem;
   flex-shrink: 0;
+  text-transform: uppercase;
 }
 
 .sidebar-bottom {
   padding-top: 1rem;
   border-top: 1px solid var(--color-border);
 }
+
+.members-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.role-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.role-group + .role-group {
+  margin-top: 2rem;
+}
+
+.role-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  opacity: 0.5;
+}
+
+.role-heading::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.role-heading[data-role="ADMIN"] { color: #ff5252; }
+.role-heading[data-role="MODERATOR"] { color: #17ebb6; }
+.role-heading[data-role="MEMBER"] { color: var(--color-text); opacity: 0.75; }
 
 /* ============================================
    CHAT

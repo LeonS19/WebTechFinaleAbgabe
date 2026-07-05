@@ -46,7 +46,14 @@
           <RunHistoryView v-else-if="activeView === 'historie'" :studyGroupId="selectedGroup.id" />
         </main>
 
-        <MembersSidebar :members="members" :visible="!!selectedGroup" @openChat="chatOpen = true" />
+        <MembersSidebar
+          :members="members"
+          :visible="!!selectedGroup"
+          :currentUserRole="currentMemberRole"
+          :studyGroupId="selectedGroup?.id"
+          @openChat="chatOpen = true"
+          @membersChanged="refetchGroup()"
+        />
       </div>
     </div>
 
@@ -306,7 +313,7 @@ function logout() {
 const { mutate: leaveStudyGroupMutation } = useMutation(LEAVE_STUDY_GROUP)
 const groupIdToLoad = ref(null)
 
-const { data: groupData } = useOfflineAwareQuery(
+const { data: groupData, refetch: refetchGroup } = useOfflineAwareQuery(
   GET_STUDY_GROUP,
   () => ({ id: groupIdToLoad.value }),
   () => ({ enabled: !!groupIdToLoad.value }),

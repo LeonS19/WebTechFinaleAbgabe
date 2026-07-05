@@ -1,5 +1,6 @@
 import * as StudyGroupModel from "../models/sql/studyGroup.model.js";
 import * as MembershipModel from "../models/sql/membership.model.js";
+import { checkPermission } from './permission.service.js';
 import crypto from "crypto";
 
 export async function getStudyGroup(id) {
@@ -70,18 +71,41 @@ export async function getMembers(studyGroupId) {
 }
 
 export async function removeMember(studyGroupId, targetUserId, requestingUserId) {
-  // Rechte-Check: nur ADMIN darf andere Mitglieder entfernen
-  const requestingMembership = await MembershipModel.findOne(requestingUserId, studyGroupId);
+  const requestingMembership = await checkPermission(requestingUserId, studyGroupId, ['ADMIN', 'MODERATOR']);
 
-  if (!requestingMembership) {
-    throw new Error('Du bist kein Mitglied dieser Gruppe');
-  }
-  if (requestingMembership.role !== 'ADMIN') {
-    throw new Error('Nur Admins dürfen Mitglieder entfernen');
-  }
   if (targetUserId === requestingUserId) {
     throw new Error('Du kannst dich nicht selbst über removeMember entfernen, nutze leaveStudyGroup');
   }
 
+  const targetMembership = await MembershipModel.findOne(targetUserId, studyGroupId);
+  if (!targetMembership) {
+    throw new Error('Dieser User ist kein Mitglied der Gruppe');
+  }
+
+  if (requestingMembership.role === 'MODERATOR' && targetMembership.role !== 'MEMBER') {
+    throw new Error('Als Moderator darfst du nur einfache Mitglieder entfernen');
+  }
+
   return MembershipModel.remove(targetUserId, studyGroupId);
+}
+
+export async function updateMembershipRole(studyGroupId, targetUserId, newRole, requestingUserId) {
+  await checkPermission(requestingUserId, studyGroupId, ['ADMIN']);
+
+  if (targetUserId === requestingUserId) {
+    throw new Error('Du kannst deine eigene Rolle nicht ändern');
+  }
+  if (newRole !== 'MODERATOR' && newRole !== 'MEMBER') {
+    throw new Error('Rolle kann nur zwischen MODERATOR und MEMBER geändert werden');
+  }
+
+  const targetMembership = await MembershipModel.findOne(targetUserId, studyGroupId);
+  if (!targetMembership) {
+    throw new Error('Dieser User ist kein Mitglied der Gruppe');
+  }
+  if (targetMembership.role === 'ADMIN') {
+    throw new Error('Die Rolle des Admins kann nicht über diese Funktion geändert werden');
+  }
+
+  return await MembershipModel.updateRole(targetUserId, studyGroupId, newRole);
 }

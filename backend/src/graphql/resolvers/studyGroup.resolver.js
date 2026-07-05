@@ -34,6 +34,12 @@ export const studyGroupResolvers = {
         context.user.id,
       );
     },
+    updateMembershipRole: async (_, { studyGroupId, userId, role }, context) => {
+      if (!context.user) {
+        throw new Error('Nicht authentifiziert');
+      }
+      return await StudyGroupService.updateMembershipRole(studyGroupId, userId, role, context.user.id);
+    },
   },
   StudyGroup: {
     members: (parent) => StudyGroupService.getMembers(parent.id),

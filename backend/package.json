@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node src/app.js",
+    "dev": "node --watch src/app.js",
     "test": "jest todo/test.js",
     "test:ws": "jest scripts/ws.test.js",
     "test:pwa": "node scripts/pwa-check.test.js",

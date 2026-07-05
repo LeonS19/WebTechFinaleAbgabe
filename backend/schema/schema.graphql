@@ -257,6 +257,7 @@ type Mutation {
     joinStudyGroup(studyGroupId: ID!): Membership!
     leaveStudyGroup(studyGroupId: ID!): Boolean!
     removeMember(studyGroupId: ID!, userId: ID!): Boolean!
+    updateMembershipRole(studyGroupId: ID!, userId: ID!, role: Role!): Membership!
 
     # Index Cards
     createIndexCard(
