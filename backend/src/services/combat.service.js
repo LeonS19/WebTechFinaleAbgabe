@@ -227,6 +227,7 @@ export async function answerCard(runId, userId, cardId, userAnswer) {
 
     // war das ein Boss-Kampf? Dann ist der ganze Run gewonnen
     if (combat.enemy.type === "BOSS") {
+      console.log('run.startTime beim endRunModel-Call:', run.startTime, typeof run.startTime);
       await endRunModel(runId, true, calculateDuration(run.startTime));
       pubsub.publish(RANKING_UPDATED, { studyGroupId: run.studyGroupId });
     }

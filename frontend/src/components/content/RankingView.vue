@@ -38,9 +38,11 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { useQuery, useSubscription } from '@vue/apollo-composable';
 import { gql } from '@apollo/client/core';
+import { useOfflineAwareQuery } from '../../composables/useOfflineAwareQuery.js'
+import { getCachedRanking, cacheRanking } from '../../services/offlineStorage.service.js'
 
 const props = defineProps({
   studyGroupId: { type: String, required: true },
@@ -66,11 +68,17 @@ const GET_RANKING = gql`
   }
 `;
 
-const { result, loading, error } = useQuery(
+
+
+const { data: ranking, loading, error, refetch: refetchRanking } = useOfflineAwareQuery(
   GET_RANKING,
   () => ({ studyGroupId: props.studyGroupId }),
-  () => ({ enabled: !!props.studyGroupId, fetchPolicy: 'cache-and-network' }),
-);
+  () => ({ enabled: !!props.studyGroupId }),
+  {
+    dataKey: 'getRanking',
+    cacheFn: () => getCachedRanking(props.studyGroupId),
+  },
+)
 
 // Live-Update, sobald irgendjemand in der Gruppe einen Run beendet — Server schickt
 // die komplett neu berechnete Rangliste, wir übernehmen sie 1:1.
@@ -97,11 +105,14 @@ const { result: rankingUpdateResult } = useSubscription(
   ON_RANKING_UPDATED,
   () => ({ studyGroupId: props.studyGroupId }),
   () => ({ enabled: !!props.studyGroupId }),
-);
+)
 
-const ranking = computed(() => {
-  return rankingUpdateResult.value?.onRankingUpdated ?? result.value?.getRanking ?? [];
-});
+watch(rankingUpdateResult, (val) => {
+  if (val?.onRankingUpdated) {
+    cacheRanking(props.studyGroupId, val.onRankingUpdated)
+    refetchRanking() // oder direkt: ranking.value = val.onRankingUpdated, falls kein extra Feld gebraucht wird
+  }
+})
 
 function formatHitRate(hitRate) {
   return `${Math.round(hitRate * 100)}%`;
