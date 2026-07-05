@@ -122,9 +122,10 @@ Jeder Kampf läuft rundenbasiert ab, Spieler zuerst:
    - **Spieler beendet den Zug freiwillig**, ohne alle Handkarten gespielt zu haben: keine Belohnung, Zug endet, Gegner greift an, nächste Runde wird nur 1 Karte nachgezogen (Resthand + 1 neue Karte).
    - **Falsche Antwort**: Zug endet sofort (unabhängig vom Hand-Zustand), keine Belohnung, Gegner greift an, nächste Runde wird nur 1 Karte nachgezogen.
 3. Die "perfekte Runde"-Belohnung gilt nur, wenn die Runde mit **genau 5** Handkarten gestartet ist (nicht bei einer kleineren Resthand, die z.B. wegen eines fast leeren Decks entstanden ist).
-4. **Deck-Nachschub:** Solange noch Karten im Deck sind, werden diese zuerst gezogen (auch wenn das bedeutet, dass eine neue Hand kleiner als 5 ist). Erst wenn **Deck UND Hand** gleichzeitig leer sind, wird der Ablagestapel gemischt und zurück ins Deck gelegt (Reshuffle).
+4. **Deck-Nachschub:** Solange noch Karten im Deck sind, werden diese zuerst gezogen (auch wenn das bedeutet, dass eine neue Hand kleiner als 5 ist). Erst wenn **Deck UND Hand** gleichzeitig leer sind, wird der Ablagestapel gemischt und zurück ins Deck gelegt (Reshuffle). Die Reshuffle-Prüfung berücksichtigt dabei die tatsächlich benötigte Kartenanzahl (`ensureDeckHasCards`), nicht nur "Deck ist komplett leer" – sonst würde z.B. nach einer perfekten Runde (5 Karten sollen gezogen werden, aber nur noch 4 sind im Deck) kein Reshuffle ausgelöst und der Spieler bekäme nur 4 statt 5 Karten. `reshuffleDiscardIntoDeck` mischt außerdem etwaige verbleibende Deck-Karten *zusammen* mit dem Ablagestapel neu, statt sie zu überschreiben.
 5. Wird der Gegner besiegt: Level-Up, verbleibende Handkarten wandern zurück ins Deck (nicht in den Ablagestapel). War es ein `BOSS`-Kampf, ist damit der gesamte Run erfolgreich beendet.
 6. Sinkt die Spieler-HP auf 0: Run gilt als gescheitert (`successful = false`), verbleibende Handkarten wandern ebenfalls zurück ins Deck.
+7. **Freiwilliger Zugabbruch (`endTurn`):** Der Spieler kann seinen Zug jederzeit beenden, ohne eine weitere Karte zu spielen (Szenario 2). Der Ablauf ist identisch zum normalen Zugende nach einer Antwort (Gegner greift an, nur 1 neue Karte wird nachgezogen, kein Perfekt-Bonus), nur dass keine Karte beantwortet/abgelegt wird.
 
 ### Deck-Zusammenstellung (`deckBuilder.service.js`)
 
@@ -157,10 +158,16 @@ Zwei eigene Web Components:
 1. **Chat Component** – Echtzeit Chat Fenster einer Lerngruppe
 2. **IndexCard Component** – Karteikarte mit Frage/Antwort, Tags, Dateianhängen
 
+### Reload-Robustheit (`getActiveRun`)
+
+Da Run- und Kampf-Zustand serverseitig persistiert werden (nicht nur im Frontend-State), kann das Frontend beim Mounten der `RunView` einmalig `getActiveRun(studyGroupId)` abfragen: Kommt `null` zurück, existiert kein aktiver Run (Startfeld-Auswahl anzeigen). Kommt ein `Run` zurück, wird `currentPosition` direkt übernommen; ist zusätzlich `Run.activeCombat` gesetzt, wechselt das Frontend sofort in die Kampfansicht statt die Map zu zeigen. Ein Seiten-Reload verliert dadurch keinen Fortschritt.
+
 ### Bekannte Einschränkungen (Scope-Cuts)
 
 - **Nur ein Gegner pro Kampf** – `combat.enemy` ist aktuell ein einzelnes Objekt statt eines Arrays. Die Architektur wäre grundsätzlich auf mehrere Gegner erweiterbar, wurde aber aus Zeitgründen bewusst auf einen Gegner reduziert, um die Zug-Logik (Zielauswahl, Schadensverteilung, Sieg-Bedingung) nicht unnötig zu verkomplizieren.
 - **Kämpfe sind rein solo** – kein gemeinsames Kämpfen mehrerer Gruppenmitglieder in Echtzeit, keine Subscription für den Kampf-Zustand nötig.
+
+**Während der Frontend-Anbindung behobener Bug:** Die ursprüngliche Reshuffle-Prüfung (`ensureDeckNotEmpty`) prüfte nur "ist das Deck komplett leer", nicht "reicht die verbleibende Deck-Größe für die angeforderte Kartenanzahl". Bei einer perfekten Runde (5 Karten sollen gezogen werden, aber z.B. nur noch 4 im Deck) wurde dadurch fälschlich kein Reshuffle ausgelöst – der Spieler bekam dann nur 4 statt 5 Karten. Zusätzlich überschrieb `reshuffleDiscardIntoDeck` das `deck`-Array komplett mit dem gemischten Ablagestapel, statt eventuell noch vorhandene Deck-Karten mit einzubeziehen (potenzieller Datenverlust). Beide Stellen wurden korrigiert (`ensureDeckHasCards` prüft die benötigte Menge, Reshuffle mischt Deck+Discard zusammen).
  
 ---
  
@@ -391,6 +398,7 @@ db.run_decks.createIndex({ run_id: 1 })
 | `getIndexCard(id)` | Einzelne Karte mit Stats |
 | `getRanking(studyGroupId)` | Rangliste der Gruppe (dreistufig sortiert) |
 | `getRuns(userId)` | Run-Historie eines Users |
+| `getActiveRun(studyGroupId)` | Aktueller aktiver Run des Users in dieser Gruppe (`null` falls keiner) – für Reload-Robustheit im Frontend |
 | `getMap` | Die hardcoded Map mit Feldern |
  
 ### Mutations
@@ -407,6 +415,7 @@ db.run_decks.createIndex({ run_id: 1 })
 | `endRun(runId, successful)` | Run manuell beenden/abbrechen |
 | `moveToField(runId, targetPosition)` | Zu einem erreichbaren Feld bewegen – löst je nach Feldtyp automatisch Kampf (`FIGHT`/`BOSS`) oder Heilung (`HEAL`) aus |
 | `answerCard(runId, cardId, userAnswer)` | Karte im aktiven Kampf beantworten (case-insensitive, trimmed) |
+| `endTurn(runId)` | Aktuellen Zug freiwillig beenden, ohne eine weitere Karte zu spielen |
 | `sendMessage(chatId, content)` | Chat-Nachricht senden |
  
 ### Subscriptions
@@ -424,6 +433,19 @@ type AnswerResult {
   correct:       Boolean!   # richtig oder falsch
   damageDealt:   Int!       # tatsächlich verursachter Schaden (Kartenschaden × Level-Multiplikator)
   correctAnswer: String!    # wird immer zurückgegeben für Frontend-Anzeige
+  combat:        Combat!    # vollständiger aktualisierter Kampf-Zustand (neue Hand, Gegner-HP, Status)
+  player:        Player!    # vollständiger aktualisierter Spieler-Zustand (HP, Level) nach diesem Zug
+}
+```
+
+`combat`/`player` werden mitgeliefert, damit das Frontend nach jedem Zug (Gegenangriff, Perfekt-Heilung, Level-Up) den serverseitig bereits berechneten Zustand 1:1 übernehmen kann, statt ihn selbst anzunähern.
+
+### `endTurn` Rückgabe
+
+```graphql
+type EndTurnResult {
+  combat: Combat!   # aktualisierter Kampf-Zustand nach dem freiwilligen Zugende
+  player: Player!   # aktualisierter Spieler-Zustand (Gegenangriff wurde angewendet)
 }
 ```
 
@@ -435,6 +457,10 @@ type MoveResult {
   combat: Combat     # nur befüllt, wenn das Zielfeld ein FIGHT/BOSS-Feld war
 }
 ```
+
+### `Combat.deckCount`
+
+Zusätzliches Feld am `Combat`-Typ, das die Anzahl verbleibender Karten im Run-Deck zurückgibt (über `run_decks` nachgeschlagen). Dient dem Frontend als verlässliche Anzeige für den Deck-Stapel, statt die Anzahl lokal mitzuzählen (was nach einem Reshuffle sonst aus dem Sync laufen würde).
  
 ---
  
@@ -646,7 +672,7 @@ Die `ws` Library hat einen bekannten Bug: wenn mehrere `WebSocketServer`-Instanz
 - [x] Deck-Zusammenstellung (gewichtet, Cold-Start-geschützt)
 - [x] Kampfsystem (`answerCard`, Schaden, Heilung, Level-Up, Sieg/Niederlage, Boss-Erkennung)
 - [x] Karteikarten-Statistik-Update nach jeder Antwort
-- [ ] Frontend Vue 3 Struktur aufsetzen
+- [x] Frontend Vue 3 Struktur aufsetzen
 - [ ] Restliche GraphQL Resolvers implementieren (StudyGroup, IndexCard, Ranking, Chat)
 - [ ] Restliche Services implementieren (statistics, ranking)
 - [ ] Service Worker + Web App Manifest
