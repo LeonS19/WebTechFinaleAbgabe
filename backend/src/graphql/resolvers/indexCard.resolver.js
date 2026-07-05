@@ -103,7 +103,15 @@ export const indexCardResolvers = {
         data,
         context.user.id,
       );
-      return mapCard(card);
+
+      const mapped = mapCard(card); // ← erst mappen
+
+      pubsub.publish(INDEX_CARD_UPDATED, {
+        onIndexCardUpdated: mapped,
+        studyGroupId: mapped.studyGroupId,
+      });
+
+      return mapped; // ← dann returnen
     },
     deleteIndexCard: async (_, { id }, context) => {
       if (!context.user) throw new Error("Nicht authentifiziert");

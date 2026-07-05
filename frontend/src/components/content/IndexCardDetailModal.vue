@@ -8,12 +8,27 @@
 
       <div class="modal-body">
         <div class="detail-section">
-          <p class="detail-label">Frage</p>
-          <p class="detail-value">{{ card.question }}</p>
+          <div class="detail-label-row">
+            <p class="detail-label">Frage</p>
+            <button v-if="canEdit && !isEditing" class="edit-btn" @click="startEdit">
+              Bearbeiten
+            </button>
+          </div>
+          <p v-if="!isEditing" class="detail-value">{{ question }}</p>
+          <textarea v-else v-model="editQuestion" class="edit-textarea" rows="2"></textarea>
         </div>
         <div class="detail-section">
           <p class="detail-label">Antwort</p>
-          <p class="detail-value">{{ card.answer }}</p>
+          <p v-if="!isEditing" class="detail-value">{{ answer }}</p>
+          <textarea v-else v-model="editAnswer" class="edit-textarea" rows="2"></textarea>
+        </div>
+
+        <div v-if="isEditing" class="edit-actions">
+          <p v-if="editError" class="edit-error">{{ editError }}</p>
+          <button class="cancel-btn" :disabled="saving" @click="cancelEdit">Abbrechen</button>
+          <button class="save-btn" :disabled="saving" @click="saveEdit">
+            {{ saving ? 'Wird gespeichert...' : 'Speichern' }}
+          </button>
         </div>
 
         <div class="detail-section">
@@ -69,21 +84,89 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import { useMutation } from '@vue/apollo-composable';
+import { gql } from '@apollo/client/core';
 
 const props = defineProps({
   card: Object,
   userRole: String,
 });
 
-const emit = defineEmits(['close', 'attachmentUploaded']);
+const emit = defineEmits(['close', 'attachmentUploaded', 'cardUpdated']);
 
 const BASE_URL = 'http://localhost:3000/api/v1';
 
 const localAttachments = ref([...(props.card.attachments || [])]);
 
+// Lokale Kopie von Frage/Antwort, damit das Modal nach dem Speichern sofort den
+// neuen Stand zeigt, ohne dass der Elternkomponente die Liste neu laden muss.
+const question = ref(props.card.question);
+const answer = ref(props.card.answer);
+
 const canUpload = computed(() =>
   props.userRole === 'ADMIN' || props.userRole === 'MODERATOR'
 );
+const canEdit = computed(() =>
+  props.userRole === 'ADMIN' || props.userRole === 'MODERATOR'
+);
+
+// ---- Bearbeiten von Frage/Antwort ----
+const UPDATE_INDEX_CARD = gql`
+  mutation UpdateIndexCard($id: ID!, $question: String, $answer: String) {
+    updateIndexCard(id: $id, question: $question, answer: $answer) {
+      id
+      question
+      answer
+    }
+  }
+`;
+const { mutate: updateIndexCardMutation } = useMutation(UPDATE_INDEX_CARD);
+
+const isEditing = ref(false);
+const editQuestion = ref('');
+const editAnswer = ref('');
+const editError = ref(null);
+const saving = ref(false);
+
+function startEdit() {
+  editQuestion.value = question.value;
+  editAnswer.value = answer.value;
+  editError.value = null;
+  isEditing.value = true;
+}
+
+function cancelEdit() {
+  isEditing.value = false;
+  editError.value = null;
+}
+
+async function saveEdit() {
+  if (!editQuestion.value.trim() || !editAnswer.value.trim()) {
+    editError.value = 'Frage und Antwort dürfen nicht leer sein.';
+    return;
+  }
+
+  saving.value = true;
+  editError.value = null;
+
+  try {
+    const { data } = await updateIndexCardMutation({
+      id: props.card.id,
+      question: editQuestion.value.trim(),
+      answer: editAnswer.value.trim(),
+    });
+
+    question.value = data.updateIndexCard.question;
+    answer.value = data.updateIndexCard.answer;
+    isEditing.value = false;
+    emit('cardUpdated', data.updateIndexCard);
+  } catch (err) {
+    editError.value = err.message ?? 'Speichern fehlgeschlagen.';
+    console.error('updateIndexCard failed:', err);
+  } finally {
+    saving.value = false;
+  }
+}
 
 function formatDate(dateStr) {
   if (!dateStr) return '';
