@@ -85,6 +85,8 @@ import CreateStudyGroupModal from '../components/layout/CreateStudyGroupModal.vu
 import JoinStudyGroupModal from '../components/layout/JoinStudyGroupModal.vue'
 import RunView from '../components/content/RunView.vue'
 import '../assets/dashboard.css'
+import { useOfflineAwareQuery } from '../composables/useOfflineAwareQuery.js'
+import { getAllCachedStudyGroups, getCachedStudyGroup, getCachedIndexCards } from '../services/offlineStorage.service.js'
 
 const router = useRouter()
 
@@ -287,13 +289,17 @@ const currentMemberRole = computed(() => {
 
 const studyGroupIdForQuery = computed(() => selectedGroup.value?.id ?? null)
 
-const { result: cardsResult, refetch: refetchCards } = useQuery(
+const { data: cardsData, refetch: refetchCards } = useOfflineAwareQuery(
   GET_INDEX_CARDS,
   () => ({ studyGroupId: studyGroupIdForQuery.value }),
   () => ({ enabled: !!studyGroupIdForQuery.value }),
+  {
+    dataKey: 'getIndexCards',
+    cacheFn: () => getCachedIndexCards(studyGroupIdForQuery.value),
+  },
 )
 
-const indexCards = computed(() => cardsResult.value?.getIndexCards ?? [])
+const indexCards = computed(() => cardsData.value ?? [])
 
 const runActive = ref(false)
 
@@ -319,14 +325,21 @@ function logout() {
 const { mutate: leaveStudyGroupMutation } = useMutation(LEAVE_STUDY_GROUP)
 const groupIdToLoad = ref(null)
 
-const { result: groupResult } = useQuery(
+const { data: groupData } = useOfflineAwareQuery(
   GET_STUDY_GROUP,
   () => ({ id: groupIdToLoad.value }),
   () => ({ enabled: !!groupIdToLoad.value }),
+  {
+    dataKey: 'getStudyGroup',
+    cacheFn: async () => {
+      const cached = await getCachedStudyGroup(groupIdToLoad.value)
+      return { members: cached?.members ?? [] }
+    },
+  },
 )
 
-watch(groupResult, (val) => {
-  members.value = val?.getStudyGroup?.members ?? []
+watch(groupData, (val) => {
+  members.value = val?.members ?? []
 })
 
 const { result: updatedCardResult } = useSubscription(
@@ -391,10 +404,18 @@ function onGroupJoined(group) {
   activeView.value = 'karteikarten'
 }
 
-const { result: myGroupsResult } = useQuery(GET_MY_STUDY_GROUPS)
+const { data: myGroupsData, isOffline: groupsOffline } = useOfflineAwareQuery(
+  GET_MY_STUDY_GROUPS,
+  () => ({}),
+  () => ({}),
+  {
+    dataKey: 'getMyStudyGroups',
+    cacheFn: () => getAllCachedStudyGroups(),
+  },
+)
 
-watch(myGroupsResult, (val) => {
-  studyGroups.value = [...(val?.getMyStudyGroups ?? [])]
+watch(myGroupsData, (val) => {
+  studyGroups.value = [...(val ?? [])]
 })
 
 onMounted(() => {

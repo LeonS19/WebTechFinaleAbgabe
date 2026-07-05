@@ -1,3 +1,4 @@
+import { cacheMessages, getCachedMessages } from '../services/offlineStorage.service.js'
 class ChatWindowElement extends HTMLElement {
   constructor() {
     super()
@@ -27,10 +28,31 @@ class ChatWindowElement extends HTMLElement {
     if (this.chatId && this.token) {
       this.connect()
     }
+    
+    this._onlineHandler = () => this.handleOnline()
+    this._offlineHandler = () => this.handleOffline()
+    window.addEventListener('online', this._onlineHandler)
+    window.addEventListener('offline', this._offlineHandler)
   }
 
   disconnectedCallback() {
     this.disconnect()
+    // Listener für Online, Offline Check aufräumen
+    window.removeEventListener('online', this._onlineHandler)
+    window.removeEventListener('offline', this._offlineHandler)
+  }
+
+  handleOnline() {
+    // Wieder online: Verbindung + Nachrichten frisch laden
+    if (this.chatId && this.token) {
+      this.connect()
+    }
+  }
+
+  handleOffline() {
+    // Offline geworden: WebSocket ist eh tot, nur Status anzeigen
+    this._connected = false
+    this.updateStatus('Offline')
   }
 
   get chatId() { return this.getAttribute('chat-id') || '' }
@@ -42,10 +64,19 @@ class ChatWindowElement extends HTMLElement {
   get username() { return this.getAttribute('username') || '' }
   set username(value) { this.setAttribute('username', value) }
 
+  resetMessages() {
+    this._messages = []
+    const list = this.shadowRoot.querySelector('.messages')
+    if (list) list.innerHTML = ''
+  }
+
   connect() {
     if (this._ws) {
       this._ws.close()
     }
+
+    this.resetMessages()
+    this.loadMessages()
 
     this._ws = new WebSocket('ws://localhost:3000/chat')
 
@@ -57,7 +88,6 @@ class ChatWindowElement extends HTMLElement {
         chatId: this.chatId,
       }))
       this.updateStatus('Verbunden')
-      this.loadMessages()
     }
 
     this._ws.onmessage = (event) => {
@@ -159,6 +189,10 @@ class ChatWindowElement extends HTMLElement {
       const data = await res.json()
       const messages = data?.data?.getMessages ?? []
 
+      // erfolgreich geladene Nachrichten cachen
+      const normalizedForCache = messages.map((m) => ({ ...m, senderName: m.sender?.name }))
+      cacheMessages(normalizedForCache)
+
       // Service gibt neueste zuerst zurück — umkehren für Anzeige
       const ordered = [...messages].reverse()
       ordered.forEach((m) => {
@@ -168,6 +202,17 @@ class ChatWindowElement extends HTMLElement {
       })
     } catch (err) {
       console.error('Fehler beim Laden der Nachrichten:', err)
+      try {
+        const cached = await getCachedMessages(chatId)
+        const ordered = [...cached].sort((a, b) => new Date(a.sentAt) - new Date(b.sentAt))
+        ordered.forEach((m) => {
+          this._messages.push(m)
+          this.appendMessage(m)
+        })
+        this.updateStatus('Offline')
+      } catch (cacheErr) {
+        console.error('Kein Cache verfügbar:', cacheErr)
+      }
     }
   }
 
