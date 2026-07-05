@@ -150,6 +150,7 @@ type Run {
     player:             Player!
     deck:               [IndexCard!]!
     discardPile:        [IndexCard!]!
+    activeCombat: Combat
 }
 
 type CombatEnemy {
@@ -166,6 +167,7 @@ type Combat {
     hand:               [IndexCard!]!
     isPlayerTurn:       Boolean!
     status:             String!
+    deckCount: Int!
 }
 
 type MoveResult {
@@ -177,6 +179,13 @@ type AnswerResult {
     correct:        Boolean!
     damageDealt:    Int!
     correctAnswer:  String!
+    combat:         Combat!
+    player:         Player!
+}
+
+type EndTurnResult {
+    combat: Combat!
+    player: Player!
 }
 
 # ============================================
@@ -231,6 +240,7 @@ type Query {
 
     # Runs - full run history of a user
     getRuns(userId: ID!): [Run!]!
+    getActiveRun(studyGroupId: ID!): Run
 
     # Map - hardcoded single map with all fields
     getMap: Map
@@ -276,6 +286,7 @@ type Mutation {
         cardId:     ID!
         userAnswer: String!
     ): AnswerResult!
+    endTurn(runId: ID!): EndTurnResult!
 
     # Chat
     sendMessage(

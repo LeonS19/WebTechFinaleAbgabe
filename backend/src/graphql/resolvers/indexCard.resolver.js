@@ -25,6 +25,8 @@ export function mapCard(card) {
       studyGroupId: s.study_group_id,
       totalAttempts: s.total_attempts,
       correctAnswers: s.correct_answers,
+      difficulty:
+        s.total_attempts > 0 ? s.correct_answers / s.total_attempts : 0,
     })),
     userStats: (obj.user_stats || []).map((s) => ({
       userId: s.user_id,

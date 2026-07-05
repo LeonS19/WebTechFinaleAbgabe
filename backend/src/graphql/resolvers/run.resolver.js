@@ -1,9 +1,9 @@
-import * as MapService from '../../services/map.service.js';
-import * as RunService from '../../services/run.service.js';
-import * as CombatService from '../../services/combat.service.js';
-import * as IndexCardService from '../../services/indexCard.service.js';
-import * as RunDeckService from '../../services/runDeck.service.js';
-
+import * as MapService from "../../services/map.service.js";
+import * as RunService from "../../services/run.service.js";
+import * as CombatService from "../../services/combat.service.js";
+import * as IndexCardService from "../../services/indexCard.service.js";
+import * as RunDeckService from "../../services/runDeck.service.js";
+import { mapCard } from "./indexCard.resolver.js";
 
 function mapField(field) {
   return {
@@ -13,7 +13,7 @@ function mapField(field) {
     y: field.y,
     type: field.type,
     nextFields: field.nextFields || [],
-    enemies: (field.enemies || []).map(e => ({
+    enemies: (field.enemies || []).map((e) => ({
       id: e._id.toString(),
       name: e.name,
       type: e.type,
@@ -26,12 +26,12 @@ function mapField(field) {
 export const runResolvers = {
   Query: {
     getMap: async (_, __, context) => {
-      if (!context.user){
-        throw new Error('Nicht authentifiziert');
+      if (!context.user) {
+        throw new Error("Nicht authentifiziert");
       }
       const map = await MapService.getMap();
-      if (!map){
-        throw new Error('Map nicht gefunden');
+      if (!map) {
+        throw new Error("Map nicht gefunden");
       }
       return {
         id: map._id.toString(),
@@ -39,33 +39,61 @@ export const runResolvers = {
         fields: map.fields.map(mapField),
       };
     },
+    getActiveRun: async (_, { studyGroupId }, context) => {
+      if (!context.user) {
+        throw new Error("Nicht authentifiziert");
+      }
+      return await RunService.getActiveRun(context.user.id, studyGroupId);
+    },
   },
   Mutation: {
-    startRun: async (_, { studyGroupId, selectedStartFieldPosition }, context) => {
+    startRun: async (
+      _,
+      { studyGroupId, selectedStartFieldPosition },
+      context,
+    ) => {
       if (!context.user) {
-        throw new Error('Nicht authentifiziert');
+        throw new Error("Nicht authentifiziert");
       }
-      return await RunService.startRun(context.user.id, studyGroupId, selectedStartFieldPosition);
+      return await RunService.startRun(
+        context.user.id,
+        studyGroupId,
+        selectedStartFieldPosition,
+      );
     },
 
     endRun: async (_, { runId, successful }, context) => {
       if (!context.user) {
-        throw new Error('Nicht authentifiziert');
+        throw new Error("Nicht authentifiziert");
       }
       return await RunService.endRun(runId, context.user.id, successful);
     },
     moveToField: async (_, { runId, targetPosition }, context) => {
-        if (!context.user) {
-          throw new Error('Nicht authentifiziert');
-        }
-        return await RunService.moveToField(runId, context.user.id, targetPosition);
-      },
+      if (!context.user) {
+        throw new Error("Nicht authentifiziert");
+      }
+      return await RunService.moveToField(
+        runId,
+        context.user.id,
+        targetPosition,
+      );
+    },
 
     answerCard: async (_, { runId, cardId, userAnswer }, context) => {
       if (!context.user) {
-        throw new Error('Nicht authentifiziert');
+        throw new Error("Nicht authentifiziert");
       }
-      return await CombatService.answerCard(runId, context.user.id, cardId, userAnswer);
+      return await CombatService.answerCard(
+        runId,
+        context.user.id,
+        cardId,
+        userAnswer,
+      );
+    },
+
+    endTurn: async (_, { runId }, context) => {
+      if (!context.user) throw new Error("Nicht authentifiziert");
+      return await CombatService.endTurn(runId, context.user.id);
     },
   },
   Combat: {
@@ -73,7 +101,8 @@ export const runResolvers = {
     isPlayerTurn: (combat) => combat.is_player_turn,
     status: (combat) => combat.status,
     hand: async (combat) => {
-      return await IndexCardService.getIndexCardsByIds(combat.hand);
+      const cards = await IndexCardService.getIndexCardsByIds(combat.hand);
+      return cards.map(mapCard);
     },
     enemy: (combat) => ({
       name: combat.enemy.name,
@@ -82,6 +111,10 @@ export const runResolvers = {
       currentHealth: combat.enemy.current_health,
       baseDamage: combat.enemy.base_damage,
     }),
+    deckCount: async (combat) => {
+      const runDeck = await RunDeckService.findRunDeck(combat.run_id);
+      return runDeck?.deck.length ?? 0;
+    },
   },
   Run: {
     player: (run) => ({
@@ -92,12 +125,19 @@ export const runResolvers = {
     deck: async (run) => {
       const runDeck = await RunDeckService.findRunDeck(run.id);
       if (!runDeck) return [];
-      return await IndexCardService.getIndexCardsByIds(runDeck.deck);
+      const cards = await IndexCardService.getIndexCardsByIds(runDeck.deck);
+      return cards.map(mapCard);
     },
     discardPile: async (run) => {
       const runDeck = await RunDeckService.findRunDeck(run.id);
       if (!runDeck) return [];
-      return await IndexCardService.getIndexCardsByIds(runDeck.discard_pile);
+      const cards = await IndexCardService.getIndexCardsByIds(
+        runDeck.discard_pile,
+      );
+      return cards.map(mapCard);
+    },
+    activeCombat: async (run) => {
+      return await CombatService.findActiveCombatOrNull(run.id);
     },
   },
 };
