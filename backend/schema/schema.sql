@@ -81,7 +81,7 @@ CREATE TABLE run (
     study_group_id      UUID NOT NULL REFERENCES study_group(id) ON DELETE CASCADE,
     map_id              TEXT NOT NULL,              -- references MongoDB Map document
     successful          BOOLEAN,                    -- NULL while run is active
-    start_time          TIMESTAMP DEFAULT NOW(),
+    start_time          TIMESTAMPTZ DEFAULT NOW(),
     duration            INTEGER,                    -- in seconds, NULL while active
     correct_answers     INTEGER DEFAULT 0,                      -- absolute count, used for ranking
     total_answers       INTEGER DEFAULT 0,                      -- absolute count, hit_rate = correct/total

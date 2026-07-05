@@ -211,6 +211,7 @@ type RankingEntry {
     correctAnswers:     Int!           # primary sort criterion
     hitRate:            Float!         # secondary sort criterion
     duration:           Int!           # tertiary sort criterion
+    isFormerMember:     Boolean!
 }
 
 # ============================================
