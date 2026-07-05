@@ -15,8 +15,15 @@ export async function uploadAttachment(req, res) {
       onIndexCardUpdated: mapCard(updatedCard),
       studyGroupId: updatedCard.study_group_id,
     });
-    return res.status(201).json(attachment);
-    
+
+    return res.status(201).json({
+      id: attachment._id.toString(),
+      filename: attachment.filename,
+      mimeType: attachment.mime_type,
+      sizeInBytes: attachment.size_in_bytes,
+      uploadedAt: attachment.uploaded_at,
+      uploadedBy: attachment.uploaded_by,
+    });
   } catch (err) {
     return res.status(400).json({ error: err.message });
   }

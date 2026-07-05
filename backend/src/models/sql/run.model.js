@@ -51,13 +51,14 @@ export async function findRunById(runId, client = pool) {
       return mapRow(run.rows[0]);
 }
 
-// TODO: alle Runs eines Users (für getRuns Query / Historie)
+// Alle Runs eines Users (für getRuns Query / Historie) — über alle Lerngruppen hinweg,
+// Filterung nach der aktuell offenen Gruppe passiert im Frontend über run.studyGroup.id
 export async function findRunsByUser(userId, client = pool) {
     const runs = await client.query(
         'SELECT * FROM run WHERE user_id = $1 ORDER BY start_time DESC',
         [userId]
       );
-      return mapRow(runs.rows.map(mapRow));
+      return runs.rows.map(mapRow);
 }
 
 // Wird nach jedem Feldwechsel aufgerufen

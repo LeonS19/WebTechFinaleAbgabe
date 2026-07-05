@@ -31,6 +31,10 @@
     </div>
 
     <div class="cards-grid">
+      <div v-if="canCreate" class="card-wrapper card-create" @click="showCreate = true">
+        <span class="plus-icon">+</span>
+      </div>
+
       <index-card
         v-for="card in filteredCards"
         :key="card.id"
@@ -40,10 +44,6 @@
         :creator="card.creator?.name || 'Unbekannt'"
         :tags="card.tags"
       />
-
-      <div v-if="canCreate" class="card-wrapper card-create" @click="showCreate = true">
-        <span class="plus-icon">+</span>
-      </div>
     </div>
 
     <IndexCardDetailModal

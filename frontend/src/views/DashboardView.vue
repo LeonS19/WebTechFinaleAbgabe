@@ -109,9 +109,28 @@ onMounted(() => {
   }
   try {
     const payload = JSON.parse(atob(token.split('.')[1]))
-    currentUser.value = { id: payload.userId, name: payload.name, email: payload.email }
+    // Nur die userId kommt zuverlässig aus dem Token — name/email werden gleich
+    // per Query nachgeladen (JWT enthält laut Konvention nur { userId, ... }).
+    currentUser.value = { id: payload.userId, name: null, email: null }
   } catch {
     router.push('/login')
+  }
+})
+
+const ME_QUERY = gql`
+  query Me {
+    me {
+      id
+      name
+      email
+    }
+  }
+`
+const { result: meResult } = useQuery(ME_QUERY)
+
+watch(meResult, (val) => {
+  if (val?.me) {
+    currentUser.value = val.me
   }
 })
 
@@ -330,6 +349,22 @@ const { result: updatedCardResult } = useSubscription(
 )
 
 watch(updatedCardResult, () => {
+  refetchCards()
+})
+
+const ON_INDEX_CARD_DELETED = gql`
+  subscription OnIndexCardDeleted($studyGroupId: ID!) {
+    onIndexCardDeleted(studyGroupId: $studyGroupId)
+  }
+`
+
+const { result: deletedCardResult } = useSubscription(
+  ON_INDEX_CARD_DELETED,
+  () => ({ studyGroupId: selectedGroup.value?.id }),
+  () => ({ enabled: !!selectedGroup.value?.id }),
+)
+
+watch(deletedCardResult, () => {
   refetchCards()
 })
 

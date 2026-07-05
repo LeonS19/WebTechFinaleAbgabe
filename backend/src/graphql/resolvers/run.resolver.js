@@ -3,6 +3,8 @@ import * as RunService from "../../services/run.service.js";
 import * as CombatService from "../../services/combat.service.js";
 import * as IndexCardService from "../../services/indexCard.service.js";
 import * as RunDeckService from "../../services/runDeck.service.js";
+import * as StudyGroupService from "../../services/studyGroup.service.js";
+import * as UserModel from "../../models/sql/user.model.js";
 import { mapCard } from "./indexCard.resolver.js";
 import { withFilter } from "graphql-subscriptions";
 import { pubsub } from "../pubsub.js";
@@ -48,6 +50,12 @@ export const runResolvers = {
         throw new Error("Nicht authentifiziert");
       }
       return await RunService.getActiveRun(context.user.id, studyGroupId);
+    },
+    getRuns: async (_, __, context) => {
+      if (!context.user) {
+        throw new Error("Nicht authentifiziert");
+      }
+      return await RunService.getRunHistory(context.user.id);
     },
   },
   Mutation: {
@@ -130,6 +138,16 @@ export const runResolvers = {
     },
   },
   Run: {
+    user: (run) => UserModel.findById(run.userId),
+    studyGroup: (run) => StudyGroupService.getStudyGroup(run.studyGroupId),
+    map: async () => {
+      const map = await MapService.getMap(); // es gibt aktuell nur eine Map
+      return {
+        id: map._id.toString(),
+        name: map.name,
+        fields: map.fields.map(mapField),
+      };
+    },
     player: (run) => ({
       level: run.level,
       maxHealth: run.maxHealth,

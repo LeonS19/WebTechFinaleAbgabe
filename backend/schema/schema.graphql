@@ -223,6 +223,7 @@ type Query {
     getStudyGroup(id: ID!): StudyGroup
     getStudyGroups(search: String): [StudyGroup!]!
     getMyStudyGroups: [StudyGroup!]!
+    me: User!
 
     # Index Cards - supports filtering by tags and search term
     getIndexCards(
@@ -240,7 +241,7 @@ type Query {
     getRanking(studyGroupId: ID!): [RankingEntry!]!
 
     # Runs - full run history of a user
-    getRuns(userId: ID!): [Run!]!
+    getRuns: [Run!]!
     getActiveRun(studyGroupId: ID!): Run
 
     # Map - hardcoded single map with all fields
@@ -312,6 +313,8 @@ type Subscription {
 
     # New Attachment for IndexCard
     onIndexCardUpdated(studyGroupId: ID!): IndexCard!
+
+    onIndexCardDeleted(studyGroupId: ID!): ID!
 
     onRankingUpdated(studyGroupId: ID!): [RankingEntry!]!
 }
