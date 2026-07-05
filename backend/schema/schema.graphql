@@ -240,7 +240,7 @@ type Query {
     getRanking(studyGroupId: ID!): [RankingEntry!]!
 
     # Runs - full run history of a user
-    getRuns(userId: ID!): [Run!]!
+    getRuns: [Run!]!
     getActiveRun(studyGroupId: ID!): Run
 
     # Map - hardcoded single map with all fields

@@ -122,6 +122,12 @@ export async function getActiveRun(userId, studyGroupId) {
   return await findActiveRunByUser(userId, studyGroupId); // gibt null zurück, falls keiner existiert
 }
 
+// Alle Runs des Users (Historie) — Filterung nach Lerngruppe passiert im Frontend
+// über run.studyGroup.id, kein Permission-Check nötig (eigene Daten)
+export async function getRunHistory(userId) {
+  return await findRunsByUser(userId);
+}
+
 export async function endRun(runId, userId, successful) {
   const run = await findRunById(runId);
 

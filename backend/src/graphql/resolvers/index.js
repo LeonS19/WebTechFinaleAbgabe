@@ -11,7 +11,7 @@ export const resolvers = {
     ...chatResolvers.Query,
     ...runResolvers.Query,
     ...rankingResolvers.Query,
-    getRuns: () => [],
+    ...runResolvers.Query,
   },
   Mutation: {
     ...studyGroupResolvers.Mutation,
