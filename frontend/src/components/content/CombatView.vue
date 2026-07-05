@@ -1,9 +1,18 @@
 <template>
   <div class="combat-view">
     <div class="combat-arena">
-      <!-- Deck Counter ganz oben rechts -->
-      <div class="deck-counter">
-        🃏 <span>{{ deckCount }}</span>
+      <!-- Deck Counter + Rundenende ganz oben rechts -->
+      <div class="combat-top-bar">
+        <button
+          class="end-turn-btn"
+          :disabled="!!activeCard || endingTurn"
+          @click="onEndTurnClick"
+        >
+          {{ endingTurn ? 'Wird beendet...' : 'Runde beenden' }}
+        </button>
+        <div class="deck-counter">
+          🃏 <span>{{ deckCount }}</span>
+        </div>
       </div>
 
       <!-- Trennlinie -->
@@ -94,14 +103,16 @@ const props = defineProps({
   enemyHurtDuration: { type: Number, default: 900 },     // 6 Frames
   // Kleine Pause NACH der vollständigen Attack-Animation, bevor die
   // Hurt-Animation der Gegenseite einsetzt (statt Überlappung während des Angriffs).
-  reactionGap: { type: Number, default: -120 },
+  reactionGap: { type: Number, default: 100 },
 })
 
-const emit = defineEmits(['cardPlayed'])
+const emit = defineEmits(['cardPlayed', 'endTurn'])
 const activeCard = ref(null)
 // { correct: Boolean, correctAnswer: String } | null — an CardPlayOverlay durchgereicht.
 // Wird von RunView über resolveAnswer() gesetzt, sobald die answerCard-Mutation antwortet.
 const answerFeedback = ref(null)
+// Verhindert Doppel-Klicks auf "Runde beenden", während RunView die endTurn-Mutation ausführt.
+const endingTurn = ref(false)
 
 const playerHealthPercent = computed(() =>
   Math.max(0, Math.min(100, (props.playerHp / props.playerMaxHp) * 100)),
@@ -177,7 +188,19 @@ function playCombatAnimation(correct) {
   })
 }
 
-defineExpose({ playCombatAnimation, resolveAnswer })
+function onEndTurnClick() {
+  if (activeCard.value || endingTurn.value) return
+  endingTurn.value = true
+  emit('endTurn')
+}
+
+// Von RunView aufgerufen, sobald die endTurn-Mutation (egal ob erfolgreich oder
+// fehlgeschlagen) abgeschlossen ist, damit der Button wieder nutzbar wird.
+function finishEndTurn() {
+  endingTurn.value = false
+}
+
+defineExpose({ playCombatAnimation, resolveAnswer, finishEndTurn })
 
 onBeforeUnmount(() => {
   clearTimeout(playerTimer)
@@ -299,15 +322,42 @@ function resolveAnswer({ correct, correctAnswer }) {
   color: #1a1a1a;
 }
 
+.combat-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.end-turn-btn {
+  padding: 0.4rem 0.9rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-background-mute);
+  color: var(--color-text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.end-turn-btn:hover:not(:disabled) {
+  background: var(--color-border);
+}
+
+.end-turn-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .deck-counter {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 0.5rem;
   font-size: 0.9rem;
   font-weight: 600;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--color-border);
 }
 
 .deck-counter span {

@@ -39,6 +39,12 @@ export const runResolvers = {
         fields: map.fields.map(mapField),
       };
     },
+    getActiveRun: async (_, { studyGroupId }, context) => {
+      if (!context.user) {
+        throw new Error("Nicht authentifiziert");
+      }
+      return await RunService.getActiveRun(context.user.id, studyGroupId);
+    },
   },
   Mutation: {
     startRun: async (
@@ -84,6 +90,11 @@ export const runResolvers = {
         userAnswer,
       );
     },
+
+    endTurn: async (_, { runId }, context) => {
+      if (!context.user) throw new Error("Nicht authentifiziert");
+      return await CombatService.endTurn(runId, context.user.id);
+    },
   },
   Combat: {
     id: (combat) => combat._id.toString(),
@@ -100,6 +111,10 @@ export const runResolvers = {
       currentHealth: combat.enemy.current_health,
       baseDamage: combat.enemy.base_damage,
     }),
+    deckCount: async (combat) => {
+      const runDeck = await RunDeckService.findRunDeck(combat.run_id);
+      return runDeck?.deck.length ?? 0;
+    },
   },
   Run: {
     player: (run) => ({
@@ -120,6 +135,9 @@ export const runResolvers = {
         runDeck.discard_pile,
       );
       return cards.map(mapCard);
+    },
+    activeCombat: async (run) => {
+      return await CombatService.findActiveCombatOrNull(run.id);
     },
   },
 };

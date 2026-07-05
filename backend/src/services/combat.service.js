@@ -41,17 +41,27 @@ function calculateCardDamage(card, studyGroupId) {
   return Math.round(1 + (1 - difficulty) * 4);
 }
 
-//Hilfsfunktion für Zugende-Ziehlogik
-async function drawForNextTurn(runId, count, currentHandSize) {
+async function ensureDeckHasCards(runId, neededCount) {
   const runDeck = await findRunDeck(runId);
-
-  const deckIsEmpty = runDeck.deck.length === 0;
-  const handIsEmpty = currentHandSize === 0;
-
-  if (deckIsEmpty && handIsEmpty) {
+  if (runDeck.deck.length < neededCount && runDeck.discard_pile.length > 0) {
     await reshuffleDiscardIntoDeck(runId);
   }
+}
 
+//Hilfsfunktion für Zugende-Ziehlogik
+// async function drawForNextTurn(runId, count, currentHandSize) {
+//   console.log('drawForNextTurn:', { count, currentHandSize });
+//   if (currentHandSize === 0) {
+//     await ensureDeckNotEmpty(runId);
+//   }
+//   const drawn = await drawCards(runId, count);
+//   console.log('drawn cards:', drawn.length);
+//   return drawn;
+// }
+async function drawForNextTurn(runId, count, currentHandSize) {
+  if (currentHandSize === 0) {
+    await ensureDeckHasCards(runId, count); // statt ensureDeckNotEmpty
+  }
   return await drawCards(runId, count);
 }
 
@@ -105,6 +115,10 @@ export async function startCombat(run, fieldPosition) {
   }
 
   const enemyData = field.enemies[0];
+
+  // await ensureDeckNotEmpty(run.id);
+  await ensureDeckHasCards(run.id, HAND_SIZE);
+
   const hand = await drawCards(run.id, HAND_SIZE);
 
   const combat = await Combat.create({
@@ -124,6 +138,10 @@ export async function startCombat(run, fieldPosition) {
   });
 
   return combat;
+}
+
+export async function findActiveCombatOrNull(runId) {
+  return await Combat.findOne({ run_id: runId, status: "ACTIVE" });
 }
 
 export async function answerCard(runId, userId, cardId, userAnswer) {
@@ -279,6 +297,73 @@ export async function answerCard(runId, userId, cardId, userAnswer) {
     correct: isCorrect,
     damageDealt,
     correctAnswer: card.answer,
+    combat,
+    player: {
+      level: updatedRun.level,
+      maxHealth: updatedRun.maxHealth,
+      currentHealth: updatedRun.currentHealth,
+    },
+  };
+}
+
+export async function endTurn(runId, userId) {
+  const combat = await findActiveCombatByRun(runId);
+  const run = await findRunById(runId);
+
+  if (run.userId !== userId) {
+    throw new Error("Nicht berechtigt, diesen Kampf zu spielen");
+  }
+  if (!combat.is_player_turn) {
+    throw new Error("Der Gegner ist gerade am Zug");
+  }
+
+  setPlayerTurn(combat, false);
+
+  let updatedRun = { ...run };
+  takeDamage(updatedRun, combat.enemy.base_damage);
+
+  if (updatedRun.currentHealth <= 0) {
+    setCombatStatus(combat, "LOST");
+    const remainingHand = [...combat.hand];
+    setCombatHand(combat, []);
+
+    await updateHealthAndAnswers(runId, {
+      currentHealth: 0,
+      correctAnswers: updatedRun.correctAnswers,
+      totalAnswers: updatedRun.totalAnswers,
+    });
+    await returnCardsToDeck(runId, remainingHand);
+    await combat.save();
+    await endRunModel(runId, false, calculateDuration(run.startTime));
+
+    return {
+      combat,
+      player: {
+        level: updatedRun.level,
+        maxHealth: updatedRun.maxHealth,
+        currentHealth: 0,
+      },
+    };
+  }
+
+  const missingCards = Math.max(0, HAND_SIZE - combat.hand.length);
+  const newCards =
+    missingCards > 0
+      ? await drawForNextTurn(runId, missingCards, combat.hand.length)
+      : [];
+  const updatedHand = [...combat.hand, ...newCards];
+  setCombatHand(combat, updatedHand);
+  combat.turn_start_hand_size = updatedHand.length;
+  setPlayerTurn(combat, true);
+
+  await updateHealthAndAnswers(runId, {
+    currentHealth: updatedRun.currentHealth,
+    correctAnswers: updatedRun.correctAnswers,
+    totalAnswers: updatedRun.totalAnswers,
+  });
+  await combat.save();
+
+  return {
     combat,
     player: {
       level: updatedRun.level,

@@ -1,31 +1,36 @@
 <template>
   <div class="run-view">
-    <RunMapView
-      v-if="phase === 'map'"
-      :fields="mapFields"
-      :currentPosition="currentPosition"
-      :phase="mapPhase"
-      @fieldSelected="onFieldSelected"
-    />
+    <p v-if="activeRunLoading" class="run-loading">Run wird geladen...</p>
 
-    <CombatView
-      v-if="phase === 'combat'"
-      ref="combatViewRef"
-      :enemy="enemyForView"
-      :hand="handForView"
-      :deckCount="deckCount"
-      :playerHp="playerHp"
-      :playerMaxHp="playerMaxHp"
-      :enemyHp="enemyHp"
-      @cardPlayed="onCardPlayed"
-    />
+    <template v-else>
+      <RunMapView
+        v-if="phase === 'map'"
+        :fields="mapFields"
+        :currentPosition="currentPosition"
+        :phase="mapPhase"
+        @fieldSelected="onFieldSelected"
+      />
+
+      <CombatView
+        v-if="phase === 'combat'"
+        ref="combatViewRef"
+        :enemy="enemyForView"
+        :hand="handForView"
+        :deckCount="deckCount"
+        :playerHp="playerHp"
+        :playerMaxHp="playerMaxHp"
+        :enemyHp="enemyHp"
+        @cardPlayed="onCardPlayed"
+        @endTurn="onEndTurn"
+      />
+    </template>
 
     <p v-if="actionError" class="run-error">{{ actionError }}</p>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useQuery, useMutation } from '@vue/apollo-composable';
 import { gql } from '@apollo/client/core';
 import RunMapView from './RunMapView.vue';
@@ -34,6 +39,7 @@ import CombatView from './CombatView.vue';
 const props = defineProps({
   studyGroupId: { type: String, required: true },
 });
+const emit = defineEmits(['runEnded']);
 
 // ---- Map laden ----
 const GET_MAP = gql`
@@ -62,6 +68,53 @@ const GET_MAP = gql`
 
 const { result: mapResult } = useQuery(GET_MAP);
 const mapFields = computed(() => mapResult.value?.getMap?.fields ?? []);
+
+// ---- Aktiven Run (inkl. laufendem Kampf) beim Mounten wiederherstellen ----
+// Ohne das würde ein Reload den kompletten Fortschritt "vergessen", obwohl
+// server-seitig noch alles läuft — siehe getActiveRun im Backend.
+const GET_ACTIVE_RUN = gql`
+  query GetActiveRun($studyGroupId: ID!) {
+    getActiveRun(studyGroupId: $studyGroupId) {
+      id
+      successful
+      currentPosition
+      player {
+        level
+        maxHealth
+        currentHealth
+      }
+      deck {
+        id
+      }
+      activeCombat {
+        id
+        isPlayerTurn
+        status
+        deckCount
+        enemy {
+          name
+          type
+          maxHealth
+          currentHealth
+          baseDamage
+        }
+        hand {
+          id
+          question
+          groupStats {
+            totalAttempts
+            correctAnswers
+          }
+        }
+      }
+    }
+  }
+`;
+const { result: activeRunResult, loading: activeRunLoading, error: activeRunError } = useQuery(
+  GET_ACTIVE_RUN,
+  () => ({ studyGroupId: props.studyGroupId }),
+  () => ({ enabled: !!props.studyGroupId }),
+);
 
 // ---- Run starten ----
 // startRun ist idempotent: existiert bereits ein aktiver Run für diesen
@@ -106,6 +159,7 @@ const MOVE_TO_FIELD = gql`
         id
         isPlayerTurn
         status
+        deckCount
         enemy {
           name
           type
@@ -140,6 +194,7 @@ const ANSWER_CARD = gql`
         id
         isPlayerTurn
         status
+        deckCount
         enemy {
           name
           type
@@ -166,14 +221,47 @@ const ANSWER_CARD = gql`
 `;
 const { mutate: answerCardMutation } = useMutation(ANSWER_CARD);
 
+// ---- Runde freiwillig beenden (ohne alle Handkarten zu spielen) ----
+const END_TURN = gql`
+  mutation EndTurn($runId: ID!) {
+    endTurn(runId: $runId) {
+      combat {
+        id
+        isPlayerTurn
+        status
+        deckCount
+        enemy {
+          name
+          type
+          maxHealth
+          currentHealth
+          baseDamage
+        }
+        hand {
+          id
+          question
+          groupStats {
+            totalAttempts
+            correctAnswers
+          }
+        }
+      }
+      player {
+        level
+        maxHealth
+        currentHealth
+      }
+    }
+  }
+`;
+const { mutate: endTurnMutation } = useMutation(END_TURN);
+
 // ---- State ----
 const run = ref(null); // aktueller Run, sobald startRun geantwortet hat
 const currentCombat = ref(null); // aktuelles Combat-Objekt, solange phase === 'combat'
 // Reaktive Kopie der Handkarten (mit _isNew-Flag für die Fly-in-Animation),
 // wird bei jeder answerCard-Antwort komplett aus dem Server-Combat übernommen.
 const hand = ref([]);
-// Nur für die Deck-Zähler-Anzeige (🃏 X) — kein Zustand, der Spiellogik beeinflusst.
-const deckRemaining = ref(0);
 const phase = ref('map'); // 'map' | 'combat'
 const mapPhase = ref('select-start'); // 'select-start' (noch kein Run) | 'select-next' (an RunMapView weitergereicht)
 const combatViewRef = ref(null);
@@ -194,11 +282,68 @@ const enemyForView = computed(() => {
 const enemyHp = computed(() => currentCombat.value?.enemy?.currentHealth ?? 0);
 const handForView = computed(() => hand.value);
 const deckCount = computed(() =>
-  phase.value === 'combat' ? deckRemaining.value : run.value?.deck?.length ?? 0,
+  phase.value === 'combat' ? (currentCombat.value?.deckCount ?? 0) : (run.value?.deck?.length ?? 0),
 );
+
+// Sobald getActiveRun geladen hat: bestehenden Fortschritt übernehmen.
+// Kommt null zurück, existiert kein aktiver Run -> Startfeld-Auswahl bleibt sichtbar.
+let resumed = false;
+watch(
+  activeRunLoading,
+  (loading) => {
+    if (loading || resumed) return;
+    if (!props.studyGroupId) return; // Query war deaktiviert, noch keine studyGroupId da
+    resumed = true;
+
+    if (activeRunError.value) {
+      actionError.value =
+        activeRunError.value.message ?? 'Aktiver Run konnte nicht geladen werden.';
+      console.error('getActiveRun failed:', activeRunError.value);
+      return;
+    }
+
+    const activeRun = activeRunResult.value?.getActiveRun;
+    if (!activeRun) return;
+
+    run.value = activeRun;
+    mapPhase.value = 'select-next';
+
+    if (activeRun.activeCombat) {
+      currentCombat.value = activeRun.activeCombat;
+      hand.value = currentCombat.value.hand.map((c) => ({ ...c, _isNew: false }));
+      phase.value = 'combat';
+    }
+  },
+  { immediate: true },
+);
+
+// Ein einzelner Kampf kann enden (WON/LOST), ohne dass der ganze Run vorbei ist —
+// das Backend beendet den Run (endRunModel) nur bei Niederlage oder Boss-Sieg.
+// enemy.type kennen wir schon aus der Combat-Query, brauchen also keine extra Anfrage.
+function handleCombatEnd(combat) {
+  if (combat.status !== 'WON' && combat.status !== 'LOST') return;
+
+  const wholeRunEnded = combat.status === 'LOST' || combat.enemy.type === 'BOSS';
+
+  currentCombat.value = null;
+  hand.value = [];
+
+  if (wholeRunEnded) {
+    emit('runEnded', { successful: combat.status === 'WON' });
+    return;
+  }
+
+  phase.value = 'map';
+  mapPhase.value = 'select-next';
+}
 
 async function onFieldSelected(field) {
   actionError.value = null;
+
+  if (!props.studyGroupId) {
+    actionError.value = 'Keine Lerngruppe ausgewählt — bitte Seite neu laden.';
+    return;
+  }
 
   try {
     if (!run.value) {
@@ -224,7 +369,6 @@ async function onFieldSelected(field) {
     if (data.moveToField.combat) {
       currentCombat.value = data.moveToField.combat;
       hand.value = currentCombat.value.hand.map((c) => ({ ...c, _isNew: false }));
-      deckRemaining.value = data.moveToField.run.deck?.length ?? 0;
       phase.value = 'combat';
     } else {
       mapPhase.value = 'select-next';
@@ -246,44 +390,74 @@ async function onCardPlayed({ card, answer }) {
       userAnswer: answer,
     });
     result = data.answerCard;
+
+    // Overlay-Feedback (richtig/falsch + korrekte Antwort) und Sprite-Animation
+    // laufen parallel; wir warten auf beides, bevor der State weiterverarbeitet wird.
+    await Promise.all([
+      combatViewRef.value?.resolveAnswer({ correct: result.correct, correctAnswer: result.correctAnswer }),
+      combatViewRef.value?.playCombatAnimation(result.correct),
+    ]);
+
+    // Server liefert Hand/Gegner-HP/Status jetzt komplett aktualisiert mit —
+    // wir übernehmen das 1:1 und markieren nur die neuen Karten für die Fly-in-Animation.
+    const previousHandIds = new Set(hand.value.map((c) => c.id));
+    const newHand = result.combat.hand.map((c) => ({
+      ...c,
+      _isNew: !previousHandIds.has(c.id),
+    }));
+
+    currentCombat.value = result.combat;
+    hand.value = newHand;
+
+    // Server liefert jetzt auch den aktualisierten Spieler-Zustand direkt mit
+    // (Gegenangriff, Perfekt-Runden-Heilung, Level-Up sind hier schon eingerechnet).
+    // Wichtig: run.value stammt aus einem Apollo-Ergebnis und ist eingefroren (Object.freeze) —
+    // direktes Zuweisen einer Property crasht deshalb. Stattdessen ein neues Objekt bauen.
+    if (run.value) {
+      run.value = { ...run.value, player: result.player };
+    }
+
+    if (result.combat.status === 'WON' || result.combat.status === 'LOST') {
+      handleCombatEnd(result.combat);
+    }
   } catch (err) {
     actionError.value = err.message ?? 'Antwort konnte nicht verarbeitet werden.';
-    console.error(err);
-    return;
+    console.error('onCardPlayed failed:', err);
   }
+}
 
-  // Overlay-Feedback (richtig/falsch + korrekte Antwort) und Sprite-Animation
-  // laufen parallel; wir warten auf beides, bevor der State weiterverarbeitet wird.
-  await Promise.all([
-    combatViewRef.value?.resolveAnswer({ correct: result.correct, correctAnswer: result.correctAnswer }),
-    combatViewRef.value?.playCombatAnimation(result.correct),
-  ]);
+// Freiwilliges Zugende: keine Karte/Antwort, deshalb kein Overlay-Feedback —
+// nur der Gegenangriff (Sprite-Animation) und die Hand-Aktualisierung.
+async function onEndTurn() {
+  actionError.value = null;
 
-  // Server liefert Hand/Gegner-HP/Status jetzt komplett aktualisiert mit —
-  // wir übernehmen das 1:1 und markieren nur die neuen Karten für die Fly-in-Animation.
-  const previousHandIds = new Set(hand.value.map((c) => c.id));
-  const newHand = result.combat.hand.map((c) => ({
-    ...c,
-    _isNew: !previousHandIds.has(c.id),
-  }));
-  const drawnCount = newHand.filter((c) => c._isNew).length;
+  try {
+    const { data } = await endTurnMutation({ runId: run.value.id });
+    const result = data.endTurn;
 
-  currentCombat.value = result.combat;
-  hand.value = newHand;
-  deckRemaining.value = Math.max(0, deckRemaining.value - drawnCount);
+    await combatViewRef.value?.playCombatAnimation(false);
 
-  // Server liefert jetzt auch den aktualisierten Spieler-Zustand direkt mit
-  // (Gegenangriff, Perfekt-Runden-Heilung, Level-Up sind hier schon eingerechnet).
-  if (run.value) {
-    run.value.player = result.player;
-  }
+    const previousHandIds = new Set(hand.value.map((c) => c.id));
+    const newHand = result.combat.hand.map((c) => ({
+      ...c,
+      _isNew: !previousHandIds.has(c.id),
+    }));
 
-  if (result.combat.status === 'WON' || result.combat.status === 'LOST') {
-    phase.value = 'map';
-    mapPhase.value = 'select-next';
-    currentCombat.value = null;
-    hand.value = [];
-    deckRemaining.value = 0;
+    currentCombat.value = result.combat;
+    hand.value = newHand;
+
+    if (run.value) {
+      run.value = { ...run.value, player: result.player };
+    }
+
+    if (result.combat.status === 'WON' || result.combat.status === 'LOST') {
+      handleCombatEnd(result.combat);
+    }
+  } catch (err) {
+    actionError.value = err.message ?? 'Runde konnte nicht beendet werden.';
+    console.error('onEndTurn failed:', err);
+  } finally {
+    combatViewRef.value?.finishEndTurn();
   }
 }
 </script>
@@ -293,6 +467,12 @@ async function onCardPlayed({ card, answer }) {
   height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+.run-loading {
+  padding: 1rem;
+  color: var(--color-text);
+  opacity: 0.7;
 }
 
 .run-error {

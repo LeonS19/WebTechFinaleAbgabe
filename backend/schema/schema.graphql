@@ -167,6 +167,7 @@ type Combat {
     hand:               [IndexCard!]!
     isPlayerTurn:       Boolean!
     status:             String!
+    deckCount: Int!
 }
 
 type MoveResult {
@@ -180,6 +181,11 @@ type AnswerResult {
     correctAnswer:  String!
     combat:         Combat!
     player:         Player!
+}
+
+type EndTurnResult {
+    combat: Combat!
+    player: Player!
 }
 
 # ============================================
@@ -280,6 +286,7 @@ type Mutation {
         cardId:     ID!
         userAnswer: String!
     ): AnswerResult!
+    endTurn(runId: ID!): EndTurnResult!
 
     # Chat
     sendMessage(

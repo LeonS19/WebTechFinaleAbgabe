@@ -30,7 +30,11 @@
 
         <main class="content-area">
           <p v-if="!selectedGroup" class="placeholder">Wähle eine Lerngruppe aus</p>
-          <RunView v-else-if="activeView === 'run'" :studyGroupId="selectedGroup.id" />
+          <RunView
+            v-else-if="activeView === 'run'"
+            :studyGroupId="selectedGroup.id"
+            @runEnded="onRunEnded"
+          />
           <IndexCardsView
             v-else-if="activeView === 'karteikarten'"
             :studyGroupId="selectedGroup.id"
@@ -277,6 +281,15 @@ const runActive = ref(false)
 function startRun() {
   runActive.value = true
   activeView.value = 'run'
+}
+
+// Wird ausgelöst, wenn der komplette Run vorbei ist (Sieg über den Boss oder
+// Niederlage) — nicht bei jedem einzelnen Kampfende. RunView wird dabei durch
+// den View-Wechsel unmounted, ihr Zustand ist beim nächsten "Run starten" also
+// automatisch wieder frisch.
+function onRunEnded() {
+  runActive.value = false
+  activeView.value = 'historie'
 }
 
 function logout() {

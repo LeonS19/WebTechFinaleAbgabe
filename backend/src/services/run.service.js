@@ -100,6 +100,10 @@ export async function moveToField(runId, userId, targetPosition) {
   return { run: updatedRun, combat: null };
 }
 
+export async function getActiveRun(userId, studyGroupId) {
+  return await findActiveRunByUser(userId, studyGroupId); // gibt null zurück, falls keiner existiert
+}
+
 export async function endRun(runId, userId, successful) {
   const run = await findRunById(runId);
 

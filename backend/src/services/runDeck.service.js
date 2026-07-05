@@ -31,13 +31,24 @@ function shuffle(array) {
   return copy;
 }
 
+// export async function reshuffleDiscardIntoDeck(runId) {
+//   const runDeck = await findRunDeck(runId);
+//   if (!runDeck) {
+//     throw new Error('Kein Deck für diesen Run gefunden');
+//   }
+
+//   runDeck.deck = shuffle(runDeck.discard_pile);
+//   runDeck.discard_pile = [];
+
+//   await runDeck.save();
+//   return runDeck.deck;
+// }
+
 export async function reshuffleDiscardIntoDeck(runId) {
   const runDeck = await findRunDeck(runId);
-  if (!runDeck) {
-    throw new Error('Kein Deck für diesen Run gefunden');
-  }
+  if (!runDeck) throw new Error('Kein Deck für diesen Run gefunden');
 
-  runDeck.deck = shuffle(runDeck.discard_pile);
+  runDeck.deck = shuffle([...runDeck.deck, ...runDeck.discard_pile]);
   runDeck.discard_pile = [];
 
   await runDeck.save();
