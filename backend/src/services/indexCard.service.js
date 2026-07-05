@@ -54,7 +54,8 @@ export async function deleteIndexCard(cardId, userId) {
     throw new Error('Karteikarte nicht gefunden');
   }
   await checkPermission(userId, card.study_group_id, ['ADMIN', 'MODERATOR']);
-  return await IndexCard.findByIdAndDelete(cardId);
+  await IndexCard.findByIdAndDelete(cardId);
+  return { id: cardId, studyGroupId: card.study_group_id };
 }
 
 export async function createIndexCard(data, userId) {

@@ -41,6 +41,7 @@ export function mapCard(card) {
 
 const INDEX_CARD_CREATED = "INDEX_CARD_CREATED";
 const INDEX_CARD_UPDATED = "INDEX_CARD_UPDATED";
+const INDEX_CARD_DELETED = "INDEX_CARD_DELETED";
 
 export const indexCardResolvers = {
   Query: {
@@ -103,11 +104,28 @@ export const indexCardResolvers = {
         data,
         context.user.id,
       );
-      return mapCard(card);
+
+      const mapped = mapCard(card); // ← erst mappen
+
+      pubsub.publish(INDEX_CARD_UPDATED, {
+        onIndexCardUpdated: mapped,
+        studyGroupId: mapped.studyGroupId,
+      });
+
+      return mapped; // ← dann returnen
     },
     deleteIndexCard: async (_, { id }, context) => {
       if (!context.user) throw new Error("Nicht authentifiziert");
-      await IndexCardService.deleteIndexCard(id, context.user.id);
+      const { studyGroupId } = await IndexCardService.deleteIndexCard(
+        id,
+        context.user.id,
+      );
+
+      pubsub.publish(INDEX_CARD_DELETED, {
+        onIndexCardDeleted: id,
+        studyGroupId,
+      });
+
       return true;
     },
   },
@@ -128,6 +146,13 @@ export const indexCardResolvers = {
         (payload, variables) => payload.studyGroupId === variables.studyGroupId,
       ),
       resolve: (payload) => payload.onIndexCardUpdated,
+    },
+    onIndexCardDeleted: {
+      subscribe: withFilter(
+        () => pubsub.asyncIterableIterator([INDEX_CARD_DELETED]),
+        (payload, variables) => payload.studyGroupId === variables.studyGroupId,
+      ),
+      resolve: (payload) => payload.onIndexCardDeleted,
     },
   },
 };

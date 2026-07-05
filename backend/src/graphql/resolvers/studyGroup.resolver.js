@@ -12,6 +12,12 @@ export const studyGroupResolvers = {
       if (!context.user) throw new Error("Nicht authentifiziert");
       return StudyGroupService.getMyStudyGroups(context.user.id);
     },
+    me: async (_, __, context) => {
+      if (!context.user) throw new Error("Nicht authentifiziert");
+      const user = await UserModel.findById(context.user.id);
+      if (!user) throw new Error("Nutzer nicht gefunden");
+      return user;
+    },
   },
   Mutation: {
     createStudyGroup: (_, { name }, context) => {
