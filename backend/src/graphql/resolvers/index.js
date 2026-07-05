@@ -2,6 +2,7 @@ import { studyGroupResolvers } from "./studyGroup.resolver.js";
 import { indexCardResolvers } from './indexCard.resolver.js';
 import { chatResolvers } from './chat.resolver.js';
 import { runResolvers } from './run.resolver.js';
+import { rankingResolvers } from './ranking.resolver.js';
 
 export const resolvers = {
   Query: {
@@ -9,7 +10,7 @@ export const resolvers = {
     ...indexCardResolvers.Query,
     ...chatResolvers.Query,
     ...runResolvers.Query,
-    getRanking: () => [],
+    ...rankingResolvers.Query,
     getRuns: () => [],
   },
   Mutation: {
@@ -39,5 +40,6 @@ export const resolvers = {
   Subscription: {
     ...indexCardResolvers.Subscription,
     ...runResolvers.Subscription,
+    ...rankingResolvers.Subscription,
   },
 };
