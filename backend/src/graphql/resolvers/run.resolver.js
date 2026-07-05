@@ -4,6 +4,10 @@ import * as CombatService from "../../services/combat.service.js";
 import * as IndexCardService from "../../services/indexCard.service.js";
 import * as RunDeckService from "../../services/runDeck.service.js";
 import { mapCard } from "./indexCard.resolver.js";
+import { withFilter } from "graphql-subscriptions";
+import { pubsub } from "../pubsub.js";
+
+const RUN_UPDATED = 'RUN_UPDATED';
 
 function mapField(field) {
   return {
@@ -114,6 +118,15 @@ export const runResolvers = {
     deckCount: async (combat) => {
       const runDeck = await RunDeckService.findRunDeck(combat.run_id);
       return runDeck?.deck.length ?? 0;
+    },
+  },
+  Subscription: {
+    onRunUpdated: {
+      subscribe: withFilter(
+        () => pubsub.asyncIterableIterator([RUN_UPDATED]),
+        (payload, variables) => payload.onRunUpdated.id === variables.runId,
+      ),
+      resolve: (payload) => payload.onRunUpdated,
     },
   },
   Run: {
