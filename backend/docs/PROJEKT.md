@@ -148,9 +148,29 @@ Kein eigenes Datenbankmodell – `RanglistenService` filtert direkt auf `run`:
 
 ### PWA
  
-- `ServiceWorker` – Cache First für Assets, Network First für API Calls
-- `OfflineStorageService` – cached Karteikarten, Runs und Nachrichten via IndexedDB
-- `Web App Manifest` – App Name, Icons, Theme Color
+**Service Worker & Cache-Strategie:** Umgesetzt über `vite-plugin-pwa` (Workbox-basiert) statt eines handgeschriebenen Service Workers – automatische App-Shell-Precaching, Versionierung/Cache-Busting bei neuen Builds. `runtimeCaching`-Regeln:
+- **Cache First** für Datei-Anhänge (`GET /api/v1/index-cards/:id/attachments/:attachmentId`) – einmal hochgeladene Dateien ändern sich nie
+- **Network First** für die Anhänge-Liste und den GraphQL-Endpunkt (`/graphql`) – aktuelle Daten haben Vorrang, mit Timeout-Fallback
+- `devOptions.enabled: true` gesetzt, damit Manifest/Service Worker auch im Dev-Server (`npm run dev`, Port 5173) aktiv sind – ohne das wird der Service Worker teils nur im Produktions-Build (`npm run build && npm run preview`) injiziert, was beim Testen zu CORS-Problemen führen kann (Preview läuft auf einem anderen Port als `FRONTEND_URL` in der `.env`)
+
+**Web App Manifest:** eigenes Icon-Set (Karteikarte mit gekreuzten Schwertern, passend zum Lern-+RPG-Konzept) in drei Größen (192px, 512px, 512px maskable), `display: standalone`, installierbar als eigenständige App.
+
+**IndexedDB (`offlineStorage.service.js` + `apollo/offlineCacheLink.js`):** GraphQL-Antworten lassen sich nicht sinnvoll pauschal über Workbox cachen (Workbox unterscheidet nur nach URL/Methode, nicht nach GraphQL-Query-Inhalt) – deshalb eigener Layer:
+- Ein zentraler Apollo Link (`offlineCacheLink`) fängt jede erfolgreiche Query-Response ab und schreibt die relevanten Felder automatisch in die passenden IndexedDB-Stores
+- Object Stores: `study_groups` (inkl. eingebetteter `members`, per `patchStudyGroupMembers` nachträglich ergänzt, da `getStudyGroup` selbst keine Gruppen-Metadaten mitliefert), `indexcards` (indexiert nach `study_group_id`), `messages` (indexiert nach `chat_id`), `rankings` (ganzes Array pro Gruppe, da `RankingEntry` keinen eigenen Primärschlüssel hat)
+- Lesender Zugriff über das Composable `useOfflineAwareQuery` – versucht zunächst die normale Apollo-Query, fällt bei Netzwerkfehler oder `navigator.onLine === false` automatisch auf den passenden IndexedDB-Store zurück; liefert zusätzlich `isOffline`/`error`, damit Views einen Hinweis anzeigen können
+- **Scope-Grenze:** offline verfügbar sind nur bereits online besuchte Lerngruppen – eine neue Gruppe kann naturgemäß nicht offline zum ersten Mal geladen werden. Schreibaktionen, die einen Server-Request brauchen (Gruppe beitreten/erstellen, Run starten, Nachricht senden), werden bei fehlender Verbindung im Frontend blockiert und mit einem Hinweistext versehen, statt eine Aktion zu erlauben, die ohnehin fehlschlagen würde
+- Die Chat-Web-Component (Vanilla Custom Element, kein Vue/Apollo) bindet denselben `offlineStorage.service.js` direkt an, da ihre Nachrichten über einen rohen `fetch()`-Call laufen, nicht über Apollo – der zentrale Link fängt das nicht automatisch ab
+
+**Während der PWA-Integration gefundene und behobene Bugs** (nicht ursprünglich geplant, fielen beim Offline-Testen auf):
+- Chat-Web-Component behielt beim Wechsel der Lerngruppe (neue `chat-id`) die alten Nachrichten im DOM/State und hängte die neuen nur an, statt den Zustand zurückzusetzen (`resetMessages()` ergänzt, vor jedem `connect()` aufgerufen)
+- Chat reagierte nicht auf Browser-`online`/`offline`-Events, solange das Chatfenster bereits offen war – Reconnect/Status-Update passierte nur beim (Neu-)Öffnen (Event-Listener in `connectedCallback`/`disconnectedCallback` ergänzt)
+- `useOfflineAwareQuery` hatte `ref(null)` als Default für Listen-Queries – bei einem Render, bevor die erste Antwort (online oder aus dem Cache) eintraf, hätte `liste.length` mit einem `TypeError` abstürzen können; auf `ref([])` korrigiert
+
+### OfflineStorage / Reload-Robustheit
+ 
+- `OfflineStorageService` – cached Lerngruppen (inkl. Mitglieder), Karteikarten, Chat-Nachrichten und Rangliste via IndexedDB; Runs/Historie sind vorgesehen, aber noch nicht angebunden (identisches Muster, TODO)
+- `useOfflineAwareQuery` – Composable, das jede betroffene View einzeln einbindet (siehe oben)
 
 ### Web Components
  
@@ -213,9 +233,11 @@ KampfStatus: ACTIVE | WON | LOST
 | `deckBuilder.service.js` | Gewichtete Auswahl der 20 Run-Deck-Karten (Cold-Start-geschützt) |
 | `runDeck.service.js` | Deck/Ablagestapel-Verwaltung (ziehen, ablegen, reshuffle) |
 | `utils/playerStats.util.js` | Gemeinsame Kampf-Mathematik (heal, takeDamage, levelUp, damageMultiplier) – genutzt von `run.service.js` und `combat.service.js`, um zirkuläre Imports zu vermeiden |
-| `RanglistenService` | Berechnet Rangliste einer Lerngruppe (dreistufige Sortierung) |
-| `ServiceWorker` | PWA Cache-Strategie |
-| `OfflineStorageService` | IndexedDB Lese/Schreib-Operationen |
+| `RanglistenService` | Berechnet Rangliste einer Lerngruppe (dreistufige Sortierung), publisht `RANKING_UPDATED` bei jedem Run-Abschluss |
+| `ServiceWorker` (`vite-plugin-pwa`) | PWA Cache-Strategie (Cache First für Anhänge, Network First für GraphQL/Anhänge-Liste) |
+| `OfflineStorageService` (Frontend) | IndexedDB Lese/Schreib-Operationen (Study Groups, Karteikarten, Nachrichten, Rangliste) |
+| `offlineCacheLink` (Frontend, Apollo Link) | Schreibt GraphQL-Query-Antworten automatisch in IndexedDB |
+| `useOfflineAwareQuery` (Frontend, Composable) | Liest online über Apollo, fällt bei Netzwerkfehler/Offline auf IndexedDB zurück |
  
 ---
  
@@ -672,7 +694,7 @@ Die `ws` Library hat einen bekannten Bug: wenn mehrere `WebSocketServer`-Instanz
 - [x] Deck-Zusammenstellung (gewichtet, Cold-Start-geschützt)
 - [x] Kampfsystem (`answerCard`, Schaden, Heilung, Level-Up, Sieg/Niederlage, Boss-Erkennung)
 - [x] Karteikarten-Statistik-Update nach jeder Antwort
-- [x] Frontend Vue 3 Struktur aufsetzen
+- [ ] Frontend Vue 3 Struktur aufsetzen
 - [ ] Restliche GraphQL Resolvers implementieren (StudyGroup, IndexCard, Ranking, Chat)
 - [ ] Restliche Services implementieren (statistics, ranking)
 - [ ] Service Worker + Web App Manifest

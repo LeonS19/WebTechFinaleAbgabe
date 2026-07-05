@@ -53,7 +53,9 @@
           <div v-if="localAttachments.length" class="attachments-list">
             <div v-for="att in localAttachments" :key="att.id" class="attachment-item">
               <span>{{ att.filename }}</span>
-              <a :href="downloadUrl(att.id)" target="_blank" class="download-btn">⬇ Herunterladen</a>
+              <button @click="downloadAttachment(att.id, att.filename)">
+                Herunterladen
+              </button>
             </div>
           </div>
           <p v-else class="placeholder-small">Keine Anhänge vorhanden</p>
@@ -95,8 +97,32 @@ function difficulty(stat) {
   return Math.round((stat.correctAnswers / stat.totalAttempts) * 100);
 }
 
-function downloadUrl(attachmentId) {
-  return `${BASE_URL}/index-cards/${props.card.id}/attachments/${attachmentId}`;
+async function downloadAttachment(attachmentId, filename) {
+  const token = localStorage.getItem('token')
+  const res = await fetch(
+    `${BASE_URL}/index-cards/${props.card.id}/attachments/${attachmentId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  )
+
+  if (!res.ok) {
+    console.error('Download fehlgeschlagen:', res.status)
+    return
+  }
+
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename || 'anhang'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
 
 async function handleUpload(event) {

@@ -7,6 +7,7 @@ import { ApolloClient, InMemoryCache, createHttpLink, ApolloLink, split } from '
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions'
 import { createClient } from 'graphql-ws'
 import { getMainDefinition } from '@apollo/client/utilities'
+import { offlineCacheLink } from './apollo/offlineCacheLink.js'
 import App from './App.vue'
 import router from './router'
 
@@ -37,7 +38,7 @@ const splitLink = split(
     return definition.kind === 'OperationDefinition' && definition.operation === 'subscription'
   },
   wsLink,
-  authLink.concat(httpLink),
+  authLink.concat(offlineCacheLink).concat(httpLink),
 )
 
 const apolloClient = new ApolloClient({

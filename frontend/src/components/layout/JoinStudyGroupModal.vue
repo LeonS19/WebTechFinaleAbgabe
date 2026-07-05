@@ -11,8 +11,11 @@
             v-model="search"
             type="text"
             placeholder="Nach Gruppenname suchen..."
+            :disabled="isOffline"
             @input="onSearch"
           />
+
+          <p v-if="isOffline" class="error-msg">Suche und Beitritt benötigen eine Internetverbindung</p>
         </div>
 
         <div class="groups-list">
@@ -44,7 +47,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useQuery, useMutation } from '@vue/apollo-composable';
 import { gql } from '@apollo/client/core';
 
@@ -59,6 +62,7 @@ const groups = ref([]);
 const loading = ref(false);
 const joiningId = ref(null);
 const error = ref('');
+const isOffline = ref(!navigator.onLine)
 
 const GET_STUDY_GROUPS = gql`
   query GetStudyGroups($search: String) {
@@ -90,7 +94,21 @@ const { refetch } = useQuery(GET_STUDY_GROUPS, { search: '' }, {
 
 const { mutate: joinStudyGroup } = useMutation(JOIN_STUDY_GROUP);
 
-onMounted(() => loadGroups());
+function updateOnlineStatus() {
+  isOffline.value = !navigator.onLine
+}
+
+onMounted(() => {
+  loadGroups()
+  window.addEventListener('online', updateOnlineStatus)
+  window.addEventListener('offline', updateOnlineStatus)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('online', updateOnlineStatus)
+  window.removeEventListener('offline', updateOnlineStatus)
+})
+
 
 async function loadGroups() {
   loading.value = true;
@@ -113,6 +131,10 @@ function isJoined(groupId) {
 }
 
 async function join(group) {
+  if (isOffline.value) {
+    error.value = 'Lerngruppen beitreten benötigt eine Internetverbindung'
+    return
+  }
   joiningId.value = group.id;
   error.value = '';
   try {
