@@ -39,7 +39,7 @@
 
 <script setup>
 import { computed } from 'vue';
-import { useQuery } from '@vue/apollo-composable';
+import { useQuery, useSubscription } from '@vue/apollo-composable';
 import { gql } from '@apollo/client/core';
 
 const props = defineProps({
@@ -72,7 +72,36 @@ const { result, loading, error } = useQuery(
   () => ({ enabled: !!props.studyGroupId, fetchPolicy: 'cache-and-network' }),
 );
 
-const ranking = computed(() => result.value?.getRanking ?? []);
+// Live-Update, sobald irgendjemand in der Gruppe einen Run beendet — Server schickt
+// die komplett neu berechnete Rangliste, wir übernehmen sie 1:1.
+const ON_RANKING_UPDATED = gql`
+  subscription OnRankingUpdated($studyGroupId: ID!) {
+    onRankingUpdated(studyGroupId: $studyGroupId) {
+      rank
+      correctAnswers
+      hitRate
+      duration
+      isFormerMember
+      user {
+        id
+        name
+      }
+      run {
+        id
+        startTime
+      }
+    }
+  }
+`;
+const { result: rankingUpdateResult } = useSubscription(
+  ON_RANKING_UPDATED,
+  () => ({ studyGroupId: props.studyGroupId }),
+  () => ({ enabled: !!props.studyGroupId }),
+);
+
+const ranking = computed(() => {
+  return rankingUpdateResult.value?.onRankingUpdated ?? result.value?.getRanking ?? [];
+});
 
 function formatHitRate(hitRate) {
   return `${Math.round(hitRate * 100)}%`;

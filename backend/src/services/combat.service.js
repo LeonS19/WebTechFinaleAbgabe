@@ -20,6 +20,8 @@ import {
   levelUp,
   calculateDamageMultiplier,
 } from "./utils/playerStats.util.js";
+import { pubsub } from '../graphql/pubsub.js';
+import { RANKING_UPDATED } from '../graphql/resolvers/ranking.resolver.js';
 
 // ==================== Private Hilfsfunktionen (Kampf-Mathematik) ====================
 
@@ -226,6 +228,7 @@ export async function answerCard(runId, userId, cardId, userAnswer) {
     // war das ein Boss-Kampf? Dann ist der ganze Run gewonnen
     if (combat.enemy.type === "BOSS") {
       await endRunModel(runId, true, calculateDuration(run.startTime));
+      pubsub.publish(RANKING_UPDATED, { studyGroupId: run.studyGroupId });
     }
 
     return {
@@ -260,6 +263,7 @@ export async function answerCard(runId, userId, cardId, userAnswer) {
       await returnCardsToDeck(runId, remainingHand); // Resthand zurück ins Deck
       await combat.save();
       await endRunModel(runId, false, calculateDuration(run.startTime)); //Run offiziell als gescheitert markieren
+      pubsub.publish(RANKING_UPDATED, { studyGroupId: run.studyGroupId });
 
       return {
         correct: isCorrect,
@@ -337,6 +341,7 @@ export async function endTurn(runId, userId) {
     await returnCardsToDeck(runId, remainingHand);
     await combat.save();
     await endRunModel(runId, false, calculateDuration(run.startTime));
+    pubsub.publish(RANKING_UPDATED, { studyGroupId: run.studyGroupId });
 
     return {
       combat,

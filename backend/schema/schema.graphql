@@ -312,4 +312,6 @@ type Subscription {
 
     # New Attachment for IndexCard
     onIndexCardUpdated(studyGroupId: ID!): IndexCard!
+
+    onRankingUpdated(studyGroupId: ID!): [RankingEntry!]!
 }
