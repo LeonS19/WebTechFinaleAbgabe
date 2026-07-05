@@ -18,7 +18,15 @@
 - User icon oben Links ist kaputt. zeigt "?"
 -Create indexCard button an erste stelle packen
 - Im run, wird Die View nach einem Kampf ganz links angezeigt (slider resettet sich)
+-Rus basierend auf tags
+-Cheaten unterbinden (im run die Karteikarten Liste durchsuchen)
+- Chat bug Fenster muss immer einmal refreshed werden, bevor man connected
 
+////////////////////////////////////////////////////////////////////////////////////
+//
+//                          REFLEXION
+//
+//////////////////////////////////////////////////////////////////////////////////
 -Für die Reflexion am Ende gut zu wissen: Das ist ein legitimer Punkt für eure Antwort
 auf "Welche Grenzen hat Ihre Lösung?" – "aktuell nur 1 Gegner pro Kampf unterstützt,
 Architektur wäre aber erweiterbar auf mehrere Gegner" ist eine gute, ehrliche Einschränkung, die zeigt,

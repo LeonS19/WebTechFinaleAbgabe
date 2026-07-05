@@ -69,6 +69,7 @@ const GET_STUDY_GROUPS = gql`
     getStudyGroups(search: $search) {
       id
       name
+      chatId
       createdAt
     }
   }
