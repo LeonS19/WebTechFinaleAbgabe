@@ -31,7 +31,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue';
-import { useQuery, useMutation } from '@vue/apollo-composable';
+import { useQuery, useMutation, useSubscription } from '@vue/apollo-composable';
 import { gql } from '@apollo/client/core';
 import RunMapView from './RunMapView.vue';
 import CombatView from './CombatView.vue';
@@ -115,6 +115,26 @@ const { result: activeRunResult, loading: activeRunLoading, error: activeRunErro
   () => ({ studyGroupId: props.studyGroupId }),
   () => ({ enabled: !!props.studyGroupId }),
 );
+
+// ---- Run-Updates in Echtzeit (z.B. bei zwei offenen Tabs, oder falls jemand
+// anderes in der Gruppe den Fortschritt live mitverfolgt) ----
+const ON_RUN_UPDATED = gql`
+  subscription OnRunUpdated($runId: ID!) {
+    onRunUpdated(runId: $runId) {
+      id
+      successful
+      currentPosition
+      player {
+        level
+        maxHealth
+        currentHealth
+      }
+      deck {
+        id
+      }
+    }
+  }
+`;
 
 // ---- Run starten ----
 // startRun ist idempotent: existiert bereits ein aktiver Run für diesen
@@ -267,6 +287,14 @@ const mapPhase = ref('select-start'); // 'select-start' (noch kein Run) | 'selec
 const combatViewRef = ref(null);
 const actionError = ref(null);
 
+// Muss NACH der Deklaration von `run` stehen, da die reaktiven Getter unten
+// sofort beim Setup ausgeführt werden und sonst auf `run` zugreifen, bevor es existiert.
+const { result: runUpdateResult } = useSubscription(
+  ON_RUN_UPDATED,
+  () => ({ runId: run.value?.id }),
+  () => ({ enabled: !!run.value?.id }),
+);
+
 const currentPosition = computed(() => run.value?.currentPosition ?? null);
 const playerHp = computed(() => run.value?.player?.currentHealth ?? 100);
 const playerMaxHp = computed(() => run.value?.player?.maxHealth ?? 100);
@@ -336,6 +364,20 @@ function handleCombatEnd(combat) {
   phase.value = 'map';
   mapPhase.value = 'select-next';
 }
+
+// Kommt ein Update über die Subscription rein (z.B. weil der Run in einem anderen
+// Tab weitergespielt wurde), Zustand übernehmen. Ist der Run dabei zu Ende gegangen,
+// ohne dass wir das schon lokal über handleCombatEnd gemeldet haben, jetzt nachholen.
+watch(runUpdateResult, (val) => {
+  const updated = val?.onRunUpdated;
+  if (!updated || !run.value) return;
+
+  run.value = { ...run.value, ...updated };
+
+  if (updated.successful !== null && phase.value !== 'combat') {
+    emit('runEnded', { successful: updated.successful });
+  }
+});
 
 async function onFieldSelected(field) {
   actionError.value = null;

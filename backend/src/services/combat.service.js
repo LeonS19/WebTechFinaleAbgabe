@@ -243,7 +243,9 @@ export async function answerCard(runId, userId, cardId, userAnswer) {
 
   if (turnEnds) {
     setPlayerTurn(combat, false);
-    takeDamage(updatedRun, combat.enemy.base_damage); // Gegner greift an
+    if (!wasPerfectRound) {
+      takeDamage(updatedRun, combat.enemy.base_damage); // Gegner greift an, wenn es keine perfekte Runde war
+    }
 
     if (updatedRun.currentHealth <= 0) {
       setCombatStatus(combat, "LOST");
@@ -346,10 +348,10 @@ export async function endTurn(runId, userId) {
     };
   }
 
-  const missingCards = Math.max(0, HAND_SIZE - combat.hand.length);
+  const canDraw = combat.hand.length < HAND_SIZE ? 1 : 0;
   const newCards =
-    missingCards > 0
-      ? await drawForNextTurn(runId, missingCards, combat.hand.length)
+    canDraw > 0
+      ? await drawForNextTurn(runId, canDraw, combat.hand.length)
       : [];
   const updatedHand = [...combat.hand, ...newCards];
   setCombatHand(combat, updatedHand);
