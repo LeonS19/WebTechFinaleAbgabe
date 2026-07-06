@@ -1,14 +1,14 @@
-@import './base.css';
-@import './dashboard.css';
+@import './base';
+@import './dashboard';
 
 a {
   text-decoration: none;
-  color: var(--color-primary);
+  color: $color-primary;
   transition: 0.3s;
 }
 
 a:hover {
-  color: var(--color-primary-hover);
+  color: $color-primary-hover;
 }
 
 /* Auth Seiten */
@@ -16,28 +16,28 @@ a:hover {
   max-width: 420px;
   margin: 6rem auto;
   padding: 2.5rem;
-  background: var(--color-background-soft);
-  border: 1px solid var(--color-border);
+  background: $color-background-soft;
+  border: 1px solid $color-border;
   border-radius: 12px;
 }
 
 .auth-container h1 {
   font-size: 1.8rem;
   font-weight: 700;
-  color: var(--color-heading);
+  color: $color-heading;
   margin-bottom: 1.5rem;
 }
 
 .auth-container h2 {
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--color-heading);
+  color: $color-heading;
   margin-bottom: 1rem;
 }
 
 .auth-container hr {
   border: none;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid $color-border;
   margin: 1.5rem 0;
 }
 
@@ -45,24 +45,24 @@ a:hover {
   width: 100%;
   padding: 0.6rem 0.9rem;
   margin-bottom: 1rem;
-  border: 1px solid var(--color-border);
+  border: 1px solid $color-border;
   border-radius: 8px;
-  background: var(--color-background);
-  color: var(--color-text);
+  background: $color-background;
+  color: $color-text;
   font-size: 0.95rem;
   outline: none;
   transition: border-color 0.2s;
 }
 
 .auth-container input:focus {
-  border-color: var(--color-primary);
+  border-color: $color-primary;
 }
 
 .auth-container button {
   width: 100%;
   padding: 0.65rem 1rem;
   margin-bottom: 0.75rem;
-  background: var(--color-primary);
+  background: $color-primary;
   color: white;
   border: none;
   border-radius: 8px;
@@ -72,19 +72,19 @@ a:hover {
 }
 
 .auth-container button:hover {
-  background: var(--color-primary-hover);
+  background: $color-primary-hover;
 }
 
 .auth-container p {
   margin-top: 1rem;
   font-size: 0.9rem;
-  color: var(--color-text);
+  color: $color-text;
 }
 
 .error {
-  color: var(--color-error) !important;
+  color: $color-error !important;
 }
 
 .success {
-  color: var(--color-success) !important;
+  color: $color-success !important;
 }

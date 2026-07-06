@@ -91,7 +91,7 @@ import RunHistoryView from '../components/content/RunHistoryView.vue'
 import CreateStudyGroupModal from '../components/layout/CreateStudyGroupModal.vue'
 import JoinStudyGroupModal from '../components/layout/JoinStudyGroupModal.vue'
 import RunView from '../components/content/RunView.vue'
-import '../assets/dashboard.css'
+import '../assets/dashboard.scss'
 import { useOfflineAwareQuery } from '../composables/useOfflineAwareQuery.js'
 import { getAllCachedStudyGroups, getCachedStudyGroup, getCachedIndexCards } from '../services/offlineStorage.service.js'
 

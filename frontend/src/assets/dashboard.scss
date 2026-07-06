@@ -1,0 +1,15 @@
+// dashboard.scss ist jetzt nur noch ein Verteiler — die eigentlichen Styles
+// liegen thematisch sortiert im dashboard/-Ordner. Diese Datei bleibt der
+// stabile Import-Punkt (main.scss und DashboardView.vue zeigen weiterhin
+// hierauf, ohne dass sich an deren Imports etwas ändern muss).
+
+@import './variables';
+@import './dashboard/mixins';
+@import './dashboard/layout';
+@import './dashboard/nav';
+@import './dashboard/members';
+@import './dashboard/chat';
+@import './dashboard/modal';
+@import './dashboard/stats';
+@import './dashboard/cards';
+@import './dashboard/misc';

@@ -1,4 +1,4 @@
-import './assets/main.css'
+import './assets/main.scss'
 import './web-components/index.js'
 
 import { createApp, provide, h } from 'vue'

@@ -82,12 +82,12 @@ import { ref, computed, onBeforeUnmount } from 'vue'
 import HandCard from './HandCard.vue'
 import CardPlayOverlay from './CardPlayOverlay.vue'
 
-import playerIdleGif from '../../assets/characters/player/player_idle.gif'
-import playerAttackGif from '../../assets/characters/player/player_attack.gif'
-import playerHurtGif from '../../assets/characters/player/player_hurt.gif'
-import slimeIdleGif from '../../assets/characters/slime/slime_idle.gif'
-import slimeAttackGif from '../../assets/characters/slime/slime_attack.gif'
-import slimeHurtGif from '../../assets/characters/slime/slime_hurt.gif'
+import playerIdleGif from '../../assets/characters/player/player_idle_1.gif'
+import playerAttackGif from '../../assets/characters/player/player_attack_1.gif'
+import playerHurtGif from '../../assets/characters/player/player_hurt_1.gif'
+import slimeIdleGif from '../../assets/characters/slime/slime_idle_1.gif'
+import slimeAttackGif from '../../assets/characters/slime/slime_attack_1.gif'
+import slimeHurtGif from '../../assets/characters/slime/slime_hurt_1.gif'
 
 const props = defineProps({
   enemy: Object,
