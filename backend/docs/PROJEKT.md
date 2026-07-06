@@ -56,7 +56,9 @@ Eine kollaborative Lernplattform mit RPG-Gameplay. Nutzer schreiben Karteikarten
 **GraphQL** für alles andere:
 - Alle CRUD Operationen
 - Flexible Abfragen (Filter, Suche)
-- Echtzeit via Subscriptions
+- Echtzeit via Subscriptions (mit einer bewussten Ausnahme, siehe unten)
+
+**Sonderfall Chat:** Live-Chat-Nachrichten (senden, empfangen, löschen) laufen **nicht** über GraphQL Mutations/Subscriptions, sondern über einen eigenen, rohen WebSocket-Endpunkt (`ws://.../chat`, siehe `chat.handler.js`). Grund: der Chat war technisch zuerst als eigenständiges WebSocket-Feature umgesetzt, bevor der Rest der Anwendung auf GraphQL vereinheitlicht wurde — eine spätere Migration auf GraphQL Subscriptions hätte keinen fachlichen Mehrwert gebracht und wurde aus Zeitgründen nicht mehr nachgezogen. Das **historische Laden** älterer Nachrichten (`getMessages`, Pagination via `before`-Cursor) läuft dagegen ganz normal über eine GraphQL Query, da das nicht latenzkritisch ist. Die WebSocket-Nachrichtenformate sind: `{ type: 'join' | 'message' | 'delete' | 'error', ... }`. Das GraphQL-Schema enthält deshalb bewusst **kein** `sendMessage`-Mutation-Feld und **keine** `onNewMessage`-Subscription — beide wurden versucht, aber nie vom Frontend genutzt und wieder entfernt, um kein totes/verwirrendes Schema stehen zu lassen.
 
 ### Authentifizierung
  
@@ -438,15 +440,19 @@ db.run_decks.createIndex({ run_id: 1 })
 | `moveToField(runId, targetPosition)` | Zu einem erreichbaren Feld bewegen – löst je nach Feldtyp automatisch Kampf (`FIGHT`/`BOSS`) oder Heilung (`HEAL`) aus |
 | `answerCard(runId, cardId, userAnswer)` | Karte im aktiven Kampf beantworten (case-insensitive, trimmed) |
 | `endTurn(runId)` | Aktuellen Zug freiwillig beenden, ohne eine weitere Karte zu spielen |
-| `sendMessage(chatId, content)` | Chat-Nachricht senden |
+
+Hinweis: Chat-Nachrichten senden/löschen laufen bewusst nicht über eine GraphQL-Mutation, sondern über den WebSocket-Handler (siehe "Sonderfall Chat" oben).
  
 ### Subscriptions
  
 | Subscription | Beschreibung |
 |---|---|
-| `onNewMessage(chatId)` | Neue Chat-Nachricht |
 | `onRunUpdated(runId)` | Run-Status Änderung |
 | `onIndexCardCreated(studyGroupId)` | Neue Karteikarte in Gruppe |
+| `onIndexCardUpdated(studyGroupId)` | Karteikarte bearbeitet/Anhang hinzugefügt |
+| `onIndexCardDeleted(studyGroupId)` | Karteikarte gelöscht (liefert nur die ID) |
+| `onRankingUpdated(studyGroupId)` | Rangliste neu berechnet (nach jedem beendeten Run) |
+| `onMembersUpdated(studyGroupId)` | Mitgliederliste geändert (Join/Leave/Kick/Rollenänderung) |
  
 ### `answerCard` Rückgabe
  

@@ -196,6 +196,7 @@ type Message {
     id:         ID!
     chatId:     ID!
     sender:     User!
+    senderRole: Role
     content:    String!
     sentAt:     String!
 }
@@ -291,11 +292,6 @@ type Mutation {
     ): AnswerResult!
     endTurn(runId: ID!): EndTurnResult!
 
-    # Chat
-    sendMessage(
-        chatId:     ID!
-        content:    String!
-    ): Message!
 }
 
 # ============================================
@@ -303,8 +299,6 @@ type Mutation {
 # ============================================
 
 type Subscription {
-    # New chat message in a group
-    onNewMessage(chatId: ID!): Message!
 
     # Run state changes (position, hitRate, successful)
     onRunUpdated(runId: ID!): Run!
@@ -318,4 +312,6 @@ type Subscription {
     onIndexCardDeleted(studyGroupId: ID!): ID!
 
     onRankingUpdated(studyGroupId: ID!): [RankingEntry!]!
+
+    onMembersUpdated(studyGroupId: ID!): [Membership!]!
 }

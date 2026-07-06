@@ -2,6 +2,8 @@ import * as StudyGroupModel from "../models/sql/studyGroup.model.js";
 import * as MembershipModel from "../models/sql/membership.model.js";
 import { checkPermission } from './permission.service.js';
 import crypto from "crypto";
+import { pubsub } from '../graphql/pubsub.js';
+import { MEMBERS_UPDATED } from '../graphql/resolvers/studyGroup.resolver.js';
 
 export async function getStudyGroup(id) {
   return StudyGroupModel.findById(id);
@@ -34,7 +36,9 @@ export async function joinStudyGroup(studyGroupId, userId) {
   if (existing) {
     throw new Error('User ist bereits Mitglied dieser Gruppe');
   }
-  return MembershipModel.create(userId, studyGroupId, 'MEMBER');
+  const result = await MembershipModel.create(userId, studyGroupId, 'MEMBER');
+  pubsub.publish(MEMBERS_UPDATED, { studyGroupId });   // NEU
+  return result;
 }
 
 export async function leaveStudyGroup(studyGroupId, userId) {
@@ -49,12 +53,10 @@ export async function leaveStudyGroup(studyGroupId, userId) {
     const otherMembers = members.filter(m => m.userId !== userId);
 
     if (otherMembers.length === 0) {
-      // Admin ist der letzte User → Gruppe löschen
       await MembershipModel.remove(userId, studyGroupId);
       return StudyGroupModel.deleteById(studyGroupId);
     }
 
-    // Erst Moderatoren, dann alle anderen, sortiert nach joinedAt
     const moderators = otherMembers.filter(m => m.role === 'MODERATOR');
     const candidates = moderators.length > 0 ? moderators : otherMembers;
     candidates.sort((a, b) => new Date(a.joinedAt) - new Date(b.joinedAt));
@@ -63,7 +65,9 @@ export async function leaveStudyGroup(studyGroupId, userId) {
     await MembershipModel.updateRole(nextAdmin.userId, studyGroupId, 'ADMIN');
   }
 
-  return MembershipModel.remove(userId, studyGroupId);
+  const result = await MembershipModel.remove(userId, studyGroupId);
+  pubsub.publish(MEMBERS_UPDATED, { studyGroupId });   // NEU
+  return result;
 }
 
 export async function getMembers(studyGroupId) {
@@ -86,7 +90,9 @@ export async function removeMember(studyGroupId, targetUserId, requestingUserId)
     throw new Error('Als Moderator darfst du nur einfache Mitglieder entfernen');
   }
 
-  return MembershipModel.remove(targetUserId, studyGroupId);
+  const result = await MembershipModel.remove(targetUserId, studyGroupId);
+  pubsub.publish(MEMBERS_UPDATED, { studyGroupId });   // NEU
+  return result;
 }
 
 export async function updateMembershipRole(studyGroupId, targetUserId, newRole, requestingUserId) {
@@ -107,5 +113,7 @@ export async function updateMembershipRole(studyGroupId, targetUserId, newRole, 
     throw new Error('Die Rolle des Admins kann nicht über diese Funktion geändert werden');
   }
 
-  return await MembershipModel.updateRole(targetUserId, studyGroupId, newRole);
+  const result = await MembershipModel.updateRole(targetUserId, studyGroupId, newRole);
+  pubsub.publish(MEMBERS_UPDATED, { studyGroupId });   // NEU
+  return result;
 }

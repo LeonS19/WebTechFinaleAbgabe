@@ -16,6 +16,15 @@ export const chatResolvers = {
     },
   },
   Message: {
-    sender: (parent) => UserModel.findById(parent.senderId),
+    sender: async (parent) => {
+      const user = await UserModel.findById(parent.senderId);
+      if (!user) {
+        return { id: parent.senderId, name: 'Gelöschter Nutzer', email: null, createdAt: null };
+      }
+      return user;
+    },
+    senderRole: async (parent) => {
+      return await ChatService.getSenderRole(parent.chatId, parent.senderId);
+    },
   },
 };

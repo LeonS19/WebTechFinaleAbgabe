@@ -57,7 +57,7 @@
       </div>
     </div>
 
-    <ChatPanel :visible="chatOpen" :chatId="selectedGroup?.chatId" :username="currentUser?.name" />
+    <ChatPanel :visible="chatOpen" :chatId="selectedGroup?.chatId" :username="currentUser?.name" :role="currentMemberRole" />
 
     <CreateStudyGroupModal
       v-if="showCreateGroup"
@@ -373,6 +373,39 @@ const { result: deletedCardResult } = useSubscription(
 
 watch(deletedCardResult, () => {
   refetchCards()
+})
+
+const ON_MEMBERS_UPDATED = gql`
+  subscription OnMembersUpdated($studyGroupId: ID!) {
+    onMembersUpdated(studyGroupId: $studyGroupId) {
+      role
+      user { id name }
+    }
+  }
+`
+
+const { result: membersUpdateResult } = useSubscription(
+  ON_MEMBERS_UPDATED,
+  () => ({ studyGroupId: selectedGroup.value?.id }),
+  () => ({ enabled: !!selectedGroup.value?.id }),
+)
+
+watch(membersUpdateResult, (val) => {
+  const updatedMembers = val?.onMembersUpdated
+  if (!updatedMembers) return
+
+  const stillMember = updatedMembers.some((m) => m.user.id === currentUser.value?.id)
+
+  if (!stillMember) {
+    // Ich selbst wurde gekickt
+    studyGroups.value = studyGroups.value.filter((g) => g.id !== selectedGroup.value.id)
+    selectedGroup.value = null
+    members.value = []
+    alert('Du wurdest aus dieser Lerngruppe entfernt.')   // ggf. durch schöneren Toast ersetzen
+    return
+  }
+
+  members.value = updatedMembers
 })
 
 function selectGroup(group) {

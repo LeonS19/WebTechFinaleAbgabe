@@ -21,6 +21,7 @@
 -Rus basierend auf tags
 -Cheaten unterbinden (im run die Karteikarten Liste durchsuchen)
 - Chat bug Fenster muss immer einmal refreshed werden, bevor man connected
+- Wenn User gekickt wird, für diesen das info fenster abändern / aufhübschen
 
 ////////////////////////////////////////////////////////////////////////////////////
 //

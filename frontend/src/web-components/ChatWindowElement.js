@@ -1,4 +1,5 @@
 import { cacheMessages, getCachedMessages } from '../services/offlineStorage.service.js'
+
 class ChatWindowElement extends HTMLElement {
   constructor() {
     super()
@@ -8,17 +9,33 @@ class ChatWindowElement extends HTMLElement {
     this._connected = false
     this._rendered = false
     this._loadingMore = false
+    this._connectionId = 0
   }
 
   static get observedAttributes() {
-    return ['chat-id', 'token', 'username']
+    return ['chat-id', 'token', 'username', 'role']
+  }
+
+  get role() { return this.getAttribute('role') || '' }
+  set role(value) { this.setAttribute('role', value) }
+
+  get canDelete() {
+    return this.role === 'ADMIN' || this.role === 'MODERATOR'
   }
 
   attributeChangedCallback(name, oldVal, newVal) {
-    if (oldVal !== newVal && this.getAttribute('chat-id') && this.getAttribute('token')) {
-      if (this._rendered) {
-        this.connect()
-      }
+    if (oldVal === newVal) return
+
+    // Nur bei chat-id/token neu verbinden — bei einem Gruppenwechsel ändern sich
+    // oft mehrere Attribute (z.B. auch "role", falls die Rolle in der neuen Gruppe
+    // anders ist) fast gleichzeitig. Würden wir bei JEDEM Attribut connect()
+    // aufrufen, liefen zwei parallele loadMessages()-Aufrufe gegeneinander und
+    // die Nachrichten verdoppelten sich im UI (siehe Bugfix: doppelte Nachrichten
+    // beim schnellen Gruppenwechsel).
+    if (name !== 'chat-id' && name !== 'token') return
+
+    if (this.getAttribute('chat-id') && this.getAttribute('token') && this._rendered) {
+      this.connect()
     }
   }
 
@@ -28,7 +45,7 @@ class ChatWindowElement extends HTMLElement {
     if (this.chatId && this.token) {
       this.connect()
     }
-    
+
     this._onlineHandler = () => this.handleOnline()
     this._offlineHandler = () => this.handleOffline()
     window.addEventListener('online', this._onlineHandler)
@@ -75,8 +92,14 @@ class ChatWindowElement extends HTMLElement {
       this._ws.close()
     }
 
+    // Verbindungs-Generation: verhindert, dass ein veralteter, noch laufender
+    // loadMessages()-Aufruf seine Ergebnisse anhängt, nachdem längst ein
+    // neuerer connect() lief (siehe Bugfix doppelte Nachrichten).
+    this._connectionId = (this._connectionId || 0) + 1
+    const myConnectionId = this._connectionId
+
     this.resetMessages()
-    this.loadMessages()
+    this.loadMessages(myConnectionId)
 
     this._ws = new WebSocket('ws://localhost:3000/chat')
 
@@ -98,9 +121,14 @@ class ChatWindowElement extends HTMLElement {
           ...msg,
           sentAt: msg.sent_at || msg.sentAt,
           senderName: msg.senderName,
+          senderRole: msg.senderRole,
         }
         this._messages.push(normalized)
         this.appendMessage(normalized)
+      } else if (data.type === 'delete') {
+        this._messages = this._messages.filter((m) => m.id !== data.messageId)
+        const el = this.shadowRoot.querySelector(`[data-message-id="${data.messageId}"]`)
+        if (el) el.remove()
       } else if (data.type === 'error') {
         this.updateStatus(`Fehler: ${data.message}`)
       }
@@ -133,16 +161,29 @@ class ChatWindowElement extends HTMLElement {
       ? new Date(message.sentAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
       : ''
     const sender = message.senderName || message.sender?.name || 'Unbekannt'
+    const roleClass = message.senderRole ? `role-${message.senderRole.toLowerCase()}` : ''
     const div = document.createElement('div')
     div.className = 'message'
+    div.dataset.messageId = message.id
     div.innerHTML = `
       <div class="message-header">
-        <span class="message-sender">${sender}</span>
+        <span class="message-sender ${roleClass}">${sender}</span>
         <span class="message-time">${time}</span>
+        ${this.canDelete ? '<button class="delete-btn" title="Nachricht löschen">×</button>' : ''}
       </div>
       <p class="message-content">${message.content}</p>
     `
+    if (this.canDelete) {
+      div.querySelector('.delete-btn').addEventListener('click', () => {
+        this.deleteMessage(message.id)
+      })
+    }
     return div
+  }
+
+  deleteMessage(messageId) {
+    if (!this._ws || !this._connected) return
+    this._ws.send(JSON.stringify({ type: 'delete', messageId }))
   }
 
   appendMessage(message) {
@@ -158,7 +199,7 @@ class ChatWindowElement extends HTMLElement {
     list.prepend(this.buildMessageHTML(message))
   }
 
-  async loadMessages() {
+  async loadMessages(connectionId) {
     const token = this.token
     const chatId = this.chatId
     if (!token || !chatId) return
@@ -178,6 +219,7 @@ class ChatWindowElement extends HTMLElement {
                 chatId
                 content
                 sentAt
+                senderRole
                 sender { id name }
               }
             }
@@ -190,13 +232,16 @@ class ChatWindowElement extends HTMLElement {
       const messages = data?.data?.getMessages ?? []
 
       // erfolgreich geladene Nachrichten cachen
-      const normalizedForCache = messages.map((m) => ({ ...m, senderName: m.sender?.name }))
+      const normalizedForCache = messages.map((m) => ({ ...m, senderName: m.sender?.name, senderRole: m.senderRole }))
       cacheMessages(normalizedForCache)
+
+      // Veraltete Antwort (ein neuerer connect() lief inzwischen) verwerfen
+      if (connectionId !== this._connectionId) return
 
       // Service gibt neueste zuerst zurück — umkehren für Anzeige
       const ordered = [...messages].reverse()
       ordered.forEach((m) => {
-        const normalized = { ...m, senderName: m.sender?.name }
+        const normalized = { ...m, senderName: m.sender?.name, senderRole: m.senderRole }
         this._messages.push(normalized)
         this.appendMessage(normalized)
       })
@@ -204,6 +249,7 @@ class ChatWindowElement extends HTMLElement {
       console.error('Fehler beim Laden der Nachrichten:', err)
       try {
         const cached = await getCachedMessages(chatId)
+        if (connectionId !== this._connectionId) return
         const ordered = [...cached].sort((a, b) => new Date(a.sentAt) - new Date(b.sentAt))
         ordered.forEach((m) => {
           this._messages.push(m)
@@ -241,6 +287,7 @@ class ChatWindowElement extends HTMLElement {
                 chatId
                 content
                 sentAt
+                senderRole
                 sender { id name }
               }
             }
@@ -262,7 +309,7 @@ class ChatWindowElement extends HTMLElement {
       const oldScrollHeight = list.scrollHeight
 
       ordered.forEach((m) => {
-        const normalized = { ...m, senderName: m.sender?.name }
+        const normalized = { ...m, senderName: m.sender?.name, senderRole: m.senderRole }
         this._messages.unshift(normalized)
         this.prependMessage(normalized)
       })
@@ -345,6 +392,10 @@ class ChatWindowElement extends HTMLElement {
           color: #4f8ef7;
         }
 
+        .message-sender.role-admin { color: #ff5252; }
+        .message-sender.role-moderator { color: #17ebb6; }
+        .message-sender.role-member { color: #4f8ef7; }
+
         .message-time {
           font-size: 0.7rem;
           opacity: 0.4;
@@ -406,6 +457,20 @@ class ChatWindowElement extends HTMLElement {
         }
 
         .close-btn:hover { opacity: 1; }
+
+        .delete-btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-size: 1.5rem;
+          line-height: 1;
+          padding: 0.15rem 0.4rem;
+          color: #ff5252;
+          opacity: 0.4;
+          margin-left: auto;
+        }
+
+        .delete-btn:hover { opacity: 1; color: #ff5252; }
 
         @media (prefers-color-scheme: dark) {
           :host { background: #222222; border-color: rgba(84,84,84,0.48); }

@@ -127,6 +127,7 @@
   color: white;
   display: flex;
   align-items: center;
+  text-transform: uppercase;
   justify-content: center;
   font-weight: 700;
   font-size: 0.95rem;
@@ -419,6 +420,16 @@
 .chat-btn:hover {
   background: var(--color-primary-hover);
 }
+
+.delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.4;
+  font-size: 0.75rem;
+  margin-left: auto;
+}
+.delete-btn:hover { opacity: 1; }
 
 /* ============================================
    MODAL
@@ -791,6 +802,24 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
+}
+
+.cheat-warning {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  background: #ff5252;
+  color: white;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  z-index: 9999;
+  animation: pop-in 0.4s ease;
+}
+
+@keyframes pop-in {
+  from { transform: scale(0.7) translateY(-10px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
 }
 
 @media (max-width: 64rem) {

@@ -41,5 +41,6 @@ export const resolvers = {
     ...indexCardResolvers.Subscription,
     ...runResolvers.Subscription,
     ...rankingResolvers.Subscription,
+    ...studyGroupResolvers.Subscription,
   },
 };

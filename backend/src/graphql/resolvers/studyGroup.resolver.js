@@ -1,5 +1,9 @@
 import * as StudyGroupService from "../../services/studyGroup.service.js";
 import * as UserModel from "../../models/sql/user.model.js";
+import { pubsub } from '../pubsub.js';
+import { withFilter } from 'graphql-subscriptions';
+
+export const MEMBERS_UPDATED = 'MEMBERS_UPDATED';
 
 export const studyGroupResolvers = {
   Query: {
@@ -45,6 +49,17 @@ export const studyGroupResolvers = {
         throw new Error('Nicht authentifiziert');
       }
       return await StudyGroupService.updateMembershipRole(studyGroupId, userId, role, context.user.id);
+    },
+  },
+  Subscription: {
+    onMembersUpdated: {
+      subscribe: withFilter(
+        () => pubsub.asyncIterableIterator([MEMBERS_UPDATED]),
+        (payload, variables) => payload.studyGroupId === variables.studyGroupId,
+      ),
+      resolve: async (payload) => {
+        return await StudyGroupService.getMembers(payload.studyGroupId);
+      },
     },
   },
   StudyGroup: {
