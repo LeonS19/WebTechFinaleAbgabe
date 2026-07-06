@@ -63,8 +63,8 @@ function enemy(position, name = 'Schleim', type = 'NORMAL') {
   return [{
     name,
     type,
-    base_health: (x + 1) * 30,
-    base_damage: (x + 1) * 5,
+    base_health: x * 30,
+    base_damage: x * 5,
   }];
 }
 

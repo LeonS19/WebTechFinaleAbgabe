@@ -18,5 +18,5 @@ export function levelUp(run) {
 }
 
 export function calculateDamageMultiplier(level) {
-  return 1 + (level - 1) * 0.15;
+  return 1 + (level - 1) * 0.8;
 }
