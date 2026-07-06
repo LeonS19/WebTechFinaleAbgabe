@@ -28,6 +28,16 @@ CREATE TABLE passkey (
     created_at      TIMESTAMP DEFAULT NOW()
 );
 
+-- WebAuthn Challenge Storage (temporär, für Registration + Login Flow)
+CREATE TABLE webauthn_challenge (
+    id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id     UUID REFERENCES "user"(id) ON DELETE CASCADE,  -- nullable! beim Login weiß man User noch nicht zwingend
+    challenge   TEXT NOT NULL,
+    type        VARCHAR(20) NOT NULL,   -- 'REGISTRATION' oder 'AUTHENTICATION'
+    expires_at  TIMESTAMP NOT NULL,
+    created_at  TIMESTAMP DEFAULT NOW()
+);
+
 -- OAuth accounts (one user can have multiple providers)
 CREATE TABLE oauth_account (
     id                  UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -62,45 +72,6 @@ CREATE TABLE membership (
 );
 
 -- ============================================
--- MAP & FIELDS
--- ============================================
-
-CREATE TABLE map (
-    id      UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    name    VARCHAR(255) NOT NULL
-);
-
-CREATE TYPE field_type AS ENUM ('START', 'NORMAL', 'FIGHT', 'BOSS', 'HEAL');
-
-CREATE TABLE field (
-    id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    map_id      UUID NOT NULL REFERENCES map(id) ON DELETE CASCADE,
-    position    INTEGER NOT NULL,                   -- position on the map
-    type        field_type NOT NULL,
-    enemy_id    UUID,                               -- FK to enemy, only for FIGHT/BOSS
-    UNIQUE (map_id, position)
-);
-
--- ============================================
--- ENEMY
--- ============================================
-
-CREATE TYPE enemy_type AS ENUM ('NORMAL', 'BOSS');
-
-CREATE TABLE enemy (
-    id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    name            VARCHAR(255) NOT NULL,
-    type            enemy_type NOT NULL DEFAULT 'NORMAL',
-    base_health     INTEGER NOT NULL,
-    base_damage     INTEGER NOT NULL
-);
-
--- Add FK after enemy table exists
-ALTER TABLE field
-    ADD CONSTRAINT fk_field_enemy
-    FOREIGN KEY (enemy_id) REFERENCES enemy(id) ON DELETE SET NULL;
-
--- ============================================
 -- RUN
 -- ============================================
 
@@ -108,10 +79,14 @@ CREATE TABLE run (
     id                  UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id             UUID NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
     study_group_id      UUID NOT NULL REFERENCES study_group(id) ON DELETE CASCADE,
-    map_id              UUID NOT NULL REFERENCES map(id),
+    map_id              TEXT NOT NULL,              -- references MongoDB Map document
     successful          BOOLEAN,                    -- NULL while run is active
-    start_time          TIMESTAMP DEFAULT NOW(),
+    start_time          TIMESTAMPTZ DEFAULT NOW(),
     duration            INTEGER,                    -- in seconds, NULL while active
-    hit_rate            FLOAT,                      -- % of correctly answered cards
-    current_position    INTEGER NOT NULL DEFAULT 0
+    correct_answers     INTEGER DEFAULT 0,                      -- absolute count, used for ranking
+    total_answers       INTEGER DEFAULT 0,                      -- absolute count, hit_rate = correct/total
+    current_position    INTEGER NOT NULL DEFAULT 0,
+    level               INTEGER NOT NULL DEFAULT 1,
+    max_health           INTEGER NOT NULL DEFAULT 100,
+    current_health       INTEGER NOT NULL DEFAULT 100
 );

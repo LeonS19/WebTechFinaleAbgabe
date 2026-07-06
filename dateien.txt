@@ -1,0 +1,168 @@
+.
+├── backend
+│   ├── docs
+│   │   ├── PROJEKT.md
+│   │   ├── backend_structure.txt
+│   │   ├── docker-compose.yml
+│   │   ├── env.example
+│   │   ├── openapi.yaml
+│   │   ├── schema
+│   │   │   └── schema.sql
+│   │   └── todo.txt
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── schema
+│   │   ├── mongodb_schema.js
+│   │   ├── schema.graphql
+│   │   └── schema.sql
+│   ├── src
+│   │   ├── api
+│   │   │   └── rest
+│   │   │       ├── controllers
+│   │   │       │   ├── auth.controller.js
+│   │   │       │   └── file.controller.js
+│   │   │       ├── middleware
+│   │   │       │   ├── auth.middleware.js
+│   │   │       │   ├── role.middleware.js
+│   │   │       │   └── upload.middleware.js
+│   │   │       └── routes
+│   │   │           ├── auth.routes.js
+│   │   │           └── file.routes.js
+│   │   ├── app.js
+│   │   ├── config
+│   │   │   ├── db.mongo.js
+│   │   │   ├── db.postgres.js
+│   │   │   └── env.js
+│   │   ├── graphql
+│   │   │   ├── context.js
+│   │   │   ├── pubsub.js
+│   │   │   └── resolvers
+│   │   │       ├── chat.resolver.js
+│   │   │       ├── index.js
+│   │   │       ├── indexCard.resolver.js
+│   │   │       ├── ranking.resolver.js
+│   │   │       ├── run.resolver.js
+│   │   │       └── studyGroup.resolver.js
+│   │   ├── index.js
+│   │   ├── models
+│   │   │   ├── mongo
+│   │   │   │   ├── combat.model.js
+│   │   │   │   ├── indexCard.model.js
+│   │   │   │   ├── map.model.js
+│   │   │   │   ├── message.model.js
+│   │   │   │   └── runDeck.model.js
+│   │   │   └── sql
+│   │   │       ├── field.model.js
+│   │   │       ├── membership.model.js
+│   │   │       ├── oauth.model.js
+│   │   │       ├── passkey.model.js
+│   │   │       ├── run.model.js
+│   │   │       ├── studyGroup.model.js
+│   │   │       ├── user.model.js
+│   │   │       └── webauthnChallenge.model.js
+│   │   ├── realtime
+│   │   │   ├── handlers
+│   │   │   │   └── chat.handler.js
+│   │   │   └── websocket.js
+│   │   ├── scripts
+│   │   │   ├── generateTestToken.js
+│   │   │   └── seedMap.js
+│   │   └── services
+│   │       ├── auth
+│   │       │   ├── oauth.service.js
+│   │       │   ├── passkey.service.js
+│   │       │   └── token.service.js
+│   │       ├── chat.service.js
+│   │       ├── combat.service.js
+│   │       ├── deckBuilder.service.js
+│   │       ├── file.service.js
+│   │       ├── indexCard.service.js
+│   │       ├── map.service.js
+│   │       ├── permission.service.js
+│   │       ├── ranking.service.js
+│   │       ├── run.service.js
+│   │       ├── runDeck.service.js
+│   │       ├── statistics.service.js
+│   │       ├── studyGroup.service.js
+│   │       └── utils
+│   │           └── playerStats.util.js
+│   └── uploads
+│       ├── 1783029092084- -6.jpg
+│       ├── 1783029176737- -3.jpg
+│       ├── 1783029567759- -5.jpg
+│       ├── 1783029876801-@basiilleaf.jpg
+│       ├── 1783029908576- -6.jpg
+│       ├── 1783030235815- -2.jpg
+│       ├── 1783030271322- -6.jpg
+│       ├── 1783030647638-gouraud.vert
+│       ├── 1783100923971- .jpg
+│       ├── 1783100940557-gouraud.vert
+│       └── 1783100952816-shader-2.frag
+├── dateien.txt
+└── frontend
+    ├── eslint.config.js
+    ├── index.html
+    ├── jsconfig.json
+    ├── package-lock.json
+    ├── package.json
+    ├── public
+    │   └── favicon.ico
+    ├── src
+    │   ├── App.vue
+    │   ├── assets
+    │   │   ├── base.css
+    │   │   ├── characters
+    │   │   │   ├── boss
+    │   │   │   ├── player
+    │   │   │   │   ├── player_attack.gif
+    │   │   │   │   ├── player_death.gif
+    │   │   │   │   ├── player_hurt.gif
+    │   │   │   │   └── player_idle.gif
+    │   │   │   └── slime
+    │   │   │       ├── slime_attack.gif
+    │   │   │       ├── slime_death.gif
+    │   │   │       ├── slime_hurt.gif
+    │   │   │       └── slime_idle.gif
+    │   │   ├── dashboard.css
+    │   │   ├── gui
+    │   │   │   ├── index_card.png
+    │   │   │   ├── star_empty.png
+    │   │   │   └── star_filled.png
+    │   │   ├── logo.svg
+    │   │   └── main.css
+    │   ├── components
+    │   │   ├── content
+    │   │   │   ├── CardPlayOverlay.vue
+    │   │   │   ├── CombatView.vue
+    │   │   │   ├── CreateIndexCardModal.vue
+    │   │   │   ├── HandCard.vue
+    │   │   │   ├── IndexCardDetailModal.vue
+    │   │   │   ├── IndexCardItem.vue
+    │   │   │   ├── IndexCardsView.vue
+    │   │   │   ├── RankingView.vue
+    │   │   │   ├── RunHistoryView.vue
+    │   │   │   ├── RunMapView.vue
+    │   │   │   └── RunView.vue
+    │   │   ├── layout
+    │   │   │   ├── ChatPanel.vue
+    │   │   │   ├── ContentNav.vue
+    │   │   │   ├── CreateStudyGroupModal.vue
+    │   │   │   ├── DashboardHeader.vue
+    │   │   │   ├── GroupSwitcher.vue
+    │   │   │   ├── JoinStudyGroupModal.vue
+    │   │   │   └── MembersSidebar.vue
+    │   │   └── members
+    │   │       └── MembersList.vue
+    │   ├── main.js
+    │   ├── router
+    │   │   └── index.js
+    │   ├── views
+    │   │   ├── AuthCallbackView.vue
+    │   │   ├── DashboardView.vue
+    │   │   ├── LoginView.vue
+    │   │   └── RegisterView.vue
+    │   └── web-components
+    │       ├── ChatWindowElement.js
+    │       ├── IndexCardElement.js
+    │       └── index.js
+    └── vite.config.js

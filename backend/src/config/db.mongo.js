@@ -1,14 +1,6 @@
-import pg from 'pg';
-import { env } from './env.js';
+import mongoose from 'mongoose';
 
-const { Pool } = pg;
-
-export const pool = new Pool({
-  connectionString: env.POSTGRES_URL,
-});
-
-export async function connectPostgres() {
-  const client = await pool.connect();
-  console.log('PostgreSQL connected');
-  client.release();
+export async function connectMongo() {
+  await mongoose.connect(process.env.MONGO_URI);
+  console.log('MongoDB connected');
 }

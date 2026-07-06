@@ -1,0 +1,45 @@
+- Lösch funktionen für User
+-TODO für Reflexion: JWT wird beim Google OAuth Callback als Query-Parameter ?token=... in der Redirect-URL ans Frontend übergeben. Das ist praktisch und weit verbreitet, hat aber Sicherheitsbedenken (Browser-History, Server-Logs, Referrer-Header). Sicherere Alternativen wären HttpOnly Cookie oder ein kurzlebiger Einmal-Code statt dem JWT direkt in der URL.
+- Status nach Admin gegangen wird nicht korrekt an Member weitergegeben
+- Profilbilder für Gruppen und User
+- umgestaltung run-rangliste: 1. anzahl richtig beantworteter fragen 2. fehlerquote 3. zeit
+- nach handdeck leergespielt (5 Fragen richtig) kriegt man eine heilung, danach 5 karten in neuer Runde ziehen ->skillreward
+- nach normaler runde nur 1 karte ziehen (max 5 Handkarten)
+
+-Content sidebar einklappbar machen
+-Wenn Run läuft und User versucht sich die Lösung einer Karteikarte anzeigen zulassen,
+    wird er auf die Schummeln Wiki Seite weitergeleitet
+- "Run Starten" Button in "Run {Schwert-Icon}" mit Hover Text "Run starten oder fortsetzen" ab ändern
+-Beim starten eines Rund, wenn man das Startfeld wählen muss:
+    1. Alle andern Felder disabeln
+    2. Selbst wenn der user das via Dev Konsole o.ä umgehen sollte, gibt es einen Backend check
+
+- Verbunden / Offline bzw. getrennt zusätzlich mit grünem und rotem punkt markieren
+- User icon oben Links ist kaputt. zeigt "?"
+-Create indexCard button an erste stelle packen
+- Im run, wird Die View nach einem Kampf ganz links angezeigt (slider resettet sich)
+-Rus basierend auf tags
+-Cheaten unterbinden (im run die Karteikarten Liste durchsuchen)
+- Chat bug Fenster muss immer einmal refreshed werden, bevor man connected
+- Wenn User gekickt wird, für diesen das info fenster abändern / aufhübschen
+- Visuelle "Belohnug" für Perfect Round, damit der Spieler sieht was passiert ist (zusätzlich noch grüne zahl wie "+150 HP" ploppt über dem Player auf)
+- Dmg Multiplier im FE anzeigen
+- Ist die Lerngruppen Suche offen und aus Gruppe X verlässt der letzte User diese, wird Sie zwar gelöscht, aber nicht in der Suche aktualisiert
+
+////////////////////////////////////////////////////////////////////////////////////
+//
+//                          REFLEXION
+//
+//////////////////////////////////////////////////////////////////////////////////
+-Für die Reflexion am Ende gut zu wissen: Das ist ein legitimer Punkt für eure Antwort
+auf "Welche Grenzen hat Ihre Lösung?" – "aktuell nur 1 Gegner pro Kampf unterstützt,
+Architektur wäre aber erweiterbar auf mehrere Gegner" ist eine gute, ehrliche Einschränkung, die zeigt,
+dass ihr bewusst einen Scope-Cut gemacht habt, nicht aus Versehen.
+
+-Gut, dann lassen wir das genau so, wie es ist
+dynamische Neuberechnung bei jeder Antwort, keine Fixierung. Passt auch gut als Reflexions-Punkt später:
+"Kartenschaden wird dynamisch aus der aktuellen Gruppen-Statistik berechnet,
+wodurch sich die Balance im Verlauf eines Runs organisch mitentwickelt."
+
+- bei Run: hinzufügen, dass man sich die gelaufenen Felder merkt als darstellung wo man schon was nachdem man einen Run abgebrochen und wieder aufgenommen hat
+- Frage und Antwort einer Karteikarte lassen sich nicht ändern
