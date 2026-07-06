@@ -279,12 +279,10 @@ export async function answerCard(runId, userId, cardId, userAnswer) {
       };
     }
 
-    const drawCount = wasPerfectRound ? 5 : 1;
-    const newCards = await drawForNextTurn(
-      runId,
-      drawCount,
-      combat.hand.length,
-    );
+    const runDeck = await findRunDeck(runId);
+    const wouldNeedReshuffle = combat.hand.length === 0 && runDeck.deck.length === 0 && runDeck.discard_pile.length > 0;
+    const drawCount = (wasPerfectRound || wouldNeedReshuffle) ? 5 : 1;
+    const newCards = await drawForNextTurn(runId, drawCount, combat.hand.length);
     const updatedHand = wasPerfectRound
       ? newCards
       : [...combat.hand, ...newCards];

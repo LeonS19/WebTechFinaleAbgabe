@@ -26,6 +26,11 @@
 - Dmg Multiplier im FE anzeigen
 - Ist die Lerngruppen Suche offen und aus Gruppe X verlässt der letzte User diese, wird Sie zwar gelöscht, aber nicht in der Suche aktualisiert
 
+- Run / Kampf aufgeben button exisitert nicht in fight und auf world map
+-wenn Lebensleiste (Bei Spieler und Gegner) sehr klein, kann man beim Darkmode zumindest die Leben nicht mehr erkennen
+- überlegen ob im ersten kampf der Gegner schon 10 dmg machen soll? (An sich ist 5 glaube fine)
+-Gegner und Player level ans frontend reichen. Anzeige im Kampf, der wie vielte kampf das ist
+
 ////////////////////////////////////////////////////////////////////////////////////
 //
 //                          REFLEXION
