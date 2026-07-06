@@ -2,6 +2,20 @@
   <div class="run-view">
     <p v-if="activeRunLoading" class="run-loading">Run wird geladen...</p>
 
+    <div v-if="!selectedCharacter" class="character-select">
+      <h3>Wähle deinen Charakter</h3>
+      <div class="character-options">
+        <button
+          v-for="n in [1, 2, 3]"
+          :key="n"
+          class="character-option"
+          @click="selectedCharacter = n"
+        >
+          <img :src="characterPreview(n)" alt="Charakter-Vorschau" />
+        </button>
+      </div>
+    </div>
+
     <template v-else>
       <RunMapView
         v-if="phase === 'map'"
@@ -14,14 +28,17 @@
       <CombatView
         v-if="phase === 'combat'"
         ref="combatViewRef"
+        style="flex: 1"
         :enemy="enemyForView"
         :hand="handForView"
         :deckCount="deckCount"
         :playerHp="playerHp"
         :playerMaxHp="playerMaxHp"
         :enemyHp="enemyHp"
+        :characterId="selectedCharacter"
         @cardPlayed="onCardPlayed"
         @endTurn="onEndTurn"
+        @runAbandoned="onAbandonRun"
       />
     </template>
 
@@ -30,16 +47,23 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
-import { useQuery, useMutation, useSubscription } from '@vue/apollo-composable';
-import { gql } from '@apollo/client/core';
-import RunMapView from './RunMapView.vue';
-import CombatView from './CombatView.vue';
+import { ref, computed, watch } from 'vue'
+import { useQuery, useMutation, useSubscription } from '@vue/apollo-composable'
+import { gql } from '@apollo/client/core'
+import RunMapView from './RunMapView.vue'
+import CombatView from './CombatView.vue'
+
+const selectedCharacter = ref(null)
+
+const playerIdlePreviews = import.meta.glob('../../assets/characters/player/player_idle_*.gif', {
+  eager: true,
+  import: 'default',
+})
 
 const props = defineProps({
   studyGroupId: { type: String, required: true },
-});
-const emit = defineEmits(['runEnded']);
+})
+const emit = defineEmits(['runEnded'])
 
 // ---- Map laden ----
 const GET_MAP = gql`
@@ -64,10 +88,10 @@ const GET_MAP = gql`
       }
     }
   }
-`;
+`
 
-const { result: mapResult } = useQuery(GET_MAP);
-const mapFields = computed(() => mapResult.value?.getMap?.fields ?? []);
+const { result: mapResult } = useQuery(GET_MAP)
+const mapFields = computed(() => mapResult.value?.getMap?.fields ?? [])
 
 // ---- Aktiven Run (inkl. laufendem Kampf) beim Mounten wiederherstellen ----
 // Ohne das würde ein Reload den kompletten Fortschritt "vergessen", obwohl
@@ -109,8 +133,12 @@ const GET_ACTIVE_RUN = gql`
       }
     }
   }
-`;
-const { result: activeRunResult, loading: activeRunLoading, error: activeRunError } = useQuery(
+`
+const {
+  result: activeRunResult,
+  loading: activeRunLoading,
+  error: activeRunError,
+} = useQuery(
   GET_ACTIVE_RUN,
   () => ({ studyGroupId: props.studyGroupId }),
   () => ({
@@ -119,7 +147,7 @@ const { result: activeRunResult, loading: activeRunLoading, error: activeRunErro
     // von der Historie) den gecachten Stand eines bereits beendeten Runs an.
     fetchPolicy: 'network-only',
   }),
-);
+)
 
 // ---- Run-Updates in Echtzeit (z.B. bei zwei offenen Tabs, oder falls jemand
 // anderes in der Gruppe den Fortschritt live mitverfolgt) ----
@@ -139,7 +167,7 @@ const ON_RUN_UPDATED = gql`
       }
     }
   }
-`;
+`
 
 // ---- Run starten ----
 // startRun ist idempotent: existiert bereits ein aktiver Run für diesen
@@ -160,8 +188,19 @@ const START_RUN = gql`
       }
     }
   }
-`;
-const { mutate: startRunMutation } = useMutation(START_RUN);
+`
+const { mutate: startRunMutation } = useMutation(START_RUN)
+
+const END_RUN = gql`
+  mutation EndRun($runId: ID!, $successful: Boolean!) {
+    endRun(runId: $runId, successful: $successful) {
+      id
+      successful
+    }
+  }
+`
+
+const { mutate: endRunMutation } = useMutation(END_RUN)
 
 // ---- Auf der Map bewegen (jeder weitere Feld-Klick) ----
 const MOVE_TO_FIELD = gql`
@@ -203,8 +242,8 @@ const MOVE_TO_FIELD = gql`
       }
     }
   }
-`;
-const { mutate: moveToFieldMutation } = useMutation(MOVE_TO_FIELD);
+`
+const { mutate: moveToFieldMutation } = useMutation(MOVE_TO_FIELD)
 
 // ---- Karte im Kampf beantworten ----
 // Der Server liefert jetzt den vollständig aktualisierten Kampf-Zustand direkt mit
@@ -243,8 +282,8 @@ const ANSWER_CARD = gql`
       }
     }
   }
-`;
-const { mutate: answerCardMutation } = useMutation(ANSWER_CARD);
+`
+const { mutate: answerCardMutation } = useMutation(ANSWER_CARD)
 
 // ---- Runde freiwillig beenden (ohne alle Handkarten zu spielen) ----
 const END_TURN = gql`
@@ -278,19 +317,19 @@ const END_TURN = gql`
       }
     }
   }
-`;
-const { mutate: endTurnMutation } = useMutation(END_TURN);
+`
+const { mutate: endTurnMutation } = useMutation(END_TURN)
 
 // ---- State ----
-const run = ref(null); // aktueller Run, sobald startRun geantwortet hat
-const currentCombat = ref(null); // aktuelles Combat-Objekt, solange phase === 'combat'
+const run = ref(null) // aktueller Run, sobald startRun geantwortet hat
+const currentCombat = ref(null) // aktuelles Combat-Objekt, solange phase === 'combat'
 // Reaktive Kopie der Handkarten (mit _isNew-Flag für die Fly-in-Animation),
 // wird bei jeder answerCard-Antwort komplett aus dem Server-Combat übernommen.
-const hand = ref([]);
-const phase = ref('map'); // 'map' | 'combat'
-const mapPhase = ref('select-start'); // 'select-start' (noch kein Run) | 'select-next' (an RunMapView weitergereicht)
-const combatViewRef = ref(null);
-const actionError = ref(null);
+const hand = ref([])
+const phase = ref('map') // 'map' | 'combat'
+const mapPhase = ref('select-start') // 'select-start' (noch kein Run) | 'select-next' (an RunMapView weitergereicht)
+const combatViewRef = ref(null)
+const actionError = ref(null)
 
 // Muss NACH der Deklaration von `run` stehen, da die reaktiven Getter unten
 // sofort beim Setup ausgeführt werden und sonst auf `run` zugreifen, bevor es existiert.
@@ -298,105 +337,111 @@ const { result: runUpdateResult } = useSubscription(
   ON_RUN_UPDATED,
   () => ({ runId: run.value?.id }),
   () => ({ enabled: !!run.value?.id }),
-);
+)
 
-const currentPosition = computed(() => run.value?.currentPosition ?? null);
-const playerHp = computed(() => run.value?.player?.currentHealth ?? 100);
-const playerMaxHp = computed(() => run.value?.player?.maxHealth ?? 100);
+const currentPosition = computed(() => run.value?.currentPosition ?? null)
+const playerHp = computed(() => run.value?.player?.currentHealth ?? 100)
+const playerMaxHp = computed(() => run.value?.player?.maxHealth ?? 100)
 
 // CombatView erwartet enemy.baseHealth (Anzeige-Prop), das Backend liefert enemy.maxHealth (CombatEnemy) — hier gemappt
 const enemyForView = computed(() => {
-  if (!currentCombat.value) return null;
+  if (!currentCombat.value) return null
   return {
     name: currentCombat.value.enemy.name,
     baseHealth: currentCombat.value.enemy.maxHealth,
-  };
-});
-const enemyHp = computed(() => currentCombat.value?.enemy?.currentHealth ?? 0);
-const handForView = computed(() => hand.value);
+    type: currentCombat.value.enemy.type, // ← neu
+  }
+})
+
+const enemyHp = computed(() => currentCombat.value?.enemy?.currentHealth ?? 0)
+const handForView = computed(() => hand.value)
 const deckCount = computed(() =>
   phase.value === 'combat' ? (currentCombat.value?.deckCount ?? 0) : (run.value?.deck?.length ?? 0),
-);
+)
 
 // Sobald getActiveRun geladen hat: bestehenden Fortschritt übernehmen.
 // Kommt null zurück, existiert kein aktiver Run -> Startfeld-Auswahl bleibt sichtbar.
-let resumed = false;
+let resumed = false
 watch(
   activeRunLoading,
   (loading) => {
-    if (loading || resumed) return;
-    if (!props.studyGroupId) return; // Query war deaktiviert, noch keine studyGroupId da
-    resumed = true;
+    if (loading || resumed) return
+    if (!props.studyGroupId) return // Query war deaktiviert, noch keine studyGroupId da
+    resumed = true
 
     if (activeRunError.value) {
-      actionError.value =
-        activeRunError.value.message ?? 'Aktiver Run konnte nicht geladen werden.';
-      console.error('getActiveRun failed:', activeRunError.value);
-      return;
+      actionError.value = activeRunError.value.message ?? 'Aktiver Run konnte nicht geladen werden.'
+      console.error('getActiveRun failed:', activeRunError.value)
+      return
     }
 
-    const activeRun = activeRunResult.value?.getActiveRun;
-    if (!activeRun) return;
+    const activeRun = activeRunResult.value?.getActiveRun
+    if (!activeRun) return
 
-    run.value = activeRun;
-    mapPhase.value = 'select-next';
+    run.value = activeRun
+    mapPhase.value = 'select-next'
 
     if (activeRun.activeCombat) {
       // Defensiv: falls das Backend einen bereits abgeschlossenen Kampf (WON/LOST)
       // noch als "aktiv" zurückgibt (z.B. weil der Run nie offiziell beendet wurde),
       // nicht blind die Kampf-Ansicht zeigen, sondern wie ein normales Kampfende behandeln.
       if (activeRun.activeCombat.status === 'ACTIVE') {
-        currentCombat.value = activeRun.activeCombat;
-        hand.value = currentCombat.value.hand.map((c) => ({ ...c, _isNew: false }));
-        phase.value = 'combat';
+        currentCombat.value = activeRun.activeCombat
+        hand.value = currentCombat.value.hand.map((c) => ({ ...c, _isNew: false }))
+        phase.value = 'combat'
       } else {
-        handleCombatEnd(activeRun.activeCombat);
+        handleCombatEnd(activeRun.activeCombat)
       }
     }
   },
   { immediate: true },
-);
+)
 
 // Ein einzelner Kampf kann enden (WON/LOST), ohne dass der ganze Run vorbei ist —
 // das Backend beendet den Run (endRunModel) nur bei Niederlage oder Boss-Sieg.
 // enemy.type kennen wir schon aus der Combat-Query, brauchen also keine extra Anfrage.
 function handleCombatEnd(combat) {
-  if (combat.status !== 'WON' && combat.status !== 'LOST') return;
+  if (combat.status !== 'WON' && combat.status !== 'LOST') return
 
-  const wholeRunEnded = combat.status === 'LOST' || combat.enemy.type === 'BOSS';
+  const wholeRunEnded = combat.status === 'LOST' || combat.enemy.type === 'BOSS'
 
-  currentCombat.value = null;
-  hand.value = [];
+  currentCombat.value = null
+  hand.value = []
 
   if (wholeRunEnded) {
-    emit('runEnded', { successful: combat.status === 'WON' });
-    return;
+    emit('runEnded', { successful: combat.status === 'WON' })
+    return
   }
 
-  phase.value = 'map';
-  mapPhase.value = 'select-next';
+  phase.value = 'map'
+  mapPhase.value = 'select-next'
 }
 
 // Kommt ein Update über die Subscription rein (z.B. weil der Run in einem anderen
 // Tab weitergespielt wurde), Zustand übernehmen. Ist der Run dabei zu Ende gegangen,
 // ohne dass wir das schon lokal über handleCombatEnd gemeldet haben, jetzt nachholen.
 watch(runUpdateResult, (val) => {
-  const updated = val?.onRunUpdated;
-  if (!updated || !run.value) return;
+  const updated = val?.onRunUpdated
+  if (!updated || !run.value) return
 
-  run.value = { ...run.value, ...updated };
+  run.value = { ...run.value, ...updated }
 
   if (updated.successful !== null && phase.value !== 'combat') {
-    emit('runEnded', { successful: updated.successful });
+    emit('runEnded', { successful: updated.successful })
   }
-});
+})
+
+function characterPreview(n) {
+  const key = Object.keys(playerIdlePreviews).find((k) => k.endsWith(`player_idle_${n}.gif`))
+  return playerIdlePreviews[key]
+}
 
 async function onFieldSelected(field) {
-  actionError.value = null;
+  actionError.value = null
 
   if (!props.studyGroupId) {
-    actionError.value = 'Keine Lerngruppe ausgewählt — bitte Seite neu laden.';
-    return;
+    actionError.value = 'Keine Lerngruppe ausgewählt — bitte Seite neu laden.'
+    return
   }
 
   try {
@@ -407,116 +452,165 @@ async function onFieldSelected(field) {
       const { data } = await startRunMutation({
         studyGroupId: props.studyGroupId,
         selectedStartFieldPosition: field.position,
-      });
-      run.value = data.startRun;
-      mapPhase.value = 'select-next';
-      return;
+      })
+      run.value = data.startRun
+      mapPhase.value = 'select-next'
+      return
     }
 
     const { data } = await moveToFieldMutation({
       runId: run.value.id,
       targetPosition: field.position,
-    });
+    })
 
-    run.value = data.moveToField.run;
+    run.value = data.moveToField.run
 
     if (data.moveToField.combat) {
-      currentCombat.value = data.moveToField.combat;
-      hand.value = currentCombat.value.hand.map((c) => ({ ...c, _isNew: false }));
-      phase.value = 'combat';
+      currentCombat.value = data.moveToField.combat
+      hand.value = currentCombat.value.hand.map((c) => ({ ...c, _isNew: false }))
+      phase.value = 'combat'
     } else {
-      mapPhase.value = 'select-next';
+      mapPhase.value = 'select-next'
     }
   } catch (err) {
-    actionError.value = err.message ?? 'Zug konnte nicht ausgeführt werden.';
-    console.error(err);
+    actionError.value = err.message ?? 'Zug konnte nicht ausgeführt werden.'
+    console.error(err)
   }
 }
 
 async function onCardPlayed({ card, answer }) {
-  actionError.value = null;
-  let result;
+  actionError.value = null
+  let result
 
   try {
     const { data } = await answerCardMutation({
       runId: run.value.id,
       cardId: card.id,
       userAnswer: answer,
-    });
-    result = data.answerCard;
+    })
+    result = data.answerCard
 
     // Overlay-Feedback (richtig/falsch + korrekte Antwort) und Sprite-Animation
     // laufen parallel; wir warten auf beides, bevor der State weiterverarbeitet wird.
     await Promise.all([
-      combatViewRef.value?.resolveAnswer({ correct: result.correct, correctAnswer: result.correctAnswer }),
+      combatViewRef.value?.resolveAnswer({
+        correct: result.correct,
+        correctAnswer: result.correctAnswer,
+      }),
       combatViewRef.value?.playCombatAnimation(result.correct),
-    ]);
+    ])
 
     // Server liefert Hand/Gegner-HP/Status jetzt komplett aktualisiert mit —
     // wir übernehmen das 1:1 und markieren nur die neuen Karten für die Fly-in-Animation.
-    const previousHandIds = new Set(hand.value.map((c) => c.id));
+    const previousHandIds = new Set(hand.value.map((c) => c.id))
     const newHand = result.combat.hand.map((c) => ({
       ...c,
       _isNew: !previousHandIds.has(c.id),
-    }));
+    }))
 
-    currentCombat.value = result.combat;
-    hand.value = newHand;
+    currentCombat.value = result.combat
+    hand.value = newHand
 
     // Server liefert jetzt auch den aktualisierten Spieler-Zustand direkt mit
     // (Gegenangriff, Perfekt-Runden-Heilung, Level-Up sind hier schon eingerechnet).
     // Wichtig: run.value stammt aus einem Apollo-Ergebnis und ist eingefroren (Object.freeze) —
     // direktes Zuweisen einer Property crasht deshalb. Stattdessen ein neues Objekt bauen.
     if (run.value) {
-      run.value = { ...run.value, player: result.player };
+      run.value = { ...run.value, player: result.player }
     }
 
     if (result.combat.status === 'WON' || result.combat.status === 'LOST') {
-      handleCombatEnd(result.combat);
+      const dyingTarget = result.combat.status === 'LOST' ? 'player' : 'enemy'
+      await combatViewRef.value?.playDeathAnimation(dyingTarget)
+      handleCombatEnd(result.combat)
     }
   } catch (err) {
-    actionError.value = err.message ?? 'Antwort konnte nicht verarbeitet werden.';
-    console.error('onCardPlayed failed:', err);
+    actionError.value = err.message ?? 'Antwort konnte nicht verarbeitet werden.'
+    console.error('onCardPlayed failed:', err)
   }
 }
 
 // Freiwilliges Zugende: keine Karte/Antwort, deshalb kein Overlay-Feedback —
 // nur der Gegenangriff (Sprite-Animation) und die Hand-Aktualisierung.
 async function onEndTurn() {
-  actionError.value = null;
+  actionError.value = null
 
   try {
-    const { data } = await endTurnMutation({ runId: run.value.id });
-    const result = data.endTurn;
+    const { data } = await endTurnMutation({ runId: run.value.id })
+    const result = data.endTurn
 
-    await combatViewRef.value?.playCombatAnimation(false);
+    await combatViewRef.value?.playCombatAnimation(false)
 
-    const previousHandIds = new Set(hand.value.map((c) => c.id));
+    const previousHandIds = new Set(hand.value.map((c) => c.id))
     const newHand = result.combat.hand.map((c) => ({
       ...c,
       _isNew: !previousHandIds.has(c.id),
-    }));
+    }))
 
-    currentCombat.value = result.combat;
-    hand.value = newHand;
+    currentCombat.value = result.combat
+    hand.value = newHand
 
     if (run.value) {
-      run.value = { ...run.value, player: result.player };
+      run.value = { ...run.value, player: result.player }
     }
 
     if (result.combat.status === 'WON' || result.combat.status === 'LOST') {
-      handleCombatEnd(result.combat);
+      const dyingTarget = result.combat.status === 'LOST' ? 'player' : 'enemy'
+      await combatViewRef.value?.playDeathAnimation(dyingTarget)
+      handleCombatEnd(result.combat)
     }
   } catch (err) {
-    actionError.value = err.message ?? 'Runde konnte nicht beendet werden.';
-    console.error('onEndTurn failed:', err);
+    actionError.value = err.message ?? 'Runde konnte nicht beendet werden.'
+    console.error('onEndTurn failed:', err)
   } finally {
-    combatViewRef.value?.finishEndTurn();
+    combatViewRef.value?.finishEndTurn()
+  }
+}
+
+async function onAbandonRun() {
+  try {
+    await endRunMutation({ runId: run.value.id, successful: false })
+    emit('runEnded', { successful: false })
+  } catch (err) {
+    actionError.value = err.message ?? 'Run konnte nicht beendet werden.'
   }
 }
 </script>
 
 <style scoped>
+.character-select {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 3rem 1rem;
+}
+
+.character-options {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.character-option {
+  background: none;
+  border: 2px solid transparent;
+  border-radius: 0.75rem;
+  padding: 0.5rem;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.character-option:hover {
+  border-color: #4f8ef7;
+}
+
+.character-option img {
+  width: 6rem;
+  height: 6rem;
+  image-rendering: pixelated;
+  display: block;
+}
+
 .run-view {
   height: 100%;
   display: flex;
