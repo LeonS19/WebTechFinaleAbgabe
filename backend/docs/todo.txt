@@ -22,6 +22,9 @@
 -Cheaten unterbinden (im run die Karteikarten Liste durchsuchen)
 - Chat bug Fenster muss immer einmal refreshed werden, bevor man connected
 - Wenn User gekickt wird, für diesen das info fenster abändern / aufhübschen
+- Visuelle "Belohnug" für Perfect Round, damit der Spieler sieht was passiert ist (zusätzlich noch grüne zahl wie "+150 HP" ploppt über dem Player auf)
+- Dmg Multiplier im FE anzeigen
+- Ist die Lerngruppen Suche offen und aus Gruppe X verlässt der letzte User diese, wird Sie zwar gelöscht, aber nicht in der Suche aktualisiert
 
 ////////////////////////////////////////////////////////////////////////////////////
 //
