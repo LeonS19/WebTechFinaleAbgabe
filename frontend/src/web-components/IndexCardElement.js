@@ -6,7 +6,7 @@ class IndexCardElement extends HTMLElement {
   }
 
   static get observedAttributes() {
-    return ['question', 'answer', 'creator', 'tags', 'card-id']
+    return ['question', 'answer', 'creator', 'tags', 'card-id', 'blocked']
   }
 
   attributeChangedCallback() {
@@ -22,6 +22,13 @@ class IndexCardElement extends HTMLElement {
   }
   set question(value) {
     this.setAttribute('question', value)
+  }
+
+  get blocked() {
+  return this.getAttribute('blocked') === 'true'
+  }
+  set blocked(value) {
+    this.setAttribute('blocked', value)
   }
 
   get answer() {
@@ -188,12 +195,30 @@ class IndexCardElement extends HTMLElement {
     `
 
     this.shadowRoot.querySelector('.card').addEventListener('click', () => {
+      if (this.blocked) {
+        document.dispatchEvent(
+          new CustomEvent('index-card-blocked', {
+            bubbles: true,
+            composed: true,
+          }),
+        )
+        return
+      }
       this._flipped = !this._flipped
       this.shadowRoot.querySelector('.card').classList.toggle('flipped', this._flipped)
     })
 
     this.shadowRoot.querySelector('.card-detail-btn').addEventListener('click', (e) => {
       e.stopPropagation()
+      if (this.blocked) {
+        document.dispatchEvent(
+          new CustomEvent('index-card-blocked', {
+            bubbles: true,
+            composed: true,
+          }),
+        )
+        return
+      }
       document.dispatchEvent(
         new CustomEvent('index-card-detail', {
           detail: { cardId: this.cardId },

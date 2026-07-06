@@ -1,6 +1,14 @@
 import { Message } from '../models/mongo/message.model.js';
 import { findByChatId } from '../models/sql/studyGroup.model.js';
 import { checkPermission } from './permission.service.js';
+import { findOne } from '../models/sql/membership.model.js';
+
+export async function getSenderRole(chatId, userId) {
+  const studyGroup = await findByChatId(chatId);
+  if (!studyGroup) return null;
+  const membership = await findOne(userId, studyGroup.id);
+  return membership?.role || null;
+}
 
 export async function saveMessage(chatId, senderId, content) {
   const studyGroup = await findByChatId(chatId);

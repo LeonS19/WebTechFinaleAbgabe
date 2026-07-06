@@ -1,4 +1,4 @@
-import { saveMessage } from '../../services/chat.service.js';
+import { saveMessage, deleteMessage, getSenderRole } from '../../services/chat.service.js';
 import { verifyToken } from '../../services/auth/token.service.js';
 import { findById } from '../../models/sql/user.model.js';
 
@@ -38,15 +38,33 @@ export function handleChatConnection(ws) {
                 throw new Error('keinem Chat beigetreten');
             }
             const message = await saveMessage(currentChatId, currentUser.userId, data.content)
+            const senderRole = await getSenderRole(currentChatId, currentUser.userId)
+
 
             const payload = JSON.stringify({ 
                 type: 'message', 
-                message: { ...message.toObject(), senderName: currentUserName }
+                message: { ...message.toObject(),
+                    id: message._id.toString(),
+                    senderName: currentUserName, senderRole }
             });
             for(const client of chatRooms.get(currentChatId)){
                 client.send(payload)
             }
-        }  
+        }
+        if (data.type === 'delete') {
+            if (!currentUser) {
+                throw new Error('Nicht eingeloggt');
+            }
+            await deleteMessage(data.messageId, currentUser.userId);
+
+            const payload = JSON.stringify({
+                type: 'delete',
+                messageId: data.messageId,
+            });
+            for (const client of chatRooms.get(currentChatId)) {
+                client.send(payload)
+            }
+        }
     } catch (err) {
         ws.send(JSON.stringify({ type: 'error', message: err.message }));
     }

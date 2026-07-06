@@ -1,4 +1,7 @@
 <template>
+  <div v-if="showCheatWarning" class="cheat-warning" @click="showCheatWarning = false">
+      Netter Versuch! Während eines laufenden Runs bleiben die Antworten tabu.
+  </div>
   <div class="index-cards-view">
     <div class="toolbar">
       <input
@@ -35,15 +38,16 @@
         <span class="plus-icon">+</span>
       </div>
 
-      <index-card
-        v-for="card in filteredCards"
-        :key="card.id"
-        :card-id="card.id"
-        :question="card.question"
-        :answer="card.answer"
-        :creator="card.creator?.name || 'Unbekannt'"
-        :tags="card.tags"
-      />
+    <index-card
+      v-for="card in filteredCards"
+      :key="card.id"
+      :card-id="card.id"
+      :question="card.question"
+      :answer="card.answer"
+      :creator="card.creator?.name || 'Unbekannt'"
+      :tags="card.tags"
+      :blocked="hasActiveRun"
+    />
     </div>
 
     <IndexCardDetailModal
@@ -64,10 +68,11 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
-import { ref, computed } from 'vue'
+import { onMounted, onUnmounted, ref, computed } from 'vue'
 import IndexCardDetailModal from './IndexCardDetailModal.vue'
 import CreateIndexCardModal from './CreateIndexCardModal.vue'
+import { useQuery } from '@vue/apollo-composable'
+import { gql } from '@apollo/client/core'
 
 const props = defineProps({
   cards: { type: Array, default: () => [] },
@@ -75,12 +80,15 @@ const props = defineProps({
   studyGroupId: String,
 })
 
+const emit = defineEmits(['cardCreated'])
+
 const search = ref('')
 const selectedUser = ref('')
 const selectedTags = ref([])
 const sortOrder = ref('desc')
 const detailCard = ref(null)
 const showCreate = ref(false)
+const showCheatWarning = ref(false)
 
 const canCreate = computed(() => props.userRole === 'ADMIN' || props.userRole === 'MODERATOR')
 
@@ -95,24 +103,6 @@ const availableUsers = computed(() => {
 const availableTags = computed(() => {
   return [...new Set(props.cards.flatMap((c) => c.tags || []))]
 })
-
-function toggleTag(tag) {
-  if (selectedTags.value.includes(tag)) {
-    selectedTags.value = selectedTags.value.filter((t) => t !== tag)
-  } else {
-    selectedTags.value.push(tag)
-  }
-}
-
-function openDetail(cardId) {
-  detailCard.value = props.cards.find((c) => c.id === cardId) || null
-}
-
-const emit = defineEmits(['cardCreated'])
-
-function onCreated(card) {
-  emit('cardCreated', card)
-}
 
 const filteredCards = computed(() => {
   let result = [...props.cards]
@@ -135,18 +125,58 @@ const filteredCards = computed(() => {
   return result
 })
 
+const GET_ACTIVE_RUN = gql`
+  query GetActiveRun($studyGroupId: ID!) {
+    getActiveRun(studyGroupId: $studyGroupId) {
+      id
+    }
+  }
+`
+
+const { result: activeRunResult } = useQuery(
+  GET_ACTIVE_RUN,
+  () => ({ studyGroupId: props.studyGroupId }),
+  () => ({
+    enabled: !!props.studyGroupId,
+    pollInterval: 5000,
+    fetchPolicy: 'network-only',
+  }),
+)
+
+const hasActiveRun = computed(() => !!activeRunResult.value?.getActiveRun)
+
+function toggleTag(tag) {
+  if (selectedTags.value.includes(tag)) {
+    selectedTags.value = selectedTags.value.filter((t) => t !== tag)
+  } else {
+    selectedTags.value.push(tag)
+  }
+}
+
+function onCreated(card) {
+  emit('cardCreated', card)
+}
+
 function handleDetailEvent(e) {
+  if (hasActiveRun.value) return
   const cardId = e.detail?.cardId
   if (cardId) {
     detailCard.value = props.cards.find((c) => c.id === cardId) || null
   }
 }
 
+function handleBlockedEvent() {
+  window.open('https://de.wikipedia.org/wiki/T%C3%A4uschung'), '_blank';
+  showCheatWarning.value = true
+}
+
 onMounted(() => {
   document.addEventListener('index-card-detail', handleDetailEvent)
+  document.addEventListener('index-card-blocked', handleBlockedEvent)
 })
 
 onUnmounted(() => {
   document.removeEventListener('index-card-detail', handleDetailEvent)
+  document.removeEventListener('index-card-blocked', handleBlockedEvent)
 })
 </script>
