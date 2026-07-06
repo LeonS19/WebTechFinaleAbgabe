@@ -1,0 +1,33 @@
+// ============================================
+// ZENTRALE VARIABLEN — hier Farben & Fonts anpassen
+// ============================================
+
+// Hintergrund
+$color-background: #ffffff;
+$color-background-soft: #f8f8f8;
+$color-background-mute: #f2f2f2;
+
+// Rahmen
+$color-border: rgba(60, 60, 60, 0.12);
+$color-border-hover: rgba(60, 60, 60, 0.29);
+
+// Text
+$color-heading: #2c3e50;
+$color-text: #2c3e50;
+
+// Akzentfarben
+$color-primary: #4f8ef7;
+$color-primary-hover: #3a7ae0;
+$color-error: #e05a5a;
+$color-success: #42b983;
+
+// ============================================
+// TYPOGRAFIE
+// ============================================
+
+$font-body: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+  Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+  sans-serif;
+
+// ← Hier deine gewünschte Font für Überschriften eintragen
+$font-heading: 'Poppins', Inter, sans-serif;
