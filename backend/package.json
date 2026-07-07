@@ -4,9 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node src/app.js",
-    "dev": "node --watch src/app.js",
-    "test": "jest todo/test.js",
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "test:ws": "jest scripts/ws.test.js",
     "test:pwa": "node scripts/pwa-check.test.js",
     "seed:map": "node --env-file=.env src/scripts/seedMap.js",
@@ -14,16 +14,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/elisabeth-gdt/WebTech.git"
+    "url": "git+https://github.com/LeonS19/WebTechFinaleAbgabe.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "bugs": {
-    "url": "https://github.com/elisabeth-gdt/WebTech/issues"
+    "url": "https://github.com/LeonS19/WebTechFinaleAbgabe/issues"
   },
-  "homepage": "https://github.com/elisabeth-gdt/WebTech#readme",
+  "homepage": "https://github.com/LeonS19/WebTechFinaleAbgabe#readme",
   "dependencies": {
     "@apollo/server": "^5.5.1",
     "@as-integrations/express5": "^1.1.2",

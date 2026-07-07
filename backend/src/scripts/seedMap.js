@@ -64,7 +64,7 @@ function enemy(position, name = 'Schleim', type = 'NORMAL') {
     name,
     type,
     base_health: x * 30,
-    base_damage: x * 5,
+    base_damage: x * 3,
   }];
 }
 
@@ -167,8 +167,8 @@ await Map.create({
     { position: 60, ...coords[60], type: 'BOSS',   nextFields: [],           enemies: [{
       name: 'The Knowledge Keeper',
       type: 'BOSS',
-      base_health: 1000,
-      base_damage: 100,
+      base_health: 600,
+      base_damage: 55,
     }]},
   ]
 });
