@@ -1,18 +1,11 @@
 <template>
   <div class="combat-view">
     <div class="combat-arena">
-      <!-- Deck Counter + Rundenende ganz oben rechts -->
       <div class="combat-top-bar">
-        <button
-          class="end-turn-btn"
-          :disabled="!!activeCard || endingTurn"
-          @click="onEndTurnClick"
-        >
+        <button class="end-run-btn" @click="onEndRunClick">Run beenden</button>
+        <button class="end-turn-btn" :disabled="!!activeCard || endingTurn" @click="onEndTurnClick">
           {{ endingTurn ? 'Wird beendet...' : 'Runde beenden' }}
         </button>
-        <div class="deck-counter">
-          🃏 <span>{{ deckCount }}</span>
-        </div>
       </div>
 
       <!-- Trennlinie -->
@@ -45,8 +38,6 @@
           <img :src="playerSpriteSrc" alt="Player" />
         </div>
 
-        <div class="combat-vs">VS</div>
-
         <div class="combat-sprite enemy-sprite">
           <img :src="enemySpriteSrc" alt="Enemy" />
         </div>
@@ -65,6 +56,9 @@
           @play="onPlayCard"
         />
       </div>
+      <div class="deck-counter">
+        <h2>{{ deckCount }}</h2>
+      </div>
     </div>
 
     <CardPlayOverlay
@@ -72,22 +66,30 @@
       :card="activeCard"
       :feedback="answerFeedback"
       @confirm="onConfirm"
-      @close="activeCard = null"
+      @close="onOverlayClose"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onBeforeUnmount } from 'vue'
+import { ref, computed, onBeforeUnmount, watch } from 'vue'
 import HandCard from './HandCard.vue'
 import CardPlayOverlay from './CardPlayOverlay.vue'
 
-import playerIdleGif from '../../assets/characters/player/player_idle_1.gif'
-import playerAttackGif from '../../assets/characters/player/player_attack_1.gif'
-import playerHurtGif from '../../assets/characters/player/player_hurt_1.gif'
-import slimeIdleGif from '../../assets/characters/slime/slime_idle_1.gif'
-import slimeAttackGif from '../../assets/characters/slime/slime_attack_1.gif'
-import slimeHurtGif from '../../assets/characters/slime/slime_hurt_1.gif'
+const slimeGifs = import.meta.glob('../../assets/characters/slime/*.gif', {
+  eager: true,
+  import: 'default',
+})
+const bossGifs = import.meta.glob('../../assets/characters/boss/*.gif', {
+  eager: true,
+  import: 'default',
+})
+
+const playerGifs = import.meta.glob('../../assets/characters/player/*.gif', {
+  eager: true,
+  import: 'default',
+})
+const enemyVariant = ref(0)
 
 const props = defineProps({
   enemy: Object,
@@ -98,15 +100,36 @@ const props = defineProps({
   enemyHp: { type: Number, default: 100 },
   // Dauer der GIFs in ms = frameCount * 150ms Frame-Delay
   playerAttackDuration: { type: Number, default: 900 }, // 6 Frames
-  playerHurtDuration: { type: Number, default: 600 },    // 4 Frames
-  enemyAttackDuration: { type: Number, default: 600 },   // 4 Frames
-  enemyHurtDuration: { type: Number, default: 900 },     // 6 Frames
+  playerHurtDuration: { type: Number, default: 600 }, // 4 Frames
+  enemyAttackDuration: { type: Number, default: 600 }, // 4 Frames
+  enemyHurtDuration: { type: Number, default: 900 }, // 6 Frames
   // Kleine Pause NACH der vollständigen Attack-Animation, bevor die
   // Hurt-Animation der Gegenseite einsetzt (statt Überlappung während des Angriffs).
   reactionGap: { type: Number, default: 100 },
+  characterId: { type: Number, default: 1 },
+  playerDeathDuration: { type: Number, default: 1200 }, // 8 Frames × 150ms
+  slimeDeathDuration: { type: Number, default: 450 }, // 3 Frames × 150ms
+  bossDeathDuration: { type: Number, default: 900 }, // 6 Frames × 150ms
 })
 
-const emit = defineEmits(['cardPlayed', 'endTurn'])
+// Neue Zufallsvariante, sobald ein neuer Gegner ankommt (= neuer Kampf startet)
+watch(
+  () => props.enemy,
+  (newEnemy) => {
+    if (!newEnemy) return
+    const isBoss = newEnemy.type === 'BOSS'
+    const idleVariants = findVariants(
+      isBoss ? bossGifs : slimeGifs,
+      isBoss ? 'boss' : 'slime',
+      'idle',
+    )
+    enemyVariant.value =
+      idleVariants.length > 0 ? Math.floor(Math.random() * idleVariants.length) : 0
+  },
+  { immediate: true },
+)
+
+const emit = defineEmits(['cardPlayed', 'endTurn', 'runAbandoned'])
 const activeCard = ref(null)
 // { correct: Boolean, correctAnswer: String } | null — an CardPlayOverlay durchgereicht.
 // Wird von RunView über resolveAnswer() gesetzt, sobald die answerCard-Mutation antwortet.
@@ -132,17 +155,70 @@ let playerTimer = null
 let enemyTimer = null
 let reactionTimer = null
 
-const gifSources = {
-  player: { idle: playerIdleGif, attack: playerAttackGif, hurt: playerHurtGif },
-  enemy: { idle: slimeIdleGif, attack: slimeAttackGif, hurt: slimeHurtGif },
-}
+const gifSources = computed(() => {
+  const isBoss = props.enemy?.type === 'BOSS'
+  const enemyGifs = isBoss ? bossGifs : slimeGifs
+  const enemyPrefix = isBoss ? 'boss' : 'slime'
+  const v = enemyVariant.value
+
+  const idleVariants = findVariants(enemyGifs, enemyPrefix, 'idle')
+  const attackVariants = findVariants(enemyGifs, enemyPrefix, 'attack')
+  const hurtVariants = findVariants(enemyGifs, enemyPrefix, 'hurt')
+  const deathVariants = findVariants(enemyGifs, enemyPrefix, 'death')
+
+  return {
+    player: {
+      idle: getPlayerGif(props.characterId, 'idle'),
+      attack: getPlayerGif(props.characterId, 'attack'),
+      hurt: getPlayerGif(props.characterId, 'hurt'),
+      death: getPlayerDeathGif(props.characterId),
+    },
+    enemy: {
+      idle: idleVariants[v % idleVariants.length],
+      attack: attackVariants[v % attackVariants.length],
+      hurt: hurtVariants[0],
+      death: deathVariants[0] ?? hurtVariants[0], // Fallback, falls kein death.gif existiert (Schleim)
+    },
+  }
+})
 
 const playerSpriteSrc = computed(
-  () => `${gifSources.player[playerAnim.value]}?r=${playerAnimKey.value}`,
+  () => `${gifSources.value.player[playerAnim.value]}?r=${playerAnimKey.value}`,
 )
 const enemySpriteSrc = computed(
-  () => `${gifSources.enemy[enemyAnim.value]}?r=${enemyAnimKey.value}`,
+  () => `${gifSources.value.enemy[enemyAnim.value]}?r=${enemyAnimKey.value}`,
 )
+
+function getPlayerGif(characterId, state) {
+  const key = Object.keys(playerGifs).find((k) => k.endsWith(`player_${state}_${characterId}.gif`))
+  return playerGifs[key]
+}
+
+function getPlayerDeathGif(characterId) {
+  const perCharacter = Object.keys(playerGifs).find((k) =>
+    k.endsWith(`player_death_${characterId}.gif`),
+  )
+  if (perCharacter) return playerGifs[perCharacter]
+
+  const generic = Object.keys(playerGifs).find((k) => k.endsWith('player_death.gif'))
+  if (generic) return playerGifs[generic]
+
+  // Kein eigenes Death-Sprite vorhanden -> letzter Hurt-Frame als Fallback
+  return getPlayerGif(characterId, 'hurt')
+}
+
+// Findet alle Varianten eines Zustands (z.B. "idle") — nummerierte Dateien
+// (idle_1, idle_2, ...) werden alle gefunden; gibt's keine Nummer (z.B. death.gif),
+// wird die einzelne Datei als einzige "Variante" zurückgegeben.
+function findVariants(gifs, prefix, state) {
+  const numbered = Object.keys(gifs)
+    .filter((k) => new RegExp(`${prefix}_${state}_\\d+\\.gif$`).test(k))
+    .sort()
+  if (numbered.length > 0) return numbered.map((k) => gifs[k])
+
+  const single = Object.keys(gifs).find((k) => k.endsWith(`${prefix}_${state}.gif`))
+  return single ? [gifs[single]] : []
+}
 
 function setAnim(target, anim, duration) {
   if (target === 'player') {
@@ -188,10 +264,31 @@ function playCombatAnimation(correct) {
   })
 }
 
+function playDeathAnimation(target) {
+  return new Promise((resolve) => {
+    if (target === 'player') {
+      playerAnim.value = 'death'
+      setTimeout(resolve, props.playerDeathDuration)
+    } else {
+      const isBoss = props.enemy?.type === 'BOSS'
+      enemyAnim.value = 'death'
+      setTimeout(resolve, isBoss ? props.bossDeathDuration : props.slimeDeathDuration)
+    }
+  })
+}
+
 function onEndTurnClick() {
   if (activeCard.value || endingTurn.value) return
   endingTurn.value = true
   emit('endTurn')
+}
+
+function onEndRunClick() {
+  const confirmed = window.confirm(
+    'Run wirklich beenden? Das kann nicht rückgängig gemacht werden.',
+  )
+  if (!confirmed) return
+  emit('runAbandoned')
 }
 
 // Von RunView aufgerufen, sobald die endTurn-Mutation (egal ob erfolgreich oder
@@ -200,12 +297,13 @@ function finishEndTurn() {
   endingTurn.value = false
 }
 
-defineExpose({ playCombatAnimation, resolveAnswer, finishEndTurn })
+defineExpose({ playCombatAnimation, resolveAnswer, finishEndTurn, playDeathAnimation })
 
 onBeforeUnmount(() => {
   clearTimeout(playerTimer)
   clearTimeout(enemyTimer)
   clearTimeout(reactionTimer)
+  clearTimeout(autoCloseTimer)
 })
 
 function onPlayCard(card) {
@@ -225,17 +323,40 @@ function onConfirm(answer) {
  * Gibt ein Promise zurück, damit der Aufrufer (RunView) parallel dazu z.B. die
  * Sprite-Animation laufen lassen und auf beides zusammen warten kann.
  */
+let pendingResolve = null
+let autoCloseTimer = null
+
 function resolveAnswer({ correct, correctAnswer }) {
   answerFeedback.value = { correct, correctAnswer }
-  const readDuration = correct ? 900 : 1800 // falsche Antwort braucht mehr Lesezeit
 
   return new Promise((resolve) => {
-    setTimeout(() => {
-      activeCard.value = null
-      answerFeedback.value = null
-      resolve()
-    }, readDuration)
+    pendingResolve = resolve
+
+    if (correct) {
+      // Richtig beantwortet: nach kurzer Zeit automatisch schließen
+      autoCloseTimer = setTimeout(() => closeFeedback(), 900)
+    }
+    // Falsch beantwortet: kein Auto-Timer — wartet auf manuellen Klick auf ✕
   })
+}
+
+function closeFeedback() {
+  clearTimeout(autoCloseTimer)
+  activeCard.value = null
+  answerFeedback.value = null
+  const resolve = pendingResolve
+  pendingResolve = null
+  if (resolve) resolve()
+}
+
+function onOverlayClose() {
+  if (answerFeedback.value) {
+    // Feedback wird gerade angezeigt (richtig oder falsch) -> manuelles Schließen
+    closeFeedback()
+  } else {
+    // Noch keine Antwort abgeschickt -> normales Abbrechen
+    activeCard.value = null
+  }
 }
 </script>
 
@@ -243,48 +364,51 @@ function resolveAnswer({ correct, correctAnswer }) {
 .combat-view {
   display: flex;
   flex-direction: column;
-  height: 100%;
   position: relative;
+  background-image: url('@/assets/gui/background_enemy.png');
+  background-size: cover;
+  background-position: center 20%;
 }
 
 .combat-arena {
-  flex: 1;
+  flex: 0 0 45%;
+  min-height: 0;
+  overflow: hidden; /* ← neu: verhindert das "Auslaufen" des Inhalts */
   display: flex;
   flex-direction: column;
-  background: var(--color-background-soft);
-  border-bottom: 1px solid var(--color-border);
   padding: 1rem 2rem 0 2rem;
   gap: 0.5rem;
 }
 
 .combat-hand {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-background);
-  padding: 0 2rem;
+  flex: 0 0 55%;
+  min-height: 0;
   overflow: hidden;
+  margin: 0 1.5rem; /* ← neu: Abstand links/rechts */
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background-image: url('@/assets/gui/table.png');
+  background-size: cover;
+  image-rendering: pixelated;
+  border-radius: 1rem;
+  padding: 0 2rem;
 }
 
 .combat-top-row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 0 10rem 0 4rem;  /* ← rechts weniger padding */
 }
 
 .combat-info {
+  color: white;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 0.4rem;
   width: 14rem;
   flex-shrink: 0;
-}
-
-.combat-top-spacer {
-  display: none;  /* ← nicht mehr nötig da gap */
 }
 
 .combat-name {
@@ -294,9 +418,8 @@ function resolveAnswer({ correct, correctAnswer }) {
 
 .health-bar-wrapper {
   width: 100%;
-  height: 1rem;
+  height: 2rem;
   background: var(--color-background-mute);
-  border-radius: 0.5rem;
   overflow: hidden;
   position: relative;
 }
@@ -304,7 +427,7 @@ function resolveAnswer({ correct, correctAnswer }) {
 .health-bar {
   height: 100%;
   background: #4ade80;
-  border-radius: 0.5rem;
+  border-radius: 1rem;
   transition: width 0.3s ease;
 }
 
@@ -332,73 +455,98 @@ function resolveAnswer({ correct, correctAnswer }) {
 }
 
 .end-turn-btn {
+  color: white;
   padding: 0.4rem 0.9rem;
   border-radius: 0.5rem;
   border: 1px solid var(--color-border);
   background: var(--color-background-mute);
-  color: var(--color-text);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s ease;
 }
 
-.end-turn-btn:hover:not(:disabled) {
-  background: var(--color-border);
+.end-turn-btn:hover {
+  background: #26b8dc;
+  color: white;
+  border-color: white;
 }
 
-.end-turn-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.end-run-btn {
+  padding: 0.4rem 0.9rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-background-mute);
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.end-run-btn:hover {
+  background: #dc2626;
+  color: white;
+  border-color: #dc2626;
 }
 
 .deck-counter {
+  position: absolute;
+  right: -10rem;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
+  background-image: url('@/assets/gui/deck_stapel.png');
+  background-size: cover;
+  image-rendering: pixelated;
+  height: 30%;
+  width: 30%;
   font-size: 0.9rem;
   font-weight: 600;
 }
 
-.deck-counter span {
-  font-size: 1.2rem;
+.deck-counter h2 {
+  font-size: 4rem;
+  margin: 0;
 }
 
 .combat-sprites-row {
   flex: 1;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-around;
+  min-height: 0;
+  position: relative; /* ← neu, wird der Bezugsrahmen für die Sprites */
 }
 
 .combat-sprite {
-  line-height: 1;
+  position: absolute; /* ← neu: raus aus dem normalen Fluss */
+  bottom: 0;
+}
+
+.player-sprite {
+  left: 8%; /* Wert nach Geschmack anpassen */
+}
+
+.enemy-sprite {
+  right: 5%; /* Wert nach Geschmack anpassen */
 }
 
 .combat-sprite img {
   display: block;
+  width: auto;
   image-rendering: pixelated;
   object-fit: contain;
 }
 
 .player-sprite img {
-  width: 8rem;
-  height: 8rem;
+  height: 7rem;
 }
 
 .enemy-sprite img {
-  width: 24rem;
-  height: 24rem;
-}
-
-.combat-vs {
-  font-size: 1.5rem;
-  font-weight: 800;
-  opacity: 0.3;
-  margin-bottom: 2rem;
+  height: 25rem; /* jetzt kannst du das frei größer/kleiner machen */
 }
 
 .hand-cards {
+  padding-bottom: 1rem;
   display: flex;
   align-items: flex-end;
   justify-content: center;

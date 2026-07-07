@@ -1,6 +1,5 @@
 <template>
   <div class="run-map-view">
-
     <!-- Header nur am Anfang -->
     <div class="run-map-header" v-if="phase === 'select-start'">
       <p class="run-map-hint">Wähle dein Startfeld:</p>
@@ -8,15 +7,23 @@
 
     <!-- Legende danach -->
     <div class="run-map-legend" v-else>
-      <span class="legend-item"><span class="field-icon">💎</span> Start</span>
-      <span class="legend-item"><span class="field-icon">🧪</span> Heilung</span>
-      <span class="legend-item"><span class="field-icon">💀</span> Kampf</span>
-      <span class="legend-item"><span class="field-icon">👑</span> Boss</span>
-      <span class="legend-item"><span class="field-icon">⬜</span> Normal</span>
+      <span class="legend-item"><img :src="start_icon" class="legend-icon" /> Start</span>
+      <span class="legend-item"><img :src="heal_icon" class="legend-icon" /> Heilung</span>
+      <span class="legend-item"><img :src="enemy_icon" class="legend-icon" /> Kampf</span>
+      <span class="legend-item"><img :src="boss_icon" class="legend-icon" /> Boss</span>
+      <span class="legend-item"><span class="legend-normal-swatch"></span> Normal</span>
     </div>
 
     <!-- Map Canvas -->
-    <div class="run-map-canvas-wrapper">
+    <div
+      class="run-map-canvas-wrapper"
+      ref="canvasRef"
+      :class="{ dragging: isDragging }"
+      @mousedown="onDragStart"
+      @mousemove="onDragMove"
+      @mouseup="onDragEnd"
+      @mouseleave="onDragEnd"
+    >
       <svg
         v-if="fields.length"
         :viewBox="`-1 -1 ${svgWidth + 2} ${svgHeight + 2}`"
@@ -47,27 +54,40 @@
           v-for="field in fields"
           :key="field.id"
           :transform="`translate(${fieldX(field)}, ${fieldY(field)})`"
+          :class="{
+            'field-current': field.position === currentPosition,
+            'field-selectable': isSelectable(field),
+          }"
           @click="onFieldClick(field)"
-          style="cursor: pointer"
+          style="cursor: pointer; image-rendering: pixelated"
         >
-          <!-- Kreis -->
+          <!-- Bild -->
           <circle
-            r="1.8"
-            :fill="fieldFill(field)"
-            :stroke="fieldStroke(field)"
-            :stroke-width="isSelectable(field) ? 0.5 : 0.2"
-            :class="{ 'field-pulse': isSelectable(field) }"
+            v-if="field.position === currentPosition || isSelectable(field)"
+            r="2.8"
+            :class="{
+              'field-glow-current': field.position === currentPosition,
+              'field-glow-selectable': isSelectable(field) && field.position !== currentPosition,
+            }"
+          />
+          <image
+            :href="fieldImage(field)"
+            x="-2.5"
+            y="-2.5"
+            width="5"
+            height="5"
+            class="field-image"
           />
 
           <!-- Icon -->
-          <text
-            text-anchor="middle"
-            dominant-baseline="central"
-            font-size="1.5"
-            style="pointer-events: none; user-select: none"
-          >
-            {{ fieldIcon(field) }}
-          </text>
+          <image
+            :href="fieldIcon(field)"
+            x="-1.25"
+            y="-1.25"
+            width="2.5"
+            height="2.5"
+            style="pointer-events: none"
+          />
         </g>
       </svg>
 
@@ -77,7 +97,13 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
+import forest_field from '@/assets/gui/field_basic.png'
+import boss_field from '@/assets/gui/field_boss.png'
+import boss_icon from '@/assets/gui/boss_icon.png'
+import enemy_icon from '@/assets/gui/enemy_icon.png'
+import heal_icon from '@/assets/gui/heal_icon.png'
+import start_icon from '@/assets/gui/start_icon.png'
 
 const props = defineProps({
   fields: { type: Array, default: () => [] },
@@ -87,9 +113,33 @@ const props = defineProps({
 
 const emit = defineEmits(['fieldSelected'])
 
-const CELL_W = 8;
-const CELL_H = 8;   // ← größer damit mehr vertikaler Abstand
-const PADDING = 5;
+const CELL_W = 8
+const CELL_H = 8 // ← größer damit mehr vertikaler Abstand
+const PADDING = 5
+
+const canvasRef = ref(null)
+const isDragging = ref(false)
+let dragStartX = 0
+let scrollStartX = 0
+let dragMoved = false
+
+function onDragStart(event) {
+  isDragging.value = true
+  dragMoved = false
+  dragStartX = event.pageX
+  scrollStartX = canvasRef.value.scrollLeft
+}
+
+function onDragMove(event) {
+  if (!isDragging.value) return
+  const delta = event.pageX - dragStartX
+  if (Math.abs(delta) > 5) dragMoved = true
+  canvasRef.value.scrollLeft = scrollStartX - delta
+}
+
+function onDragEnd() {
+  isDragging.value = false
+}
 
 const svgWidth = computed(() => {
   if (!props.fields.length) return 100
@@ -176,15 +226,24 @@ function isSelectable(field) {
 function fieldIcon(field) {
   switch (field.type) {
     case 'START':
-      return '💎'
+      return start_icon
     case 'HEAL':
-      return '🧪'
+      return heal_icon
     case 'FIGHT':
-      return '💀'
+      return enemy_icon
     case 'BOSS':
-      return '👑'
+      return boss_icon
     default:
       return ''
+  }
+}
+
+function fieldImage(field) {
+  switch (field.type) {
+    case 'BOSS':
+      return boss_field
+    default:
+      return forest_field
   }
 }
 
@@ -212,6 +271,7 @@ function fieldStroke(field) {
 }
 
 function onFieldClick(field) {
+  if (dragMoved) return // ← neu: war eigentlich ein Drag, keine Auswahl auslösen
   if (!isSelectable(field)) return
   emit('fieldSelected', field)
 }
@@ -249,23 +309,53 @@ function onFieldClick(field) {
   gap: 0.4rem;
 }
 
+.legend-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  image-rendering: pixelated;
+}
+
+.legend-normal-swatch {
+  width: 1.2rem;
+  height: 1.2rem;
+  background: var(--color-background-mute);
+  border: 1px solid var(--color-border);
+  border-radius: 0.2rem;
+}
+
 .run-map-canvas-wrapper {
   flex: 1;
   overflow-x: auto;
   overflow-y: hidden;
-  border: 1px solid var(--color-border);
+  border: 1px solid #ddd;
   border-radius: 0.75rem;
-  background: var(--color-background-soft);
+  background: #f8f8f8;
   min-height: 0;
+  cursor: grab;
+  user-select: none;
+  scrollbar-width: none;         /* Firefox */
+}
+
+.run-map-canvas-wrapper::-webkit-scrollbar {
+  display: none;                 /* Chrome/Safari/Edge */
+}
+
+.run-map-canvas-wrapper.dragging {
+  cursor: grabbing;
 }
 
 .run-map-svg {
   display: block;
   width: 120rem;
-  height: auto;    /* ← Browser berechnet Höhe aus viewBox */
+  height: auto; /* ← Browser berechnet Höhe aus viewBox */
 }
 
-.field-pulse {
+.field-glow-current {
+  fill: rgba(59, 130, 246, 0.45);
+}
+
+.field-glow-selectable {
+  fill: rgba(59, 130, 246, 0.75);
   animation: pulse 1.5s ease-in-out infinite;
 }
 

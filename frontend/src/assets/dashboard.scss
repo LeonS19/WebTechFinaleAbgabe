@@ -1,15 +1,14 @@
-// dashboard.scss ist jetzt nur noch ein Verteiler — die eigentlichen Styles
-// liegen thematisch sortiert im dashboard/-Ordner. Diese Datei bleibt der
-// stabile Import-Punkt (main.scss und DashboardView.vue zeigen weiterhin
-// hierauf, ohne dass sich an deren Imports etwas ändern muss).
+// dashboard.scss ist nur noch ein Verteiler — die eigentlichen Styles liegen
+// thematisch sortiert im dashboard/-Ordner. main.scss und DashboardView.vue
+// zeigen weiterhin einfach auf diese Datei, ohne dass sich an deren Imports
+// etwas ändern muss.
 
-@import './variables';
-@import './dashboard/mixins';
-@import './dashboard/layout';
-@import './dashboard/nav';
-@import './dashboard/members';
-@import './dashboard/chat';
-@import './dashboard/modal';
-@import './dashboard/stats';
-@import './dashboard/cards';
-@import './dashboard/misc';
+@use './dashboard/mixins';
+@use './dashboard/layout';
+@use './dashboard/nav';
+@use './dashboard/members';
+@use './dashboard/chat';
+@use './dashboard/modal';
+@use './dashboard/stats';
+@use './dashboard/cards';
+@use './dashboard/misc';
