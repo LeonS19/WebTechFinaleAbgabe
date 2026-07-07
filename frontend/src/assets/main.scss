@@ -1,5 +1,6 @@
-@import './base';
-@import './dashboard';
+@use './variables' as *;
+@use './base';
+@use './dashboard';
 
 a {
   text-decoration: none;

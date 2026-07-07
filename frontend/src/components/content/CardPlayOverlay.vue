@@ -73,27 +73,32 @@ function confirm() {
 </script>
 
 <style scoped>
+
 .overlay-backdrop {
   position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 55%;              /* deckt sich ungefähr mit .combat-hand */
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
-  border-radius: 0.75rem;
+  z-index: 100;   /* Klicks daneben gehen durch, nur die Karte selbst fängt Klicks ab */
 }
 
 .overlay-card {
+  pointer-events: auto;
   position: relative;
-  background: var(--color-background-soft);
+  background: #f8f8f8;
   border-radius: 0.75rem;
-  padding: 2.5rem;
+  padding: 2rem;
   width: 90%;
-  max-width: 36rem;
+  max-width: 32rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.3); 
 }
 
 .overlay-close {
@@ -104,7 +109,7 @@ function confirm() {
   border: none;
   font-size: 1.2rem;
   cursor: pointer;
-  color: var(--color-text);
+  color: #2c3e50; 
   opacity: 0.6;
   line-height: 1;
 }
@@ -115,7 +120,7 @@ function confirm() {
 
 
 .overlay-question {
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   font-weight: 700;
   text-align: center;
 }
@@ -128,13 +133,17 @@ function confirm() {
 
 .overlay-input-area input {
   padding: 0.75rem 1rem;
-  border: 2px solid var(--color-border);
+  border: 2px solid #ddd;
   border-radius: 0.5rem;
   font-size: 1rem;
-  background: var(--color-background);
-  color: var(--color-text);
+  background: #ffffff;          /* statt var(--color-background) */
+  color: #2c3e50;  
   outline: none;
   transition: border-color 0.2s;
+}
+
+.overlay-input-area input::placeholder {
+  color: rgba(245, 245, 245, 0.5);
 }
 
 .overlay-input-area input:focus {

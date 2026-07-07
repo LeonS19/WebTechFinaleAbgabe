@@ -25,9 +25,16 @@ $color-success: #42b983;
 // TYPOGRAFIE
 // ============================================
 
+
+@font-face {
+  font-family: "ValMore";
+  src: url("./fonts/Planes_ValMore.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
 $font-body: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
   Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
   sans-serif;
 
-// ← Hier deine gewünschte Font für Überschriften eintragen
-$font-heading: 'Poppins', Inter, sans-serif;
+$font-heading: "ValMore", Inter, serif;

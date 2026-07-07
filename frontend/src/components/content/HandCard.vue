@@ -104,8 +104,8 @@ const cardStyle = computed(() => {
 
 <style scoped>
 .hand-card {
-  width: 22rem;
-  height: 15rem;
+  width: 25rem;
+  height: 17rem;
   border-radius: 0.5rem;
   padding: 1.25rem 1.25rem 0.85rem 1.25rem;
   display: flex;

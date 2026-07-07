@@ -1,3 +1,6 @@
+@use '../variables' as *;
+@use './mixins' as *;
+
 // ============================================
 // INDEX CARDS
 // ============================================
@@ -162,6 +165,7 @@
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
 }
 
