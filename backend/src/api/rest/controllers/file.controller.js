@@ -31,22 +31,28 @@ export async function uploadAttachment(req, res) {
 
 export async function getAttachments(req, res) {
   const cardId = req.params.cardId;
+  const userId = req.user.userId;
   try {
-    const attachment = await fileService.getAttachments(cardId);
+    const attachment = await fileService.getAttachments(cardId, userId);
     return res.status(200).json(attachment);
   } catch (err) {
-    return res.status(400).json({ error: err.message });
+    const status = err.message.includes('Berechtigung') || err.message.includes('Mitglied') ? 403 : 400;
+    return res.status(status).json({ error: err.message });
   }
 }
 
 export async function downloadAttachment(req, res) {
   const cardId = req.params.cardId;
   const attachmentId = req.params.attachmentId;
+  const userId = req.user.userId;
   try {
-    const attachment = await fileService.getAttachment(cardId, attachmentId);
+    const attachment = await fileService.getAttachment(cardId, attachmentId, userId);
     return res.download(attachment.file_path, attachment.filename);
   } catch (err) {
-    return res.status(404).json({ error: err.message });
+    const status = err.message.includes('nicht gefunden') ? 404
+      : (err.message.includes('Berechtigung') || err.message.includes('Mitglied')) ? 403
+      : 400;
+    return res.status(status).json({ error: err.message });
   }
 }
 
@@ -59,6 +65,9 @@ export async function deleteAttachment(req, res) {
     await fileService.deleteAttachment(cardId, attachmentId, userId);
     return res.status(200).json({ success: true });
   } catch (err) {
-    return res.status(400).json({ error: err.message });
+    const status = err.message.includes('nicht gefunden') ? 404
+      : (err.message.includes('Berechtigung') || err.message.includes('Mitglied')) ? 403
+      : 400;
+    return res.status(status).json({ error: err.message });
   }
 }
