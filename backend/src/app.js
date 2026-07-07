@@ -21,6 +21,7 @@ import { fileRoutes } from './api/rest/routes/file.routes.js';
 import { createContext } from './graphql/context.js';
 import { resolvers } from './graphql/resolvers/index.js';
 import { handleChatConnection } from './realtime/handlers/chat.handler.js';
+import { ensureMapExists } from './services/map.service.js';
 
 // ============================================
 // SCHEMA
@@ -154,6 +155,7 @@ export { app, httpServer };
 export async function start() {
   await connectPostgres();
   await connectMongo();
+  await ensureMapExists();
 
   return new Promise((resolve) => {
     httpServer.listen(env.PORT, () => {
