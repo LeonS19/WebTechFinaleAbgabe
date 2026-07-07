@@ -22,5 +22,5 @@ defineProps({
   groups: Array,
   selectedGroupId: String,
 });
-defineEmits(['select', 'create']);
+defineEmits(['select', 'create', 'search']);
 </script>

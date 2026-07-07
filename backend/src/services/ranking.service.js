@@ -46,19 +46,19 @@ function mapRankingRow(row) {
 export async function getRanking(studyGroupId, client = pool) {
   const result = await client.query(
     `SELECT
-       run.*,
-       "user".name AS user_name,
-       "user".email AS user_email,
-       "user".created_at AS user_created_at,
-       membership.user_id AS membership_user_id,
-       ROW_NUMBER() OVER (
-         ORDER BY
-           run.correct_answers DESC,
-           (CASE WHEN run.total_answers > 0
-                 THEN run.correct_answers::float / run.total_answers
-                 ELSE 0 END) DESC,
-           run.duration ASC
-       ) AS rank
+        run.*,
+        "user".name AS user_name,
+        "user".email AS user_email,
+        "user".created_at AS user_created_at,
+        membership.user_id AS membership_user_id,
+        RANK() OVER (
+          ORDER BY
+            run.correct_answers DESC,
+            (CASE WHEN run.total_answers > 0
+                  THEN run.correct_answers::float / run.total_answers
+                  ELSE 0 END) DESC,
+            run.duration ASC
+        ) AS rank
      FROM run
      INNER JOIN "user"
        ON "user".id = run.user_id

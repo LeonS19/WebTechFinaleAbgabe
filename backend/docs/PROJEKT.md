@@ -695,6 +695,48 @@ Erreichbar unter:
 Die `ws` Library hat einen bekannten Bug: wenn mehrere `WebSocketServer`-Instanzen mit der `path`-Option auf demselben `httpServer` registriert werden, überschreibt die zweite Instanz den `upgrade`-Event-Handler der ersten — einer der Server akzeptiert dann keine Verbindungen mehr (400 Bad Request). Gelöst mit `noServer: true` für beide Server (GraphQL Subscriptions + Chat) und manuellem Routing über den `upgrade`-Event des `httpServer`, wo anhand des URL-Pfads (`/graphql` vs. `/chat`) entschieden wird, welcher Server die Verbindung behandelt.
 
 ---
+
+## Tests & Verifikation
+
+### Automatisierte Backend-Tests (Jest + Supertest)
+
+Setup: `npm test` (bzw. `npm run test:coverage` für den Coverage-Report). Tests laufen gegen die echte lokale Postgres-/MongoDB-Instanz (keine separate Test-DB) — jede Testdatei legt ihre eigenen Test-User/-Gruppen/-Runs an und räumt sie in `afterAll` wieder auf. Kein Mocking der Datenbank-Schicht, damit auch echte SQL-/Mongoose-Query-Fehler auffallen, nicht nur Business-Logik-Fehler.
+
+| Testdatei | Deckt ab |
+|---|---|
+| `tests/health.test.js` | Health-Check-Endpunkt |
+| `tests/auth.test.js` | Auth-Kantenfälle (fehlender/kaputter Token), Passkey-Vorbereitung (`passkey/user`, `register/options`, `login/options`), Passkey-Löschen inkl. Kantenfälle |
+| `tests/token.test.js` | JWT-Generierung/-Verifikation, manipulierte/ungültige Tokens |
+| `tests/permission.test.js` | Kernlogik der Rollen-/Rechteprüfung (`checkPermission`) für alle vier Rollen-Konstellationen |
+| `tests/attachments.test.js` | Datei-Upload/-Download/-Löschen, Rollen-Einschränkungen (MEMBER darf nicht löschen), fremder User wird abgelehnt |
+| `tests/chat.test.js` | `getMessages`-Query, `senderRole`-Feldresolver, Platzhalter für gelöschte User |
+| `tests/websocket.test.js` | Chat-WebSocket: verbinden, Nachricht senden/empfangen, Nachricht löschen (inkl. Broadcast an mehrere Clients), Rollen-Einschränkung beim Löschen |
+| `tests/graphql/studyGroup.test.js` | `createStudyGroup`, `joinStudyGroup`, `leaveStudyGroup` inkl. Kantenfälle |
+| `tests/graphql/indexCard.test.js` | `createIndexCard`/`deleteIndexCard` Rollen-Einschränkungen, `getIndexCards`-Tag-Filter |
+| `tests/graphql/run.test.js` | `getMap`, `startRun` (Mindest-Karten-Guard, Idempotenz), `moveToField`, `answerCard` |
+| `tests/graphql/ranking.test.js` | Dreistufige Sortierung (`correctAnswers` → `hitRate` → `duration`) einzeln nachgewiesen, geteilte Plätze bei echtem Gleichstand (`RANK()`), Ausschluss gescheiterter Runs |
+
+**Stand:** 62 Tests, alle grün. Coverage insgesamt ~55% (Statements), mit gezielt hoher Abdeckung in sicherheitskritischen Modulen (`permission.service.js`, `ranking.service.js`: 100%; alle Mongo-Models: 100%; `chat.handler.js`: 92%).
+
+**Bewusst nicht automatisiert getestet:** Der eigentliche WebAuthn-Verify-Schritt (`register/verify`, `login/verify`) und der Google-OAuth-Callback lassen sich nicht sinnvoll mit Supertest simulieren, da sie einen echten Browser mit WebAuthn-Authenticator bzw. eine echte Google-Weiterleitung voraussetzen. Das schlägt sich in niedrigerer Coverage bei `passkey.service.js`/`oauth.service.js` nieder — der Login/Logout-Flow selbst wurde stattdessen wiederholt manuell über den Browser verifiziert.
+
+### Offline-Verhalten (manuelle Verifikation statt automatisiertem Test)
+
+Da Offline-Verhalten (Service Worker, IndexedDB) reines Browser-Verhalten ist und sich nicht sinnvoll mit den Backend-Testwerkzeugen (Jest/Supertest) abbilden lässt, wurde dieser Bereich manuell und wiederholt über Chrome DevTools verifiziert, statt einen browserbasierten Test (z.B. Puppeteer) aufzusetzen:
+
+**Vorgehen:** Chrome DevTools → Tab *Application* → *Service Workers*, Häkchen bei „Offline" (bzw. Tab *Network* → Drosselung auf „Offline"), anschließend Reload bzw. Navigation innerhalb der App.
+
+**Verifizierte Fälle:**
+- App bleibt nach Offline-Schalten bedienbar, Navigation zwischen bereits besuchten Lerngruppen funktioniert weiterhin
+- Karteikarten, Mitgliederliste und Rangliste einer zuvor online besuchten Gruppe werden weiterhin aus IndexedDB angezeigt (`useOfflineAwareQuery` fällt korrekt auf den Cache zurück)
+- Chat zeigt die zuletzt geladenen Nachrichten weiterhin an, Status wechselt sichtbar auf „Offline"
+- Schreibaktionen, die eine Verbindung brauchen (Lerngruppe beitreten/erstellen, Run starten), werden im Frontend blockiert und mit Hinweistext versehen, statt eine Aktion zuzulassen, die ohnehin fehlschlagen würde
+- Beim Wiederherstellen der Verbindung (Häkchen entfernen) reconnected der Chat automatisch und lädt aktuelle Nachrichten nach
+- Eine noch nie online besuchte Lerngruppe kann erwartungsgemäß nicht offline zum ersten Mal geladen werden (dokumentierte Scope-Grenze, siehe Abschnitt „PWA" oben)
+
+Diese Fälle wurden während der PWA-Integration (Tag 6) mehrfach nach jeder Änderung erneut manuell durchgespielt, u. a. auch nachdem dabei zwei echte Bugs gefunden wurden (Chat-Nachrichten-Duplizierung beim Gruppenwechsel, `TypeError` bei `null`-Listen vor dem ersten Cache-Treffer — siehe Bugfix-Liste im PWA-Abschnitt).
+
+---
  
 ## TODOs / Offene Punkte
  
@@ -712,7 +754,7 @@ Die `ws` Library hat einen bekannten Bug: wenn mehrere `WebSocketServer`-Instanz
 - [ ] Restliche Services implementieren (statistics, ranking)
 - [ ] Service Worker + Web App Manifest
 - [ ] IndexedDB Offline Storage
-- [ ] Tests schreiben
+- [x] Tests schreiben (Backend: Jest + Supertest, 62 Tests; Offline-Verhalten: dokumentierte manuelle Verifikation, siehe Abschnitt „Tests & Verifikation")
 - [ ] README.md für Abgabe
-- [ ] Reflexion schreiben (inkl. JWT-in-URL Sicherheitsbedenken, Scope-Cuts wie "nur 1 Gegner pro Kampf")
+- [ ] Reflexion schreiben (inkl. JWT-in-URL Sicherheitsbedenken, Scope-Cuts wie "nur 1 Gegner pro Kampf", Balancing-Historie, WebAuthn/OAuth nicht automatisiert testbar)
 - [ ] Präsentation erstellen

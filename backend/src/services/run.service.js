@@ -41,7 +41,7 @@ export async function startRun(
   );
   if (availableCards.length < MIN_CARD_AMOUNT) {
     throw new Error(
-      `Die Lerngruppe braucht mindestens ${MIN_CARDS_REQUIRED} Karteikarten, um einen Run zu starten`,
+      `Die Lerngruppe braucht mindestens ${MIN_CARD_AMOUNT} Karteikarten, um einen Run zu starten`,
     );
   }
 

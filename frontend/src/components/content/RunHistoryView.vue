@@ -69,8 +69,9 @@
 
 <script setup>
 import { computed } from 'vue';
-import { useQuery } from '@vue/apollo-composable';
 import { gql } from '@apollo/client/core';
+import { useOfflineAwareQuery } from '../../composables/useOfflineAwareQuery.js'
+import { getCachedRuns } from '../../services/offlineStorage.service.js'
 
 const props = defineProps({
   studyGroupId: { type: String, required: true },
@@ -93,13 +94,19 @@ const GET_RUNS = gql`
   }
 `;
 
-const { result, loading, error } = useQuery(GET_RUNS, null, () => ({
-  fetchPolicy: 'cache-and-network',
-}));
+const { data: runsData, loading, error } = useOfflineAwareQuery(
+  GET_RUNS,
+  () => ({}),
+  () => ({}),
+  {
+    dataKey: 'getRuns',
+    cacheFn: () => getCachedRuns(props.studyGroupId),
+  },
+)
 
 const runs = computed(() =>
-  (result.value?.getRuns ?? []).filter((run) => run.studyGroup?.id === props.studyGroupId),
-);
+  (runsData.value ?? []).filter((run) => run.studyGroup?.id === props.studyGroupId),
+)
 
 // Zusammenfassung über alle geladenen Runs dieser Lerngruppe — rein clientseitig
 // berechnet, keine eigene Backend-Query nötig.

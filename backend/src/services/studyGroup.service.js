@@ -3,7 +3,7 @@ import * as MembershipModel from "../models/sql/membership.model.js";
 import { checkPermission } from './permission.service.js';
 import crypto from "crypto";
 import { pubsub } from '../graphql/pubsub.js';
-import { MEMBERS_UPDATED } from '../graphql/resolvers/studyGroup.resolver.js';
+import { MEMBERS_UPDATED, STUDY_GROUP_DELETED } from '../graphql/resolvers/studyGroup.resolver.js';
 
 export async function getStudyGroup(id) {
   return StudyGroupModel.findById(id);
@@ -54,7 +54,9 @@ export async function leaveStudyGroup(studyGroupId, userId) {
 
     if (otherMembers.length === 0) {
       await MembershipModel.remove(userId, studyGroupId);
-      return StudyGroupModel.deleteById(studyGroupId);
+      const deletedGroup = await StudyGroupModel.deleteById(studyGroupId);
+      pubsub.publish(STUDY_GROUP_DELETED, { studyGroupId });
+      return deletedGroup
     }
 
     const moderators = otherMembers.filter(m => m.role === 'MODERATOR');

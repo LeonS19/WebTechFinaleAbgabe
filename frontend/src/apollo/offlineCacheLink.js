@@ -4,6 +4,7 @@ import {
   patchStudyGroupMembers,
   cacheIndexCards,
   cacheRanking,
+  cacheRuns,
 } from '../services/offlineStorage.service.js'
 
 export const offlineCacheLink = new ApolloLink((operation, forward) => {
@@ -24,6 +25,14 @@ export const offlineCacheLink = new ApolloLink((operation, forward) => {
     
     if (data.getRanking) {
       cacheRanking(operation.variables.studyGroupId, data.getRanking)
+    }
+
+    if (data.getRuns) {
+      const runsWithFlatGroupId = data.getRuns.map((run) => ({
+        ...run,
+        studyGroupId: run.studyGroup?.id,
+      }));
+      cacheRuns(runsWithFlatGroupId);
     }
 
     return response

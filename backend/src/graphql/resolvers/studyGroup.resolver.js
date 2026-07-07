@@ -4,6 +4,8 @@ import { pubsub } from '../pubsub.js';
 import { withFilter } from 'graphql-subscriptions';
 
 export const MEMBERS_UPDATED = 'MEMBERS_UPDATED';
+export const STUDY_GROUP_DELETED = 'STUDY_GROUP_DELETED';
+
 
 export const studyGroupResolvers = {
   Query: {
@@ -60,6 +62,10 @@ export const studyGroupResolvers = {
       resolve: async (payload) => {
         return await StudyGroupService.getMembers(payload.studyGroupId);
       },
+    },
+    onStudyGroupDeleted: {
+      subscribe: () => pubsub.asyncIterableIterator([STUDY_GROUP_DELETED]),
+      resolve: (payload) => payload.studyGroupId,
     },
   },
   StudyGroup: {
