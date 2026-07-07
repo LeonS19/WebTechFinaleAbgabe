@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { app } from '../src/app.js';
-import { generateToken } from '../src/services/auth/token.service.js';
+import { generateToken, verifyToken } from '../src/services/auth/token.service.js';
 import { IndexCard } from '../src/models/mongo/indexCard.model.js';
 import { connectMongo } from '../src/config/db.mongo.js';
 import { pool } from '../src/config/db.postgres.js';
@@ -85,4 +85,93 @@ describe('Auth Kantenfälle', () => {
 
     await IndexCard.findByIdAndDelete(card._id);
     });
+});
+
+///////////
+//  TOKEN VALIDIERUNG
+//////////
+describe('token.service', () => {
+  it('generiert einen Token, der sich selbst korrekt verifiziert', () => {
+    const token = generateToken({ userId: 'test-user-123' });
+    const payload = verifyToken(token);
+
+    expect(payload.userId).toBe('test-user-123');
+  });
+
+  it('lehnt einen manipulierten Token ab', () => {
+    const token = generateToken({ userId: 'test-user-123' });
+    const tampered = token.slice(0, -5) + 'xxxxx';
+
+    expect(() => verifyToken(tampered)).toThrow();
+  });
+
+  it('lehnt einen komplett ungültigen String als Token ab', () => {
+    expect(() => verifyToken('offensichtlich-kein-jwt')).toThrow();
+  });
+});
+
+////////////////////
+//  AUTH-CONTROLLER
+///////////////////
+describe('REST: Passkey-Vorbereitung', () => {
+  it('legt einen neuen User über passkey/user an', async () => {
+    const email = `jest-passkey-${Date.now()}@example.com`;
+    const res = await request(app)
+      .post('/api/v1/auth/passkey/user')
+      .send({ email, name: 'Jest Passkey User' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.userId).toBeDefined();
+
+    await pool.query('DELETE FROM "user" WHERE id = $1', [res.body.userId]);
+  });
+
+  it('findet denselben User bei erneutem Aufruf mit gleicher E-Mail', async () => {
+    const email = `jest-passkey-existing-${Date.now()}@example.com`;
+
+    const first = await request(app)
+      .post('/api/v1/auth/passkey/user')
+      .send({ email, name: 'Erst-Anlage' });
+
+    const second = await request(app)
+      .post('/api/v1/auth/passkey/user')
+      .send({ email, name: 'Zweiter Versuch' });
+
+    expect(second.body.userId).toBe(first.body.userId);
+
+    await pool.query('DELETE FROM "user" WHERE id = $1', [first.body.userId]);
+  });
+
+  it('lehnt passkey/user ohne E-Mail ab', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/passkey/user')
+      .send({ name: 'Ohne Email' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('liefert Registrierungsoptionen für einen existierenden User', async () => {
+    const userResult = await pool.query(
+      'INSERT INTO "user" (name, email) VALUES ($1, $2) RETURNING id',
+      ['Jest Options User', `jest-options-${Date.now()}@example.com`],
+    );
+    const userId = userResult.rows[0].id;
+
+    const res = await request(app)
+      .post('/api/v1/auth/passkey/register/options')
+      .send({ userId, userEmail: 'jest-options@example.com' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.challengeId).toBeDefined();
+    expect(res.body.options.challenge).toBeDefined();
+
+    await pool.query('DELETE FROM "user" WHERE id = $1', [userId]);
+  });
+
+  it('liefert Login-Optionen ohne Body', async () => {
+    const res = await request(app).post('/api/v1/auth/passkey/login/options');
+
+    expect(res.status).toBe(200);
+    expect(res.body.challengeId).toBeDefined();
+  });
 });

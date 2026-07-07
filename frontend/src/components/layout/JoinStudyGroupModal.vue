@@ -47,8 +47,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
-import { useQuery, useMutation } from '@vue/apollo-composable';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { useQuery, useMutation, useSubscription } from '@vue/apollo-composable';
 import { gql } from '@apollo/client/core';
 
 const props = defineProps({
@@ -63,6 +63,21 @@ const loading = ref(false);
 const joiningId = ref(null);
 const error = ref('');
 const isOffline = ref(!navigator.onLine)
+
+const ON_STUDY_GROUP_DELETED = gql`
+  subscription OnStudyGroupDeleted {
+    onStudyGroupDeleted
+  }
+`;
+
+const { result: deletedGroupResult } = useSubscription(ON_STUDY_GROUP_DELETED);
+
+watch(deletedGroupResult, (val) => {
+  const deletedId = val?.onStudyGroupDeleted;
+  if (deletedId) {
+    groups.value = groups.value.filter((g) => g.id !== deletedId);
+  }
+});
 
 const GET_STUDY_GROUPS = gql`
   query GetStudyGroups($search: String) {

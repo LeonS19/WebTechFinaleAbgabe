@@ -7,8 +7,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-    "test:ws": "jest scripts/ws.test.js",
-    "test:pwa": "node scripts/pwa-check.test.js",
+    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "seed:map": "node --env-file=.env src/scripts/seedMap.js",
     "seed:demo": "node --env-file=.env src/scripts/seedDemoGroup.js"
   },
