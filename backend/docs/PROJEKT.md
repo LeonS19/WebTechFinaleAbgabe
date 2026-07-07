@@ -103,9 +103,15 @@ Zusätzlich `user_stats` pro Karteikarte für persönlichen Lernfortschritt.
  
 - **Spieler → Gegner:** `schaden = round(kartenSchaden(1-5) * levelMultiplikator)`
   - `kartenSchaden` wird dynamisch aus der Gruppen-Statistik der Karte berechnet (`1 + (1 - difficulty) * 4`, gerundet), Cold-Start-Schutz ab 10 Versuchen (Default: 3)
-  - `levelMultiplikator = 1 + (level - 1) * 0.15` – steigt mit dem Spieler-Level
+  - `levelMultiplikator = 1 + (level - 1) * 0.8` — steigt mit dem Spieler-Level
   - Der Schaden derselben Karte kann sich **innerhalb eines Runs** ändern, da die Gruppen-Statistik durch jede neue Antwort (auch von anderen Gruppenmitgliedern) live aktualisiert wird – bewusste Design-Entscheidung, keine Fixierung pro Run.
-- **Gegner → Spieler:** `schaden = enemy.base_damage` des aktuellen Kampf-Feldes, skaliert nach Spalten-Position auf der Map (`base_damage = x * 5`) – je weiter im Run, desto mehr Schaden.
+- **Gegner → Spieler:** `schaden = enemy.base_damage` des aktuellen Kampf-Feldes, skaliert nach Spalten-Position auf der Map (`base_damage = x * 3`, `base_health = x * 30`) – je weiter im Run, desto mehr Schaden.
+- **Boss** (Position 60, letzte Spalte): bewusst **hardcoded**, nicht formelbasiert (`base_health: 600`, `base_damage: 55`), da er als klarer Höhepunkt spürbar stärker als der letzte reguläre Gegner (Spalte 14: `420 HP`/`42 Schaden`) bleiben soll.
+
+**Balancing-Historie (durch Playtesting entstanden, siehe Reflexion):**
+- Ursprünglicher Level-Multiplikator (`+0.15`/Level) führte in Kombination mit linear wachsender Gegner-HP zu einem Teufelskreis aus sehr langen frühen Kämpfen und dadurch seltenen Level-Ups – auf `+0.8`/Level erhöht, um spürbare Progression zu gewährleisten.
+- Gegner-`base_damage`-Formel von `x * 5` auf `x * 3` gesenkt, um die Fehlertoleranz im späteren Run-Verlauf zu erhöhen, ohne den Boss (der unabhängig davon hardcoded bleibt) zu entwerten.
+- Die tatsächlich im Code verwendete Formel für `base_health`/`base_damage` war zwischenzeitlich `(x+1) * 30`/`(x+1) * 5` (Diskrepanz zur Doku) – wurde wieder auf die ursprünglich dokumentierte Formel `x * 30`/`x * 3` angeglichen, wodurch frühe Gegner (niedrige Spalten) spürbar leichter wurden.
 
 ### Level-Up-System
 
@@ -121,8 +127,9 @@ Jeder Kampf läuft rundenbasiert ab, Spieler zuerst:
 1. Spieler zieht (zu Kampfbeginn oder nach Reshuffle) bis zu 5 Handkarten aus dem Run-Deck.
 2. Spieler spielt Handkarten einzeln nacheinander (`answerCard`). Drei Szenarien:
    - **Alle 5 Handkarten richtig beantwortet** ("perfekte Runde"): Belohnung = Heilung um 100% des aktuellen Gegner-Schadens. Zug endet danach automatisch (keine Handkarten mehr), Gegner greift an, nächste Runde werden sofort wieder 5 neue Karten gezogen.
-   - **Spieler beendet den Zug freiwillig**, ohne alle Handkarten gespielt zu haben: keine Belohnung, Zug endet, Gegner greift an, nächste Runde wird nur 1 Karte nachgezogen (Resthand + 1 neue Karte).
-   - **Falsche Antwort**: Zug endet sofort (unabhängig vom Hand-Zustand), keine Belohnung, Gegner greift an, nächste Runde wird nur 1 Karte nachgezogen.
+   - **Letzte/einzige Handkarte richtig beantwortet, aber keine perfekte Runde** (z.B. nur noch 1 Karte übrig, richtig beantwortet): keine Heilung, kein Gegner-Schaden, aber **3 neue Karten** statt nur 1 — verhindert einen sonst entstehenden Limbo-Zustand, in dem man dauerhaft nur mit 1 Handkarte pro Zug weiterspielt.
+   - **Spieler beendet den Zug freiwillig**, ohne alle Handkarten gespielt zu haben: keine Belohnung, Zug endet, Gegner greift an, nächste Runde wird nur 1 Karte nachgezogen (Resthand + 1 neue Karte, gedeckelt auf maximal 5 Handkarten insgesamt).
+   - **Falsche Antwort**: Zug endet sofort (unabhängig vom Hand-Zustand), keine Belohnung, Gegner greift an, nächste Runde wird nur 1 Karte nachgezogen (auch wenn die Hand dadurch leer wurde — die 3-Karten-Regel gilt ausdrücklich nur bei richtiger Antwort).
 3. Die "perfekte Runde"-Belohnung gilt nur, wenn die Runde mit **genau 5** Handkarten gestartet ist (nicht bei einer kleineren Resthand, die z.B. wegen eines fast leeren Decks entstanden ist).
 4. **Deck-Nachschub:** Solange noch Karten im Deck sind, werden diese zuerst gezogen (auch wenn das bedeutet, dass eine neue Hand kleiner als 5 ist). Erst wenn **Deck UND Hand** gleichzeitig leer sind, wird der Ablagestapel gemischt und zurück ins Deck gelegt (Reshuffle). Die Reshuffle-Prüfung berücksichtigt dabei die tatsächlich benötigte Kartenanzahl (`ensureDeckHasCards`), nicht nur "Deck ist komplett leer" – sonst würde z.B. nach einer perfekten Runde (5 Karten sollen gezogen werden, aber nur noch 4 sind im Deck) kein Reshuffle ausgelöst und der Spieler bekäme nur 4 statt 5 Karten. `reshuffleDiscardIntoDeck` mischt außerdem etwaige verbleibende Deck-Karten *zusammen* mit dem Ablagestapel neu, statt sie zu überschreiben.
 5. Wird der Gegner besiegt: Level-Up, verbleibende Handkarten wandern zurück ins Deck (nicht in den Ablagestapel). War es ein `BOSS`-Kampf, ist damit der gesamte Run erfolgreich beendet.
