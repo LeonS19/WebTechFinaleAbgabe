@@ -9,6 +9,7 @@
 │   │   ├── schema
 │   │   │   └── schema.sql
 │   │   └── todo.txt
+│   ├── jest.config.js
 │   ├── package-lock.json
 │   ├── package.json
 │   ├── schema
@@ -66,7 +67,10 @@
 │   │   │   └── websocket.js
 │   │   ├── scripts
 │   │   │   ├── generateTestToken.js
-│   │   │   └── seedMap.js
+│   │   │   ├── seedDemoGroup.js
+│   │   │   ├── seedMap.js
+│   │   │   └── testDeckWeighting.js
+│   │   ├── server.js
 │   │   └── services
 │   │       ├── auth
 │   │       │   ├── oauth.service.js
@@ -86,6 +90,11 @@
 │   │       ├── studyGroup.service.js
 │   │       └── utils
 │   │           └── playerStats.util.js
+│   ├── tests
+│   │   ├── attachments.test.js
+│   │   ├── auth.test.js
+│   │   ├── health.test.js
+│   │   └── permission.test.js
 │   └── uploads
 │       ├── 1783029092084- -6.jpg
 │       ├── 1783029176737- -3.jpg
@@ -97,39 +106,96 @@
 │       ├── 1783030647638-gouraud.vert
 │       ├── 1783100923971- .jpg
 │       ├── 1783100940557-gouraud.vert
-│       └── 1783100952816-shader-2.frag
+│       ├── 1783100952816-shader-2.frag
+│       ├── 1783285825888-kontext_neuer_chat.md
+│       ├── 1783286027646- -5.jpg
+│       └── 1783287589561-Webtech.jpg
 ├── dateien.txt
 └── frontend
+    ├── dev-dist
+    │   ├── registerSW.js
+    │   ├── sw.js
+    │   └── workbox-caf3a6a6.js
     ├── eslint.config.js
     ├── index.html
     ├── jsconfig.json
     ├── package-lock.json
     ├── package.json
     ├── public
-    │   └── favicon.ico
+    │   ├── favicon.ico
+    │   ├── icon-192.png
+    │   ├── icon-512-maskable.png
+    │   └── icon-512.png
     ├── src
     │   ├── App.vue
+    │   ├── apollo
+    │   │   └── offlineCacheLink.js
     │   ├── assets
-    │   │   ├── base.css
+    │   │   ├── _variables.scss
+    │   │   ├── base.scss
     │   │   ├── characters
     │   │   │   ├── boss
+    │   │   │   │   ├── boss_attack_1.gif
+    │   │   │   │   ├── boss_attack_2.gif
+    │   │   │   │   ├── boss_death.gif
+    │   │   │   │   ├── boss_hurt.gif
+    │   │   │   │   ├── boss_idle_1.gif
+    │   │   │   │   └── boss_idle_2.gif
     │   │   │   ├── player
-    │   │   │   │   ├── player_attack.gif
-    │   │   │   │   ├── player_death.gif
-    │   │   │   │   ├── player_hurt.gif
-    │   │   │   │   └── player_idle.gif
+    │   │   │   │   ├── player_attack_1.gif
+    │   │   │   │   ├── player_attack_2.gif
+    │   │   │   │   ├── player_attack_3.gif
+    │   │   │   │   ├── player_death_1.gif
+    │   │   │   │   ├── player_death_2.gif
+    │   │   │   │   ├── player_death_3.gif
+    │   │   │   │   ├── player_hurt_1.gif
+    │   │   │   │   ├── player_hurt_2.gif
+    │   │   │   │   ├── player_hurt_3.gif
+    │   │   │   │   ├── player_idle_1.gif
+    │   │   │   │   ├── player_idle_2.gif
+    │   │   │   │   └── player_idle_3.gif
     │   │   │   └── slime
-    │   │   │       ├── slime_attack.gif
-    │   │   │       ├── slime_death.gif
-    │   │   │       ├── slime_hurt.gif
-    │   │   │       └── slime_idle.gif
-    │   │   ├── dashboard.css
+    │   │   │       ├── slime_attack_1.gif
+    │   │   │       ├── slime_attack_2.gif
+    │   │   │       ├── slime_attack_3.gif
+    │   │   │       ├── slime_death_1.gif
+    │   │   │       ├── slime_death_2.gif
+    │   │   │       ├── slime_death_3.gif
+    │   │   │       ├── slime_hurt_1.gif
+    │   │   │       ├── slime_hurt_2.gif
+    │   │   │       ├── slime_hurt_3.gif
+    │   │   │       ├── slime_idle_1.gif
+    │   │   │       ├── slime_idle_2.gif
+    │   │   │       └── slime_idle_3.gif
+    │   │   ├── dashboard
+    │   │   │   ├── _cards.scss
+    │   │   │   ├── _chat.scss
+    │   │   │   ├── _layout.scss
+    │   │   │   ├── _members.scss
+    │   │   │   ├── _misc.scss
+    │   │   │   ├── _mixins.scss
+    │   │   │   ├── _modal.scss
+    │   │   │   ├── _nav.scss
+    │   │   │   └── _stats.scss
+    │   │   ├── dashboard.scss
+    │   │   ├── fonts
+    │   │   │   └── Planes_ValMore.ttf
     │   │   ├── gui
+    │   │   │   ├── ablage_stapel.png
+    │   │   │   ├── background_enemy.png
+    │   │   │   ├── boss_icon.png
+    │   │   │   ├── deck_stapel.png
+    │   │   │   ├── enemy_icon.png
+    │   │   │   ├── field_basic.png
+    │   │   │   ├── field_boss.png
+    │   │   │   ├── heal_icon.png
     │   │   │   ├── index_card.png
     │   │   │   ├── star_empty.png
-    │   │   │   └── star_filled.png
+    │   │   │   ├── star_filled.png
+    │   │   │   ├── start_icon.png
+    │   │   │   └── table.png
     │   │   ├── logo.svg
-    │   │   └── main.css
+    │   │   └── main.scss
     │   ├── components
     │   │   ├── content
     │   │   │   ├── CardPlayOverlay.vue
@@ -153,9 +219,13 @@
     │   │   │   └── MembersSidebar.vue
     │   │   └── members
     │   │       └── MembersList.vue
+    │   ├── composables
+    │   │   └── useOfflineAwareQuery.js
     │   ├── main.js
     │   ├── router
     │   │   └── index.js
+    │   ├── services
+    │   │   └── offlineStorage.service.js
     │   ├── views
     │   │   ├── AuthCallbackView.vue
     │   │   ├── DashboardView.vue
