@@ -17,18 +17,9 @@ import { env } from './config/env.js';
 
 import { authRoutes } from './api/rest/routes/auth.routes.js';
 import { authMiddleware } from './api/rest/middleware/auth.middleware.js';
-
 import { fileRoutes } from './api/rest/routes/file.routes.js';
-
-// TODO Tag 2 – Person B: GraphQL Context mit User aus JWT aufbauen
 import { createContext } from './graphql/context.js';
-
-// TODO Tag 2 – Person B: Study Group Queries + Mutations implementieren
-// TODO Tag 3 – Person B: IndexCard Queries + Mutations implementieren
-// TODO Tag 5 – Person B: Run + Kampfsystem Resolvers implementieren
 import { resolvers } from './graphql/resolvers/index.js';
-
-// TODO Tag 4 – Person B: Chat Web Component bauen + Echtzeit Updates verdrahten
 import { handleChatConnection } from './realtime/handlers/chat.handler.js';
 
 // ============================================
@@ -49,10 +40,9 @@ const httpServer = http.createServer(app);
 const wsServer = new WebSocketServer({ noServer: true });
 const chatServer = new WebSocketServer({ noServer: true });
 
-// Manuelles Routing per Pfad
 httpServer.on('upgrade', (request, socket, head) => {
   const pathname = new URL(request.url, 'http://localhost').pathname;
-  
+
   if (pathname === '/graphql') {
     wsServer.handleUpgrade(request, socket, head, (ws) => {
       wsServer.emit('connection', ws, request);
@@ -77,11 +67,9 @@ const wsServerCleanup = useServer(
   wsServer
 );
 
-// Chat WebSocket
 chatServer.on('connection', (ws) => {
   handleChatConnection(ws);
 });
-console.log('Chat WebSocket ready on /chat');
 
 // ============================================
 // APOLLO SERVER (GraphQL)
@@ -89,9 +77,7 @@ console.log('Chat WebSocket ready on /chat');
 const apolloServer = new ApolloServer({
   schema,
   plugins: [
-    // Graceful Shutdown für HTTP Server
     ApolloServerPluginDrainHttpServer({ httpServer }),
-    // Graceful Shutdown für WebSocket Server
     {
       async serverWillStart() {
         return {
@@ -128,7 +114,6 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDoc));
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/index-cards', authMiddleware, fileRoutes);
 
-// Health Check
 app.get('/api/v1/health', async (req, res) => {
   res.json({
     status: 'ok',
@@ -162,23 +147,21 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================
-// START
+// EXPORTS — App-Aufbau, kein automatischer Start
 // ============================================
-async function start() {
-  try {
-    await connectPostgres();
-    await connectMongo();
+export { app, httpServer };
 
+export async function start() {
+  await connectPostgres();
+  await connectMongo();
+
+  return new Promise((resolve) => {
     httpServer.listen(env.PORT, () => {
       console.log(`Server running on http://localhost:${env.PORT}`);
       console.log(`GraphQL:  http://localhost:${env.PORT}/graphql`);
       console.log(`Swagger:  http://localhost:${env.PORT}/api/docs`);
       console.log(`Health:   http://localhost:${env.PORT}/api/v1/health`);
+      resolve();
     });
-  } catch (err) {
-    console.error('Failed to start server:', err);
-    process.exit(1);
-  }
+  });
 }
-
-start();
