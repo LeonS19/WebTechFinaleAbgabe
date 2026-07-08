@@ -32,7 +32,10 @@ Beide Login-Wege enden im selben `token.service.js`, das die Anwendung mit einem
 
 1. `handleGoogleCallback(code)` tauscht den Authorization Code gegen Google-Tokens und verifiziert das ID-Token.
 2. User wird per `payload.sub` (Googles User-ID) gefunden oder neu angelegt — in einer Transaktion, um Race Conditions bei parallelen Erst-Logins zu vermeiden.
-3. Es wird **nicht** das Google-Token weitergereicht, sondern ein eigenes JWT: `generateToken({ userId })`.
+3. Es wird **nicht** direkt ein JWT ausgestellt, sondern zunächst ein kurzlebiger, einmal verwendbarer Auth-Code erzeugt (`authCode.service.js`, `createAuthCode(userId)`, 60 Sekunden gültig). Dieser Code wird per Redirect als Query-Parameter ans Frontend übergeben (`FRONTEND_URL/auth/callback?code=...`), **nicht** das JWT selbst.
+4. Das Frontend tauscht den Code anschließend über `POST /auth/exchange` gegen das eigentliche JWT ein (`consumeAuthCode(code)` → `generateToken({ userId })`). Der Code wird dabei sofort invalidiert (Einmalgebrauch, Replay-Schutz), unabhängig vom Erfolg des Aufrufs.
+
+Diese Zwischenstufe verhindert, dass das JWT selbst in der Redirect-URL landet und damit in Browser-History, Server-Logs oder Referrer-Headern sichtbar wird. Nur der kurzlebige, einmal nutzbare Code durchläuft die URL.
 
 ### 2.2 Token-Erzeugung und -Prüfung (`token.service.js`)
 
@@ -285,7 +288,3 @@ flowchart TB
 - **Rollenänderung ist eingeschränkt**: `updateMembershipRole` erlaubt ausdrücklich nur den Wechsel zwischen `MODERATOR` und `MEMBER`. Ein Admin kann so weder sich selbst degradieren noch einen anderen Admin über diese Funktion umstufen — ein Admin-Wechsel passiert ausschließlich implizit über die Nachfolgeregelung beim Verlassen der Gruppe.
 - **`creator_id` kommt nie vom Client**: In `createIndexCard` wird `creator_id` immer serverseitig aus dem verifizierten `userId` gesetzt, nicht aus den vom Frontend übergebenen Daten übernommen — verhindert, dass sich ein Nutzer als Ersteller einer fremden Karte ausgibt.
 - **Eigentümerschaft ergänzt, ersetzt aber nicht Rollenprüfung**: Passkey-Löschung (`removePasskey`) prüft reine Eigentümerschaft (`userId === passkey.userId`) ganz ohne `checkPermission()`, da Passkeys nicht gruppengebunden sind, sondern direkt am User hängen.
-
-## 8. Bekannte Lücken
-
-- Es gibt keinen zentralen, generischen GraphQL-Directive- oder Middleware-Mechanismus für Rollenprüfung (z. B. `@requiresRole(ADMIN)` als Schema-Directive) — jeder Resolver ruft seinen Service auf, der wiederum `checkPermission()` aufruft. Funktioniert korrekt, ist aber weniger deklarativ als ein Directive-Ansatz und müsste bei jedem neuen Resolver manuell korrekt eingebaut werden.

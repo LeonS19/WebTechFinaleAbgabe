@@ -62,14 +62,16 @@ Eine kollaborative Lernplattform mit RPG-Gameplay. Nutzer schreiben Karteikarten
 
 ### Authentifizierung
  
-- **Google OAuth** – Redirect Flow, JWT nach erfolgreichem Login
+- **Google OAuth** – Redirect Flow, kurzlebiger Einmal-Code statt JWT direkt in der URL
   - Server leitet Browser zu Google weiter (`/api/v1/auth/google`)
   - Google leitet zurück zu `/api/v1/auth/google/callback?code=...`
   - Server tauscht `code` gegen Google-Tokens, liest User-Infos aus dem ID-Token (`payload.sub`, `email`, `name`)
   - Server findet oder legt User an (`user` + `oauth_account` Tabelle)
-  - Server erstellt eigenes JWT und leitet Browser zum Frontend weiter: `FRONTEND_URL/auth/callback?token=eyJ...`
-  - **Frontend liest Token aus der URL** (`window.location.search`) und speichert ihn für weitere API-Requests
-  - ⚠️ Token in URL hat Sicherheitsbedenken (Browser-History, Server-Logs) – für Produktion wäre HttpOnly Cookie oder kurzlebiger Einmal-Code sicherer (siehe Reflexion)
+  - Server erzeugt einen kurzlebigen, einmal verwendbaren Auth-Code (`authCode.service.js`, In-Memory, 60 Sekunden gültig) und leitet Browser zum Frontend weiter: `FRONTEND_URL/auth/callback?code=...`
+  - **Frontend liest den Code aus der URL** und tauscht ihn über `POST /api/v1/auth/exchange` gegen das eigentliche JWT ein
+  - Der Auth-Code wird beim Exchange sofort invalidiert (Einmalgebrauch, Replay-Schutz), unabhängig davon ob der Aufruf erfolgreich war
+  - Frontend speichert das zurückgegebene JWT und verwendet es für weitere API-Requests
+  - **Ursprüngliches Sicherheitsbedenken behoben:** Das JWT selbst landet dadurch nie in der Redirect-URL und damit nicht in Browser-History, Server-Logs oder Referrer-Headern — nur der kurzlebige, einmal nutzbare Code durchläuft die URL. Wichtig zur Einordnung: Das ersetzt nicht HTTPS als Transportschutz — wer den kompletten Netzwerkverkehr mitschneidet, sieht weiterhin das JWT im Body der Exchange-Response. Der Fix schließt gezielt die URL-spezifischen Leck-Vektoren (History, Logs, Referrer), nicht Abhören des Transportwegs selbst (siehe Reflexion).
 - **Passkeys (WebAuthn)** – Challenge/Response, kein Passwort
   - Challenges werden in eigener `webauthn_challenge` Tabelle gespeichert (mit `expires_at`, automatisch ungültig nach 5 Minuten)
   - `challengeId` (interne DB-UUID) wird zusammen mit den WebAuthn-Options ans Frontend zurückgegeben
@@ -506,7 +508,8 @@ Zusätzliches Feld am `Combat`-Typ, das die Anzahl verbleibender Karten im Run-D
 | Method | Endpunkt | Beschreibung |
 |---|---|---|
 | GET | `/api/v1/auth/google` | Google OAuth starten |
-| GET | `/api/v1/auth/google/callback` | OAuth Callback → JWT |
+| GET | `/api/v1/auth/google/callback` | OAuth Callback → Einmal-Code |
+| POST | `/api/v1/auth/exchange` | Einmal-Code gegen JWT eintauschen |
 | POST | `/api/v1/auth/passkey/user` | User anlegen oder finden (für Passkey-Registrierung) |
 | POST | `/api/v1/auth/passkey/register/options` | WebAuthn Registrierungsoptionen |
 | POST | `/api/v1/auth/passkey/register/verify` | Passkey speichern |
@@ -574,6 +577,7 @@ WebTechFinaleAbgabe/
 │   │   │       └── ranking.resolver.js
 │   │   ├── services/
 │   │   │   ├── auth/
+│   │   │   │   ├── authCode.service.js   # kurzlebiger Einmal-Code für OAuth-Redirect-Exchange
 │   │   │   │   ├── oauth.service.js
 │   │   │   │   ├── passkey.service.js
 │   │   │   │   └── token.service.js
@@ -643,9 +647,10 @@ Services dürfen sich gegenseitig aufrufen, wenn fachliche Logik zusammengehört
 - JWT Token kommt im Header: `Authorization: Bearer <token>`
 - `authMiddleware` verifiziert Token und hängt `req.user` ans Request
 - GraphQL Context bekommt den User über `createContext({ token })`
-- **Google OAuth Callback:** JWT wird als Query-Parameter ans Frontend übergeben: `FRONTEND_URL/auth/callback?token=eyJ...`
-  - Frontend liest Token aus URL: `new URLSearchParams(window.location.search).get('token')`
-  - Frontend speichert Token und navigiert zur Hauptseite
+- **Google OAuth Callback:** Server erzeugt einen kurzlebigen Einmal-Code und übergibt ihn als Query-Parameter ans Frontend: `FRONTEND_URL/auth/callback?code=...`
+  - Frontend liest Code aus URL: `new URLSearchParams(window.location.search).get('code')`
+  - Frontend tauscht den Code über `POST /api/v1/auth/exchange` gegen das JWT ein
+  - Frontend speichert das JWT und navigiert zur Hauptseite
 
 ### Antwortvergleich (answerCard)
 ```javascript
@@ -695,48 +700,6 @@ Erreichbar unter:
 Die `ws` Library hat einen bekannten Bug: wenn mehrere `WebSocketServer`-Instanzen mit der `path`-Option auf demselben `httpServer` registriert werden, überschreibt die zweite Instanz den `upgrade`-Event-Handler der ersten — einer der Server akzeptiert dann keine Verbindungen mehr (400 Bad Request). Gelöst mit `noServer: true` für beide Server (GraphQL Subscriptions + Chat) und manuellem Routing über den `upgrade`-Event des `httpServer`, wo anhand des URL-Pfads (`/graphql` vs. `/chat`) entschieden wird, welcher Server die Verbindung behandelt.
 
 ---
-
-## Tests & Verifikation
-
-### Automatisierte Backend-Tests (Jest + Supertest)
-
-Setup: `npm test` (bzw. `npm run test:coverage` für den Coverage-Report). Tests laufen gegen die echte lokale Postgres-/MongoDB-Instanz (keine separate Test-DB) — jede Testdatei legt ihre eigenen Test-User/-Gruppen/-Runs an und räumt sie in `afterAll` wieder auf. Kein Mocking der Datenbank-Schicht, damit auch echte SQL-/Mongoose-Query-Fehler auffallen, nicht nur Business-Logik-Fehler.
-
-| Testdatei | Deckt ab |
-|---|---|
-| `tests/health.test.js` | Health-Check-Endpunkt |
-| `tests/auth.test.js` | Auth-Kantenfälle (fehlender/kaputter Token), Passkey-Vorbereitung (`passkey/user`, `register/options`, `login/options`), Passkey-Löschen inkl. Kantenfälle |
-| `tests/token.test.js` | JWT-Generierung/-Verifikation, manipulierte/ungültige Tokens |
-| `tests/permission.test.js` | Kernlogik der Rollen-/Rechteprüfung (`checkPermission`) für alle vier Rollen-Konstellationen |
-| `tests/attachments.test.js` | Datei-Upload/-Download/-Löschen, Rollen-Einschränkungen (MEMBER darf nicht löschen), fremder User wird abgelehnt |
-| `tests/chat.test.js` | `getMessages`-Query, `senderRole`-Feldresolver, Platzhalter für gelöschte User |
-| `tests/websocket.test.js` | Chat-WebSocket: verbinden, Nachricht senden/empfangen, Nachricht löschen (inkl. Broadcast an mehrere Clients), Rollen-Einschränkung beim Löschen |
-| `tests/graphql/studyGroup.test.js` | `createStudyGroup`, `joinStudyGroup`, `leaveStudyGroup` inkl. Kantenfälle |
-| `tests/graphql/indexCard.test.js` | `createIndexCard`/`deleteIndexCard` Rollen-Einschränkungen, `getIndexCards`-Tag-Filter |
-| `tests/graphql/run.test.js` | `getMap`, `startRun` (Mindest-Karten-Guard, Idempotenz), `moveToField`, `answerCard` |
-| `tests/graphql/ranking.test.js` | Dreistufige Sortierung (`correctAnswers` → `hitRate` → `duration`) einzeln nachgewiesen, geteilte Plätze bei echtem Gleichstand (`RANK()`), Ausschluss gescheiterter Runs |
-
-**Stand:** 62 Tests, alle grün. Coverage insgesamt ~55% (Statements), mit gezielt hoher Abdeckung in sicherheitskritischen Modulen (`permission.service.js`, `ranking.service.js`: 100%; alle Mongo-Models: 100%; `chat.handler.js`: 92%).
-
-**Bewusst nicht automatisiert getestet:** Der eigentliche WebAuthn-Verify-Schritt (`register/verify`, `login/verify`) und der Google-OAuth-Callback lassen sich nicht sinnvoll mit Supertest simulieren, da sie einen echten Browser mit WebAuthn-Authenticator bzw. eine echte Google-Weiterleitung voraussetzen. Das schlägt sich in niedrigerer Coverage bei `passkey.service.js`/`oauth.service.js` nieder — der Login/Logout-Flow selbst wurde stattdessen wiederholt manuell über den Browser verifiziert.
-
-### Offline-Verhalten (manuelle Verifikation statt automatisiertem Test)
-
-Da Offline-Verhalten (Service Worker, IndexedDB) reines Browser-Verhalten ist und sich nicht sinnvoll mit den Backend-Testwerkzeugen (Jest/Supertest) abbilden lässt, wurde dieser Bereich manuell und wiederholt über Chrome DevTools verifiziert, statt einen browserbasierten Test (z.B. Puppeteer) aufzusetzen:
-
-**Vorgehen:** Chrome DevTools → Tab *Application* → *Service Workers*, Häkchen bei „Offline" (bzw. Tab *Network* → Drosselung auf „Offline"), anschließend Reload bzw. Navigation innerhalb der App.
-
-**Verifizierte Fälle:**
-- App bleibt nach Offline-Schalten bedienbar, Navigation zwischen bereits besuchten Lerngruppen funktioniert weiterhin
-- Karteikarten, Mitgliederliste und Rangliste einer zuvor online besuchten Gruppe werden weiterhin aus IndexedDB angezeigt (`useOfflineAwareQuery` fällt korrekt auf den Cache zurück)
-- Chat zeigt die zuletzt geladenen Nachrichten weiterhin an, Status wechselt sichtbar auf „Offline"
-- Schreibaktionen, die eine Verbindung brauchen (Lerngruppe beitreten/erstellen, Run starten), werden im Frontend blockiert und mit Hinweistext versehen, statt eine Aktion zuzulassen, die ohnehin fehlschlagen würde
-- Beim Wiederherstellen der Verbindung (Häkchen entfernen) reconnected der Chat automatisch und lädt aktuelle Nachrichten nach
-- Eine noch nie online besuchte Lerngruppe kann erwartungsgemäß nicht offline zum ersten Mal geladen werden (dokumentierte Scope-Grenze, siehe Abschnitt „PWA" oben)
-
-Diese Fälle wurden während der PWA-Integration (Tag 6) mehrfach nach jeder Änderung erneut manuell durchgespielt, u. a. auch nachdem dabei zwei echte Bugs gefunden wurden (Chat-Nachrichten-Duplizierung beim Gruppenwechsel, `TypeError` bei `null`-Listen vor dem ersten Cache-Treffer — siehe Bugfix-Liste im PWA-Abschnitt).
-
----
  
 ## TODOs / Offene Punkte
  
@@ -754,7 +717,7 @@ Diese Fälle wurden während der PWA-Integration (Tag 6) mehrfach nach jeder Än
 - [ ] Restliche Services implementieren (statistics, ranking)
 - [ ] Service Worker + Web App Manifest
 - [ ] IndexedDB Offline Storage
-- [x] Tests schreiben (Backend: Jest + Supertest, 62 Tests; Offline-Verhalten: dokumentierte manuelle Verifikation, siehe Abschnitt „Tests & Verifikation")
+- [ ] Tests schreiben
 - [ ] README.md für Abgabe
-- [ ] Reflexion schreiben (inkl. JWT-in-URL Sicherheitsbedenken, Scope-Cuts wie "nur 1 Gegner pro Kampf", Balancing-Historie, WebAuthn/OAuth nicht automatisiert testbar)
+- [ ] Reflexion schreiben (inkl. JWT-in-URL Sicherheitsbedenken, Scope-Cuts wie "nur 1 Gegner pro Kampf")
 - [ ] Präsentation erstellen
