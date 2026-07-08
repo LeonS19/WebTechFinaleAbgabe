@@ -88,7 +88,7 @@ Die Component verbindet zwei Kommunikationswege, die im PROJEKT.md-Abschnitt "So
 
 ### Offline-Anbindung
 
-Anders als zunächst dokumentiert, ist der Chat nicht komplett vom IndexedDB-Layer getrennt: `loadMessages()` cached jede erfolgreich geladene Historie direkt über `cacheMessages()` aus `offlineStorage.service.js`. Schlägt der `fetch()`-Aufruf fehl (Offline-Fall), greift `loadMessages()` im `catch`-Block auf `getCachedMessages(chatId)` zurück und zeigt den Status `Offline` an. Live-Nachrichten über den WebSocket werden dagegen nicht zusätzlich in IndexedDB geschrieben — sie existieren nur, solange die Verbindung steht.
+`loadMessages()` cached jede erfolgreich geladene Historie direkt über `cacheMessages()` aus `offlineStorage.service.js`. Schlägt der `fetch()`-Aufruf fehl (Offline-Fall), greift `loadMessages()` im `catch`-Block auf `getCachedMessages(chatId)` zurück und zeigt den Status `Offline` an. Live-Nachrichten über den WebSocket werden dagegen nicht zusätzlich in IndexedDB geschrieben — sie existieren nur, solange die Verbindung steht.
 
 ### Verbindungs-Handling und behobene Bugs
 
