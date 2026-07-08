@@ -73,7 +73,7 @@ export function authMiddleware(req, res, next) {
 
 Als Express-Middleware vor geschützte Routen gehängt. Bei Erfolg landet die decodierte Payload (`{ userId, iat, exp }`) unter `req.user`, auf die nachfolgende Controller zugreifen.
 
-> Hinweis: `role.middleware.js` existiert als Datei, ist aber aktuell leer — es gibt keine eigene rollenprüfende Express-Middleware. Rollenprüfung findet stattdessen einheitlich in der Service-Schicht statt (siehe Abschnitt 4), nicht auf Middleware-Ebene. Das ist bewusst konsistent mit dem GraphQL-Teil, wo es aus denselben Gründen ebenfalls keine separate Rollen-Prüfschicht vor den Resolvern gibt.
+> Hinweis: Es gibt keine eigene rollenprüfende Express-Middleware. Rollenprüfung findet stattdessen einheitlich in der Service-Schicht statt (siehe Abschnitt 4), nicht auf Middleware-Ebene. Das ist bewusst konsistent mit dem GraphQL-Teil, wo es aus denselben Gründen ebenfalls keine separate Rollen-Prüfschicht vor den Resolvern gibt.
 
 ### 3.2 GraphQL: `context.js`
 
