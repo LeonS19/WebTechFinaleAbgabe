@@ -3,6 +3,7 @@ import { env } from '../../../config/env.js';
 import * as passkeyService from "../../../services/auth/passkey.service.js"
 import * as oauthService from '../../../services/auth/oauth.service.js';
 import { generateToken } from '../../../services/auth/token.service.js';
+import { consumeAuthCode } from '../../../services/auth/authCode.service.js';
 
 // ============================================
 // PASSKEY
@@ -127,16 +128,33 @@ export function googleAuth(req, res) {
 }
 
 export async function googleCallback(req, res) {
-  // 1. code aus Query-Parameter lesen
   const code = req.query.code
 
-  // 2. try/catch
   try {
-    const token = await oauthService.handleGoogleCallback(code)
-    // 3. Browser zum Frontend weiterleiten mit token
-    res.redirect(`${env.FRONTEND_URL}/auth/callback?token=${token}`)
+    const authCode = await oauthService.handleGoogleCallback(code)
+    res.redirect(`${env.FRONTEND_URL}/auth/callback?code=${authCode}`)
   } catch(err) {
-    // 4. Bei Fehler: zurück zum Frontend mit Fehler
     res.redirect(`${env.FRONTEND_URL}/auth/error?message=${err.message}`);
+  }
+}
+
+/**
+ * Tauscht den kurzlebigen Einmal-Code (aus der OAuth-Redirect-URL)
+ * gegen das eigentliche JWT. Der Code ist nur ~60 Sekunden gültig
+ * und wird nach diesem Aufruf sofort ungültig (Einmalgebrauch).
+ */
+export async function exchangeAuthCode(req, res) {
+  const code = req.body.code
+
+  if (!code) {
+    return res.status(400).json({ error: 'code ist erforderlich' });
+  }
+
+  try {
+    const userId = consumeAuthCode(code)
+    const token = generateToken({ userId })
+    return res.json({ token })
+  } catch(err) {
+    return res.status(400).json({ error: err.message });
   }
 }

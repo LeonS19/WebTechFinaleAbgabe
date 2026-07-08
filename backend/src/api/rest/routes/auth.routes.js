@@ -1,4 +1,3 @@
-// TODO Tag 2 – Person A: Google OAuth + Passkey Routes
 import { Router } from 'express';
 import { env } from '../../../config/env.js';
 import * as authController from '../controllers/auth.controller.js';
@@ -20,4 +19,4 @@ authRoutes.post('/passkey/user', authController.getOrCreateUser)
 // ============================================
 authRoutes.get('/google', authController.googleAuth)
 authRoutes.get('/google/callback', authController.googleCallback)
-
+authRoutes.post('/exchange', authController.exchangeAuthCode)

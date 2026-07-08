@@ -1,12 +1,12 @@
 openapi: 3.0.3
 info:
   title: Learning Platform API
-  description: REST API for the collaborative learning platform with RPG gameplay. Core data operations run via GraphQL — this REST API covers authentication, file handling, and infrastructure endpoints.
+  description: REST-API für die kollaborative Lernplattform mit RPG-Gameplay. Die Kern-Datenoperationen laufen über GraphQL — diese REST-API deckt Authentifizierung, Datei-Handling und Infrastruktur-Endpunkte ab.
   version: 1.0.0
 
 servers:
   - url: http://localhost:3000/api/v1
-    description: Local development server
+    description: Lokaler Entwicklungsserver
 
 # ============================================
 # SECURITY SCHEMES
@@ -119,11 +119,11 @@ paths:
   /docs:
     get:
       summary: Swagger UI
-      description: Interactive API documentation. Served via swagger-ui-express at http://localhost:3000/api/docs
+      description: Interaktive API-Dokumentation. Wird über swagger-ui-express unter http://localhost:3000/api/docs bereitgestellt.
       tags: [Infrastructure]
       responses:
         '200':
-          description: Swagger UI HTML page
+          description: Swagger UI HTML-Seite
           content:
             text/html:
               schema:
@@ -134,12 +134,12 @@ paths:
   # ------------------------------------------
   /health:
     get:
-      summary: Health check
-      description: Returns service status. Used by Docker and monitoring tools.
+      summary: Health Check
+      description: Gibt den Service-Status zurück. Wird von Docker und Monitoring-Tools genutzt.
       tags: [Infrastructure]
       responses:
         '200':
-          description: Service is healthy
+          description: Service ist gesund
           content:
             application/json:
               schema:
@@ -160,22 +160,25 @@ paths:
   # ------------------------------------------
   /auth/google:
     get:
-      summary: Initiate Google OAuth login
-      description: Redirects the user to Google's OAuth consent screen.
+      summary: Google OAuth Login starten
+      description: Leitet den Nutzer zum Google OAuth Consent Screen weiter.
       tags: [Authentication]
       responses:
         '302':
-          description: Redirect to Google OAuth
+          description: Weiterleitung zu Google OAuth
 
   /auth/google/callback:
     get:
-      summary: Google OAuth callback
+      summary: Google OAuth Callback
       description: |
-        Google redirects here after successful login.
-        The server exchanges the code for tokens, finds or creates the user,
-        and redirects the browser to the frontend with a JWT token as a query parameter.
-        Example redirect: `http://localhost:5173/auth/callback?token=eyJ...`
-        The frontend reads the token from the URL and stores it for subsequent requests.
+        Google leitet nach erfolgreichem Login hierhin weiter.
+        Der Server tauscht den Code gegen Google-Tokens, findet oder erstellt den User
+        und leitet den Browser mit einem kurzlebigen Einmal-Code als Query-Parameter
+        zum Frontend weiter (NICHT das JWT selbst).
+        Beispiel-Redirect: `http://localhost:5173/auth/callback?code=3f9a...`
+        Das Frontend liest den Code aus der URL und tauscht ihn über
+        POST /auth/exchange gegen ein JWT. Der Code ist 60 Sekunden gültig
+        und kann nur einmal verwendet werden.
       tags: [Authentication]
       parameters:
         - name: code
@@ -183,23 +186,64 @@ paths:
           required: true
           schema:
             type: string
-          description: Authorization code from Google
+          description: Authorization Code von Google
       responses:
         '302':
-          description: Redirect to frontend with JWT token as query parameter (?token=...)
+          description: Weiterleitung zum Frontend mit einem Einmal-Code als Query-Parameter (?code=...)
         '302 (error)':
-          description: Redirect to frontend error page (?message=...) if OAuth failed
+          description: Weiterleitung zur Fehlerseite des Frontends (?message=...), falls der OAuth-Login fehlgeschlagen ist
+
+  /auth/exchange:
+    post:
+      summary: Einmal-Code gegen ein JWT eintauschen
+      description: |
+        Tauscht den kurzlebigen Einmal-Code, der über den Redirect von
+        `/auth/google/callback` empfangen wurde, gegen das eigentliche JWT.
+        Der Code ist 60 Sekunden gültig und wird nach diesem Aufruf sofort
+        ungültig — unabhängig davon, ob er erfolgreich eingelöst wurde oder nicht
+        (Replay-Schutz). Dadurch landet das JWT selbst nie in der URL,
+        der Browser-History oder in Server-Logs.
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                  description: Der Einmal-Code aus dem Query-Parameter des OAuth-Callback-Redirects
+              required: [code]
+      responses:
+        '200':
+          description: Code gültig — gibt das JWT zurück
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '400':
+          description: Code fehlt, ist ungültig, abgelaufen oder bereits verwendet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   # ------------------------------------------
   # PASSKEY - User anlegen / finden
   # ------------------------------------------
   /auth/passkey/user:
     post:
-      summary: Find or create user for passkey registration
+      summary: User für Passkey-Registrierung finden oder anlegen
       description: |
-        Finds an existing user by email or creates a new one.
-        Call this before registering a passkey to get the userId.
-        This enables usernameless passkey registration without requiring Google OAuth first.
+        Sucht einen bestehenden User anhand der Email oder legt einen neuen an.
+        Vor der Registrierung eines Passkeys aufrufen, um die userId zu erhalten.
+        Ermöglicht eine benutzernamenlose Passkey-Registrierung, ohne zuvor
+        Google OAuth zu benötigen.
       tags: [Authentication]
       requestBody:
         required: true
@@ -215,11 +259,11 @@ paths:
                 name:
                   type: string
                   example: Max Mustermann
-                  description: Optional — defaults to email if not provided
+                  description: Optional — Standardwert ist die Email, falls nicht angegeben
               required: [email]
       responses:
         '200':
-          description: User found or created — returns userId
+          description: User gefunden oder angelegt — gibt userId zurück
           content:
             application/json:
               schema:
@@ -229,7 +273,7 @@ paths:
                     type: string
                     format: uuid
         '400':
-          description: Missing required fields
+          description: Erforderliche Felder fehlen
           content:
             application/json:
               schema:
@@ -240,8 +284,8 @@ paths:
   # ------------------------------------------
   /auth/passkey/register/options:
     post:
-      summary: Get passkey registration options
-      description: Returns WebAuthn registration options (challenge, rp info, user info). Call this before registering a new passkey on a device. Returns both the WebAuthn options (for the browser) and a challengeId (to be sent back with the verify call).
+      summary: Optionen für die Passkey-Registrierung abrufen
+      description: Gibt WebAuthn-Registrierungsoptionen zurück (Challenge, RP-Infos, User-Infos). Vor der Registrierung eines neuen Passkeys auf einem Gerät aufrufen. Liefert sowohl die WebAuthn-Optionen (für den Browser) als auch eine challengeId (die beim Verify-Call mitgeschickt werden muss).
       tags: [Authentication]
       requestBody:
         required: true
@@ -261,7 +305,7 @@ paths:
               required: [userId, userEmail]
       responses:
         '200':
-          description: Registration options + challengeId
+          description: Registrierungsoptionen + challengeId
           content:
             application/json:
               schema:
@@ -273,7 +317,7 @@ paths:
                     type: string
                     format: uuid
         '400':
-          description: Missing required fields
+          description: Erforderliche Felder fehlen
           content:
             application/json:
               schema:
@@ -281,8 +325,8 @@ paths:
 
   /auth/passkey/register/verify:
     post:
-      summary: Verify and save passkey registration
-      description: Verifies the WebAuthn registration response from the device and saves the passkey. Send the challengeId received from the options call along with the browser's credential response.
+      summary: Passkey-Registrierung verifizieren und speichern
+      description: Verifiziert die WebAuthn-Registrierungsantwort des Geräts und speichert den Passkey. Die von der options-Route erhaltene challengeId zusammen mit der Credential-Response des Browsers senden.
       tags: [Authentication]
       requestBody:
         required: true
@@ -294,21 +338,21 @@ paths:
                 challengeId:
                   type: string
                   format: uuid
-                  description: The challengeId received from the register/options call
+                  description: Die von register/options erhaltene challengeId
                 response:
                   type: object
-                  description: WebAuthn credential response from navigator.credentials.create() via @simplewebauthn/browser
+                  description: WebAuthn Credential-Response von navigator.credentials.create() über @simplewebauthn/browser
                 userId:
                   type: string
                   format: uuid
                 deviceName:
                   type: string
                   example: Chrome Virtual Authenticator
-                  description: Optional — defaults to 'Unbekanntes Gerät' if not provided
+                  description: Optional — Standardwert ist 'Unbekanntes Gerät', falls nicht angegeben
               required: [challengeId, response, userId]
       responses:
         '200':
-          description: Passkey registered successfully — returns passkey data and JWT token
+          description: Passkey erfolgreich registriert — gibt Passkey-Daten und JWT zurück
           content:
             application/json:
               schema:
@@ -332,10 +376,10 @@ paths:
                         format: date-time
                   token:
                     type: string
-                    description: JWT token — store and use for subsequent requests
+                    description: JWT — für nachfolgende Requests speichern und verwenden
                     example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         '400':
-          description: Verification failed or missing fields
+          description: Verifizierung fehlgeschlagen oder Felder fehlen
           content:
             application/json:
               schema:
@@ -346,12 +390,12 @@ paths:
   # ------------------------------------------
   /auth/passkey/login/options:
     post:
-      summary: Get passkey authentication options
-      description: Returns WebAuthn authentication options for usernameless login. No request body needed — the browser discovers available passkeys automatically. Returns both options (for the browser) and a challengeId (to be sent back with the verify call).
+      summary: Optionen für die Passkey-Authentifizierung abrufen
+      description: Gibt WebAuthn-Authentifizierungsoptionen für einen benutzernamenlosen Login zurück. Kein Request-Body nötig — der Browser findet verfügbare Passkeys automatisch. Liefert sowohl Optionen (für den Browser) als auch eine challengeId (die beim Verify-Call mitgeschickt werden muss).
       tags: [Authentication]
       responses:
         '200':
-          description: Authentication options + challengeId
+          description: Authentifizierungsoptionen + challengeId
           content:
             application/json:
               schema:
@@ -365,8 +409,8 @@ paths:
 
   /auth/passkey/login/verify:
     post:
-      summary: Verify passkey login
-      description: Verifies the WebAuthn authentication response, updates the passkey counter, and returns a JWT token. Send the challengeId received from the login/options call along with the browser's credential response.
+      summary: Passkey-Login verifizieren
+      description: Verifiziert die WebAuthn-Authentifizierungsantwort, aktualisiert den Passkey-Counter und gibt ein JWT zurück. Die von der login/options-Route erhaltene challengeId zusammen mit der Credential-Response des Browsers senden.
       tags: [Authentication]
       requestBody:
         required: true
@@ -378,21 +422,21 @@ paths:
                 challengeId:
                   type: string
                   format: uuid
-                  description: The challengeId received from the login/options call
+                  description: Die von login/options erhaltene challengeId
                 response:
                   type: object
-                  description: WebAuthn credential response from navigator.credentials.get() via @simplewebauthn/browser
+                  description: WebAuthn Credential-Response von navigator.credentials.get() über @simplewebauthn/browser
               required: [challengeId, response]
       responses:
         '200':
-          description: Login successful — returns JWT token string directly
+          description: Login erfolgreich — gibt das JWT direkt als String zurück
           content:
             application/json:
               schema:
                 type: string
                 example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         '400':
-          description: Verification failed or missing fields
+          description: Verifizierung fehlgeschlagen oder Felder fehlen
           content:
             application/json:
               schema:
@@ -403,8 +447,8 @@ paths:
   # ------------------------------------------
   /auth/passkey/{id}:
     delete:
-      summary: Remove a passkey
-      description: Removes a registered passkey from the user's account. Only the owner of the passkey can delete it (verified via JWT token).
+      summary: Passkey entfernen
+      description: Entfernt einen registrierten Passkey vom Account des Users. Nur der Besitzer des Passkeys kann ihn löschen (verifiziert über das JWT).
       tags: [Authentication]
       security:
         - bearerAuth: []
@@ -415,18 +459,18 @@ paths:
           schema:
             type: string
             format: uuid
-          description: The passkey ID (not the credential_id, but the internal database UUID)
+          description: Die Passkey-ID (nicht die credential_id, sondern die interne Datenbank-UUID)
       responses:
         '204':
-          description: Passkey removed successfully (no content)
+          description: Passkey erfolgreich entfernt (kein Inhalt)
         '400':
-          description: Passkey not found or not authorized
+          description: Passkey nicht gefunden oder nicht berechtigt
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '401':
-          description: Unauthorized — missing or invalid JWT token
+          description: Unauthorized — JWT fehlt oder ist ungültig
           content:
             application/json:
               schema:
@@ -437,8 +481,8 @@ paths:
   # ------------------------------------------
   /index-cards/{cardId}/attachments:
     post:
-      summary: Upload a file attachment to an index card
-      description: Uploads a file and attaches it to the given index card. Only members of the card's study group can upload.
+      summary: Dateianhang zu einer Karteikarte hochladen
+      description: Lädt eine Datei hoch und hängt sie an die angegebene Karteikarte an. Nur Mitglieder der Lerngruppe der Karte dürfen hochladen.
       tags: [Files]
       security:
         - bearerAuth: []
@@ -462,27 +506,27 @@ paths:
               required: [file]
       responses:
         '201':
-          description: File uploaded successfully
+          description: Datei erfolgreich hochgeladen
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Attachment'
         '403':
-          description: Not a member of this study group
+          description: Kein Mitglied dieser Lerngruppe
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '413':
-          description: File too large
+          description: Datei zu groß
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
 
     get:
-      summary: List attachments of an index card
-      description: Returns all attachments for a given index card. Only accessible to members of the card's study group.
+      summary: Anhänge einer Karteikarte auflisten
+      description: Gibt alle Anhänge einer angegebenen Karteikarte zurück. Nur für Mitglieder der Lerngruppe der Karte zugänglich.
       tags: [Files]
       security:
         - bearerAuth: []
@@ -495,7 +539,7 @@ paths:
             format: uuid
       responses:
         '200':
-          description: List of attachments
+          description: Liste der Anhänge
           content:
             application/json:
               schema:
@@ -503,7 +547,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/Attachment'
         '403':
-          description: Not a member of this study group
+          description: Kein Mitglied dieser Lerngruppe
           content:
             application/json:
               schema:
@@ -514,8 +558,8 @@ paths:
   # ------------------------------------------
   /index-cards/{cardId}/attachments/{attachmentId}:
     get:
-      summary: Download a file attachment
-      description: Downloads a specific file attachment. Only accessible to members of the card's study group.
+      summary: Dateianhang herunterladen
+      description: Lädt einen bestimmten Dateianhang herunter. Nur für Mitglieder der Lerngruppe der Karte zugänglich.
       tags: [Files]
       security:
         - bearerAuth: []
@@ -534,28 +578,28 @@ paths:
             format: uuid
       responses:
         '200':
-          description: File content
+          description: Dateiinhalt
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         '403':
-          description: Not a member of this study group
+          description: Kein Mitglied dieser Lerngruppe
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Attachment not found
+          description: Anhang nicht gefunden
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
 
     delete:
-      summary: Delete a file attachment
-      description: Deletes a file attachment. Only the uploader or a group admin can delete.
+      summary: Dateianhang löschen
+      description: Löscht einen Dateianhang. Nur der Uploader oder ein Gruppen-Admin dürfen löschen.
       tags: [Files]
       security:
         - bearerAuth: []
@@ -574,15 +618,15 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Attachment deleted
+          description: Anhang gelöscht
         '403':
-          description: Not authorized to delete this attachment
+          description: Nicht berechtigt, diesen Anhang zu löschen
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Attachment not found
+          description: Anhang nicht gefunden
           content:
             application/json:
               schema:
