@@ -95,7 +95,7 @@ Die Component verbindet zwei Kommunikationswege, die im PROJEKT.md-Abschnitt "So
 Beim Wechsel der Lerngruppe ändert sich `chat-id` (und oft gleichzeitig `role`). Zwei Aspekte sorgen dafür, dass daraus kein inkonsistenter Zustand entsteht:
 
 - `attributeChangedCallback` reagiert bewusst nur auf `chat-id`/`token`, nicht auf jede Attributänderung — sonst würde ein gleichzeitiger `role`-Wechsel einen zweiten, parallelen `connect()`-Aufruf auslösen.
-- Eine hochgezählte `_connectionId` ("Verbindungs-Generation") wird bei jedem `connect()` erhöht. Jede laufende `loadMessages()`-Anfrage prüft vor dem Anhängen der Ergebnisse, ob ihre `connectionId` noch der aktuellen entspricht — eine veraltete, spät zurückkommende Antwort eines vorherigen `connect()`-Aufrufs wird sonst verwerfen, statt Nachrichten zu verdoppeln.
+- Eine hochgezählte `_connectionId` ("Verbindungs-Generation") wird bei jedem `connect()` erhöht. Jede laufende `loadMessages()`-Anfrage prüft vor dem Anhängen der Ergebnisse, ob ihre `connectionId` noch der aktuellen entspricht — eine veraltete, spät zurückkommende Antwort eines vorherigen `connect()`-Aufrufs wird sonst verworfen, statt Nachrichten zu verdoppeln.
 - `resetMessages()` leert Zustand und DOM vor jedem neuen `connect()`.
 - Browser-`online`/`offline`-Events werden in `connectedCallback` registriert und in `disconnectedCallback` wieder entfernt, damit die Component auch reagiert, wenn sie bereits offen ist und sich der Netzwerkstatus währenddessen ändert (nicht erst beim erneuten Öffnen).
 
