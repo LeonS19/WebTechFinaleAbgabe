@@ -288,5 +288,4 @@ flowchart TB
 
 ## 8. Bekannte Lücken
 
-- `role.middleware.js` ist als Datei angelegt, aber leer — es gibt keine wiederverwendbare Express-Middleware für Rollenprüfung; jede REST-Route, die eine Rolle braucht, verlässt sich auf den entsprechenden Service-Aufruf von `checkPermission()`. Für die Doku-Abgabe sollte kurz erklärt werden, warum das so ist (siehe Abschnitt 3.1), statt es als unfertig wirken zu lassen.
 - Es gibt keinen zentralen, generischen GraphQL-Directive- oder Middleware-Mechanismus für Rollenprüfung (z. B. `@requiresRole(ADMIN)` als Schema-Directive) — jeder Resolver ruft seinen Service auf, der wiederum `checkPermission()` aufruft. Funktioniert korrekt, ist aber weniger deklarativ als ein Directive-Ansatz und müsste bei jedem neuen Resolver manuell korrekt eingebaut werden.
