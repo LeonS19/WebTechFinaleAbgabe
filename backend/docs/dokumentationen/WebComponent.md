@@ -167,4 +167,3 @@ flowchart LR
 
 - `username` wird als Attribut an `<chat-window>` übergeben, aber im Rendering nicht verwendet (eigener Nutzername erscheint nicht gesondert hervorgehoben in der Nachrichtenliste).
 - Live über WebSocket empfangene Nachrichten werden nicht zusätzlich in IndexedDB gespiegelt — nur die beim Laden der Historie abgerufenen. Bei einem Offline-Wechsel mitten in einer aktiven Chat-Sitzung fehlen entsprechend die zuletzt live empfangenen Nachrichten im Cache, bis erneut eine Historie geladen wurde.
-- Doppelter Import von `IndexCardElement.js` in `index.js` (siehe Abschnitt 1) sollte vor der Abgabe bereinigt werden.
