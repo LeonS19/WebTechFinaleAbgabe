@@ -37,6 +37,7 @@
               <RunView
                 v-else-if="activeView === 'run'"
                 :studyGroupId="selectedGroup.id"
+                :username="currentUser?.name"
                 @runEnded="onRunEnded"
               />
               <IndexCardsView
@@ -44,6 +45,7 @@
                 :studyGroupId="selectedGroup.id"
                 :cards="indexCards"
                 :userRole="currentMemberRole"
+                :currentUserId="currentUser?.id"
                 @cardCreated="refetchCards()"
               />
               <RankingView v-else-if="activeView === 'bestenliste'" :studyGroupId="selectedGroup.id" />

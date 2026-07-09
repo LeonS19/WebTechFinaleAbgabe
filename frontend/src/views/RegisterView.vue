@@ -6,7 +6,6 @@
     <h2>Mit Passkey registrieren</h2>
     <input v-model="name" type="text" placeholder="Benutzername" />
     <input v-model="email" type="email" placeholder="E-Mail-Adresse" />
-    <input v-model="deviceName" type="text" placeholder="Gerätename (z.B. MacBook Pro)" />
     <button @click="registerPasskey">Passkey registrieren</button>
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="success" class="success">{{ success }}</p>
@@ -22,7 +21,6 @@ import { startRegistration } from '@simplewebauthn/browser';
 const router = useRouter();
 const name = ref('');
 const email = ref('');
-const deviceName = ref('');
 const error = ref('');
 const success = ref('');
 const BASE_URL = 'http://localhost:3000/api/v1';
@@ -70,7 +68,6 @@ async function registerPasskey() {
         challengeId,
         response,
         userId,
-        deviceName: deviceName.value || 'Unbekanntes Gerät',
       }),
     });
     const data = await verifyRes.json();

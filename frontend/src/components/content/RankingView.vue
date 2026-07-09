@@ -22,8 +22,17 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="entry in ranking" :key="`${entry.rank}-${entry.run.id}`">
-          <td class="rank-cell">{{ entry.rank }}</td>
+        <tr
+          v-for="entry in ranking"
+          :key="`${entry.rank}-${entry.run.id}`"
+          :class="rankRowClass(entry.rank)"
+        >
+          <td class="rank-cell">
+            <span v-if="entry.rank <= 3" class="rank-medal" :class="`rank-medal--${entry.rank}`">
+              {{ entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : '🥉' }}
+            </span>
+            <span v-else>{{ entry.rank }}</span>
+          </td>
           <td>
             {{ entry.user.name }}
             <span v-if="entry.isFormerMember" class="former-member-label">ehemaliges Mitglied</span>
@@ -118,6 +127,13 @@ function formatHitRate(hitRate) {
   return `${Math.round(hitRate * 100)}%`;
 }
 
+function rankRowClass(rank) {
+  if (rank === 1) return 'rank-row-gold';
+  if (rank === 2) return 'rank-row-silver';
+  if (rank === 3) return 'rank-row-bronze';
+  return '';
+}
+
 function formatDuration(seconds) {
   if (seconds == null) return '–';
   const minutes = Math.floor(seconds / 60);
@@ -183,6 +199,47 @@ function formatDuration(seconds) {
 
 .rank-cell {
   font-weight: 700;
+}
+
+.rank-medal {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.rank-row-gold {
+  background: rgba(255, 215, 0, 0.14);
+}
+
+.rank-row-silver {
+  background: rgba(192, 192, 192, 0.14);
+}
+
+.rank-row-bronze {
+  background: rgba(205, 127, 50, 0.14);
+}
+
+.rank-row-gold td {
+  border-bottom-color: rgba(255, 215, 0, 0.3);
+}
+
+.rank-row-silver td {
+  border-bottom-color: rgba(192, 192, 192, 0.3);
+}
+
+.rank-row-bronze td {
+  border-bottom-color: rgba(205, 127, 50, 0.3);
+}
+
+.ranking-table tbody tr.rank-row-gold:hover {
+  background: rgba(255, 215, 0, 0.22);
+}
+
+.ranking-table tbody tr.rank-row-silver:hover {
+  background: rgba(192, 192, 192, 0.22);
+}
+
+.ranking-table tbody tr.rank-row-bronze:hover {
+  background: rgba(205, 127, 50, 0.22);
 }
 
 .former-member-label {

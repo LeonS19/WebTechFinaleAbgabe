@@ -54,6 +54,12 @@
   flex-shrink: 0;
 }
 
+.group-list {
+  @include flex-col(0.75rem);
+  align-items: center;
+  width: 100%;
+}
+
 .group-btn {
   width: 3rem;
   height: 3rem;
