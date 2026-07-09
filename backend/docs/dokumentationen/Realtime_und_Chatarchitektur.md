@@ -108,7 +108,7 @@ Ein eigenes, schlankes JSON-Protokoll statt GraphQL, mit vier Typen:
 { "type": "error",   "message": "..." }
 ```
 
-`join` muss als erste Nachricht gesendet werden, da `chat.handler.js` `currentUser`/`currentChatId` erst danach setzt und `message`/`delete` ohne diesen Zustand ablehnt (siehe Schutz-der-Schnittstellen-Dokumentation, Abschnitt 4).
+`join` muss als erste Nachricht gesendet werden, da `chat.handler.js` `currentUser`/`currentChatId` erst danach setzt und `message`/`delete` ohne diesen Zustand ablehnt (siehe Schutz-der-Schnittstellen-Dokumentation, Abschnitt 4). `join` prüft dabei über `verifyChatMembership()` zusätzlich, ob der User tatsächlich Mitglied der zur `chatId` gehörenden Lerngruppe ist (siehe Schutz-der-Schnittstellen-Dokumentation, Abschnitt 4.3). Ein Nicht-Mitglied kann also weder mitschreiben noch mitlesen.
 
 ### 3.2 Server-seitige Verwaltung: `chatRooms`
 
@@ -195,4 +195,3 @@ Diese Frage ist explizit Teil der geforderten Reflexion ("Welche Anforderungen l
 - **In-Memory PubSub, nicht horizontal skalierbar**: `new PubSub()` aus `graphql-subscriptions` hält alle Events ausschließlich im Speicher des einen Node-Prozesses. Bei mehreren Backend-Instanzen (z. B. hinter einem Load Balancer) würden Events, die auf Instanz A publiziert werden, nicht bei Clients ankommen, die ihre Subscription auf Instanz B offen haben. Für Produktionsbetrieb mit mehreren Instanzen wäre ein verteilter PubSub (z. B. Redis-basiert über `graphql-redis-subscriptions`) nötig. Für den Rahmen dieser Abgabe (eine Backend-Instanz) ist das unkritisch.
 - **`chatRooms`-Map ebenfalls In-Memory**: Analoge Einschränkung für den Chat; bei mehreren Backend-Instanzen würden Nachrichten nur an Clients ausgeliefert, die zufällig mit derselben Instanz verbunden sind.
 - **Keine Wiederherstellung offener Chat-Verbindungen nach Server-Neustart**: Verbindungen im `chatRooms`-Set gehen bei einem Neustart verloren; Clients müssen erneut `join` senden. Das übernimmt aktuell nicht automatisch die Web Component, sondern erfordert einen manuellen Reconnect (siehe Web-Components-Dokumentation zur `_connectionId`-Logik).
-- **`join` ohne Mitgliedschaftsprüfung**: Siehe Schutz-der-Schnittstellen-Dokumentation, Abschnitt 6; betrifft nur passives Mitlesen, nicht Schreiben oder Löschen.

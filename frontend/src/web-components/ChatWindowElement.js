@@ -9,6 +9,7 @@ class ChatWindowElement extends HTMLElement {
     this._connected = false
     this._rendered = false
     this._loadingMore = false
+    this._hasMoreMessages = true
     this._connectionId = 0
   }
 
@@ -99,6 +100,7 @@ class ChatWindowElement extends HTMLElement {
     const myConnectionId = this._connectionId
 
     this.resetMessages()
+    this._hasMoreMessages = true
     this.loadMessages(myConnectionId)
 
     this._ws = new WebSocket('ws://localhost:3000/chat')
@@ -263,7 +265,7 @@ class ChatWindowElement extends HTMLElement {
   }
 
   async loadMoreMessages() {
-    if (this._loadingMore || this._messages.length === 0) return
+    if (this._loadingMore || this._messages.length === 0 || !this._hasMoreMessages) return
     this._loadingMore = true
 
     const oldestId = this._messages[0]?.id
@@ -299,16 +301,40 @@ class ChatWindowElement extends HTMLElement {
       const data = await res.json()
       const messages = data?.data?.getMessages ?? []
 
+      // Server liefert kein einziges Ergebnis mehr — Anfang der Unterhaltung
+      // erreicht. Ohne dieses Flag würde jeder weitere Scroll-an-den-Rand-Event
+      // erneut denselben Request mit demselben Cursor auslösen (siehe Bugfix:
+      // endloses Nachladen am Anfang der Konversation).
       if (messages.length === 0) {
+        this._hasMoreMessages = false
         this._loadingMore = false
         return
       }
 
-      const ordered = [...messages].reverse()
+      // Defensive Deduplizierung: falls durch Timing (paralleler Reconnect,
+      // ein spät ankommender Retry) doch mal dieselbe Seite zweimal ankäme,
+      // sollen keine doppelten Nachrichten im UI/State landen.
+      const knownIds = new Set(this._messages.map((m) => m.id))
+      const newMessages = messages.filter((m) => !knownIds.has(m.id))
+
+      if (newMessages.length === 0) {
+        this._hasMoreMessages = false
+        this._loadingMore = false
+        return
+      }
+
+      // WICHTIG: Hier NICHT reversen. newMessages kommt vom Server bereits
+      // absteigend sortiert (neueste dieser Seite zuerst). unshift()/prepend()
+      // fügen jeweils ganz vorne ein — verarbeitet man aufsteigend sortierte
+      // Daten damit, landet das zuletzt verarbeitete (= neueste) Element fälschlich
+      // ganz vorne, die Reihenfolge kippt effektiv um (Bugfix: vertauschte
+      // Reihenfolge beim Nachladen älterer Nachrichten). Die serverseitige
+      // DESC-Reihenfolge direkt zu verarbeiten kompensiert das automatisch
+      // zur richtigen aufsteigenden Endreihenfolge.
       const list = this.shadowRoot.querySelector('.messages')
       const oldScrollHeight = list.scrollHeight
 
-      ordered.forEach((m) => {
+      newMessages.forEach((m) => {
         const normalized = { ...m, senderName: m.sender?.name, senderRole: m.senderRole }
         this._messages.unshift(normalized)
         this.prependMessage(normalized)
