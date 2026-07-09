@@ -10,6 +10,12 @@ export async function getSenderRole(chatId, userId) {
   return membership?.role || null;
 }
 
+export async function verifyChatMembership(chatId, userId) {
+  const studyGroup = await findByChatId(chatId)
+  if (!studyGroup) throw new Error('Lerngruppe nicht gefunden')
+  await checkPermission(userId, studyGroup.id, ['ADMIN', 'MODERATOR', 'MEMBER'])
+}
+
 export async function saveMessage(chatId, senderId, content) {
   const studyGroup = await findByChatId(chatId);
   if (!studyGroup) {
@@ -29,20 +35,29 @@ export async function getMessages(chatId, limit = 50, before = null, userId) {
 
   // 2. Filter aufbauen
   const filter = { chat_id: chatId };
-  
+
   if (before) {
     // Nachricht mit dieser ID holen um ihr sent_at zu bekommen
     const beforeMessage = await Message.findById(before);
     if (!beforeMessage) {
       throw new Error('Referenz-Nachricht nicht gefunden');
     }
-    // Nur Nachrichten die ÄLTER sind als diese
-    filter.sent_at = { $lt: beforeMessage.sent_at };
+    // Nur Nachrichten die ÄLTER sind als diese. sent_at allein reicht als
+    // Sortier-/Cursor-Kriterium nicht aus: haben zwei Nachrichten exakt
+    // denselben Zeitstempel (z.B. durch seed:demo im selben Millisekunden-
+    // Fenster erzeugt), wäre die Reihenfolge zwischen zwei Queries nicht
+    // stabil und Nachrichten könnten übersprungen oder doppelt geliefert
+    // werden. _id ist dagegen garantiert eindeutig und monoton aufsteigend
+    // (MongoDB ObjectId), daher als Tie-Breaker ergänzt: bei gleichem
+    // sent_at entscheidet zusätzlich die _id.
+    filter.$or = [
+      { sent_at: { $lt: beforeMessage.sent_at } },
+      { sent_at: beforeMessage.sent_at, _id: { $lt: beforeMessage._id } },
+    ];
   }
 
-  // 3. Nachrichten holen
   return await Message.find(filter)
-    .sort({ sent_at: -1 })  // neueste zuerst
+    .sort({ sent_at: -1, _id: -1 })  // neueste zuerst
     .limit(limit);
 }
 
