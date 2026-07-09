@@ -30,12 +30,15 @@
         ref="combatViewRef"
         style="flex: 1"
         :enemy="enemyForView"
+        :combatId="currentCombat?.id"
         :hand="handForView"
         :deckCount="deckCount"
         :playerHp="playerHp"
         :playerMaxHp="playerMaxHp"
         :enemyHp="enemyHp"
         :characterId="selectedCharacter"
+        :playerLevel="playerLevel"
+        :username="username"
         @cardPlayed="onCardPlayed"
         @endTurn="onEndTurn"
         @runAbandoned="onAbandonRun"
@@ -62,6 +65,7 @@ const playerIdlePreviews = import.meta.glob('../../assets/characters/player/play
 
 const props = defineProps({
   studyGroupId: { type: String, required: true },
+  username: { type: String, default: '' },
 })
 const emit = defineEmits(['runEnded'])
 
@@ -102,6 +106,7 @@ const GET_ACTIVE_RUN = gql`
       id
       successful
       currentPosition
+      characterId
       player {
         level
         maxHealth
@@ -115,6 +120,8 @@ const GET_ACTIVE_RUN = gql`
         isPlayerTurn
         status
         deckCount
+        fieldPosition
+        enemyLevel
         enemy {
           name
           type
@@ -176,11 +183,12 @@ const ON_RUN_UPDATED = gql`
 // D.h. der Klick auf ein Startfeld dient bei einem bestehenden Run praktisch nur
 // als "Weiter"-Klick — angezeigt wird danach trotzdem immer der korrekte Fortschritt.
 const START_RUN = gql`
-  mutation StartRun($studyGroupId: ID!, $selectedStartFieldPosition: Int!) {
-    startRun(studyGroupId: $studyGroupId, selectedStartFieldPosition: $selectedStartFieldPosition) {
+  mutation StartRun($studyGroupId: ID!, $selectedStartFieldPosition: Int!, $characterId: Int!) {
+    startRun(studyGroupId: $studyGroupId, selectedStartFieldPosition: $selectedStartFieldPosition, characterId: $characterId) {
       id
       successful
       currentPosition
+      characterId
       player {
         level
         maxHealth
@@ -224,6 +232,8 @@ const MOVE_TO_FIELD = gql`
         isPlayerTurn
         status
         deckCount
+        fieldPosition
+        enemyLevel
         enemy {
           name
           type
@@ -259,6 +269,8 @@ const ANSWER_CARD = gql`
         isPlayerTurn
         status
         deckCount
+        fieldPosition
+        enemyLevel
         enemy {
           name
           type
@@ -294,6 +306,8 @@ const END_TURN = gql`
         isPlayerTurn
         status
         deckCount
+        fieldPosition
+        enemyLevel
         enemy {
           name
           type
@@ -343,6 +357,8 @@ const currentPosition = computed(() => run.value?.currentPosition ?? null)
 const playerHp = computed(() => run.value?.player?.currentHealth ?? 100)
 const playerMaxHp = computed(() => run.value?.player?.maxHealth ?? 100)
 
+const playerLevel = computed(() => run.value?.player?.level ?? 1)
+
 // CombatView erwartet enemy.baseHealth (Anzeige-Prop), das Backend liefert enemy.maxHealth (CombatEnemy) — hier gemappt
 const enemyForView = computed(() => {
   if (!currentCombat.value) return null
@@ -350,6 +366,9 @@ const enemyForView = computed(() => {
     name: currentCombat.value.enemy.name,
     baseHealth: currentCombat.value.enemy.maxHealth,
     type: currentCombat.value.enemy.type, // ← neu
+    baseDamage: currentCombat.value.enemy.baseDamage,
+    // "Level" des Gegners = Position des Feldes auf der Map, auf dem der Kampf ausgelöst wurde
+    level: currentCombat.value.enemyLevel,
   }
 })
 
@@ -379,6 +398,7 @@ watch(
     if (!activeRun) return
 
     run.value = activeRun
+    selectedCharacter.value = activeRun.characterId
     mapPhase.value = 'select-next'
 
     if (activeRun.activeCombat) {
@@ -452,6 +472,7 @@ async function onFieldSelected(field) {
       const { data } = await startRunMutation({
         studyGroupId: props.studyGroupId,
         selectedStartFieldPosition: field.position,
+        characterId: selectedCharacter.value,
       })
       run.value = data.startRun
       mapPhase.value = 'select-next'
@@ -481,6 +502,7 @@ async function onFieldSelected(field) {
 async function onCardPlayed({ card, answer }) {
   actionError.value = null
   let result
+  const playerHpBefore = run.value?.player?.currentHealth ?? 0
 
   try {
     const { data } = await answerCardMutation({
@@ -492,12 +514,17 @@ async function onCardPlayed({ card, answer }) {
 
     // Overlay-Feedback (richtig/falsch + korrekte Antwort) und Sprite-Animation
     // laufen parallel; wir warten auf beides, bevor der State weiterverarbeitet wird.
+    // Schaden für die fliegende Zahl: bei richtiger Antwort der ausgeteilte Schaden
+    // (result.damageDealt), bei falscher Antwort der Schaden, den der Gegner austeilt.
+    const damageForAnimation = result.correct
+      ? result.damageDealt
+      : currentCombat.value?.enemy?.baseDamage
     await Promise.all([
       combatViewRef.value?.resolveAnswer({
         correct: result.correct,
         correctAnswer: result.correctAnswer,
       }),
-      combatViewRef.value?.playCombatAnimation(result.correct),
+      combatViewRef.value?.playCombatAnimation(result.correct, damageForAnimation),
     ])
 
     // Server liefert Hand/Gegner-HP/Status jetzt komplett aktualisiert mit —
@@ -517,6 +544,17 @@ async function onCardPlayed({ card, answer }) {
     // direktes Zuweisen einer Property crasht deshalb. Stattdessen ein neues Objekt bauen.
     if (run.value) {
       run.value = { ...run.value, player: result.player }
+    }
+
+    // Heilung erkennen (Perfekt-Runden-Bonus): nur über die HP-Differenz, da der Server
+    // keinen expliziten healAmount liefert. Nur relevant, solange der Kampf noch läuft —
+    // bei Sieg (Level-Up) wird maxHealth/currentHealth neu skaliert, das ist keine "Heilung".
+    if (result.combat.status === 'ACTIVE') {
+      const healthDiff = result.player.currentHealth - playerHpBefore
+      if (healthDiff > 0) {
+        combatViewRef.value?.spawnHealNumber(healthDiff)
+        combatViewRef.value?.showPerfectRoundBanner()
+      }
     }
 
     if (result.combat.status === 'WON' || result.combat.status === 'LOST') {
@@ -539,7 +577,7 @@ async function onEndTurn() {
     const { data } = await endTurnMutation({ runId: run.value.id })
     const result = data.endTurn
 
-    await combatViewRef.value?.playCombatAnimation(false)
+    await combatViewRef.value?.playCombatAnimation(false, currentCombat.value?.enemy?.baseDamage)
 
     const previousHandIds = new Set(hand.value.map((c) => c.id))
     const newHand = result.combat.hand.map((c) => ({

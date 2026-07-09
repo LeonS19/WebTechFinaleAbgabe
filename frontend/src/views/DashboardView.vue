@@ -37,6 +37,7 @@
               <RunView
                 v-else-if="activeView === 'run'"
                 :studyGroupId="selectedGroup.id"
+                :username="currentUser?.name"
                 @runEnded="onRunEnded"
               />
               <IndexCardsView
