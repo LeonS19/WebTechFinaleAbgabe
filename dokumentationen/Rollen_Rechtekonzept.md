@@ -19,7 +19,7 @@ Rolle: ADMIN | MODERATOR | MEMBER
 
 ### 2.1 Zwei Wege zum Token
 
-Beide Login-Wege enden im selben `token.service.js`, das die Anwendung mit einem eigenen JWT versorgt — unabhängig davon, wie sich der Nutzer authentifiziert hat:
+Beide Login-Wege enden im selben `token.service.js`, das die Anwendung mit einem eigenen JWT versorgt, unabhängig davon, wie sich der Nutzer authentifiziert hat:
 
 **Passkeys (WebAuthn)**, `passkey.service.js`:
 
@@ -31,7 +31,7 @@ Beide Login-Wege enden im selben `token.service.js`, das die Anwendung mit einem
 **Google OAuth**, `oauth.service.js`:
 
 1. `handleGoogleCallback(code)` tauscht den Authorization Code gegen Google-Tokens und verifiziert das ID-Token.
-2. User wird per `payload.sub` (Googles User-ID) gefunden oder neu angelegt — in einer Transaktion, um Race Conditions bei parallelen Erst-Logins zu vermeiden.
+2. User wird per `payload.sub` (Googles User-ID) gefunden oder neu angelegt.
 3. Es wird **nicht** direkt ein JWT ausgestellt, sondern zunächst ein kurzlebiger, einmal verwendbarer Auth-Code erzeugt (`authCode.service.js`, `createAuthCode(userId)`, 60 Sekunden gültig). Dieser Code wird per Redirect als Query-Parameter ans Frontend übergeben (`FRONTEND_URL/auth/callback?code=...`), **nicht** das JWT selbst.
 4. Das Frontend tauscht den Code anschließend über `POST /auth/exchange` gegen das eigentliche JWT ein (`consumeAuthCode(code)` → `generateToken({ userId })`). Der Code wird dabei sofort invalidiert (Einmalgebrauch, Replay-Schutz), unabhängig vom Erfolg des Aufrufs.
 
@@ -91,7 +91,7 @@ export async function createContext({ req, token: directToken } = {}) {
 }
 ```
 
-Wird bei jedem GraphQL-Request (Query, Mutation, Subscription) von Apollo Server aufgerufen und liefert den `context`, den alle Resolver als drittes Argument erhalten. Anders als bei REST gibt es hier keinen harten Abbruch bei fehlendem Token — `context.user` ist dann einfach `null`, und jeder Resolver prüft das selbst:
+Wird bei jedem GraphQL-Request (Query, Mutation, Subscription) von Apollo Server aufgerufen und liefert den `context`, den alle Resolver als drittes Argument erhalten. Anders als bei REST gibt es hier keinen harten Abbruch bei fehlendem Token `context.user` ist dann einfach `null`, und jeder Resolver prüft das selbst:
 
 ```js
 getMyStudyGroups: async (_, __, context) => {
@@ -100,7 +100,7 @@ getMyStudyGroups: async (_, __, context) => {
 }
 ```
 
-Das ist notwendig, weil GraphQL alle Operationen über einen einzigen Endpunkt (`POST /graphql`) abwickelt — ein globaler 401 auf HTTP-Ebene wie bei REST würde auch öffentlich zugängliche Queries blockieren. Die Prüfung wandert deshalb in jeden einzelnen Resolver.
+Das ist notwendig, weil GraphQL alle Operationen über einen einzigen Endpunkt (`POST /graphql`) abwickelt, ein globaler 401 auf HTTP-Ebene wie bei REST würde auch öffentlich zugängliche Queries blockieren. Die Prüfung wandert deshalb in jeden einzelnen Resolver.
 
 ## 4. Autorisierung: `checkPermission()`
 
@@ -122,11 +122,11 @@ export async function checkPermission(userId, studyGroupId, requiredRoles) {
 Ablauf:
 
 1. Mitgliedschaft des Users in der jeweiligen Lerngruppe wird per SQL-Lookup (`membership`-Tabelle, zusammengesetzter Schlüssel `user_id` + `study_group_id`) geholt.
-2. Existiert keine Mitgliedschaft, wird abgebrochen — wer nicht in der Gruppe ist, hat unabhängig von der Rolle keinen Zugriff.
+2. Existiert keine Mitgliedschaft, wird abgebrochen. Wer nicht in der Gruppe ist, hat unabhängig von der Rolle keinen Zugriff.
 3. Die Rolle der Mitgliedschaft wird gegen eine vom Aufrufer übergebene Liste erlaubter Rollen geprüft.
-4. Bei Erfolg wird die **gesamte Mitgliedschaft zurückgegeben**, nicht nur `true`/`false` — das erlaubt Aufrufern, die eigene Rolle direkt weiterzuverwenden, ohne einen zweiten Datenbank-Request zu brauchen (siehe `removeMember`/`updateMembershipRole` unten).
+4. Bei Erfolg wird die **gesamte Mitgliedschaft zurückgegeben**, nicht nur `true`/`false` das erlaubt Aufrufern, die eigene Rolle direkt weiterzuverwenden, ohne einen zweiten Datenbank-Request zu brauchen (siehe `removeMember`/`updateMembershipRole` unten).
 
-Diese eine Funktion wird konsequent aus allen Service-Schichten heraus aufgerufen — REST (`file.service.js`) genauso wie GraphQL (`studyGroup.service.js`, `indexCard.service.js`, `run.service.js`). Dadurch ist Autorisierung an einer einzigen Stelle im Code gebündelt, unabhängig davon, über welche Schnittstelle der Request kam.
+Diese eine Funktion wird konsequent aus allen Service-Schichten heraus aufgerufen. REST (`file.service.js`) genauso wie GraphQL (`studyGroup.service.js`, `indexCard.service.js`, `run.service.js`). Dadurch ist Autorisierung an einer einzigen Stelle im Code gebündelt, unabhängig davon, über welche Schnittstelle der Request kam.
 
 ### 4.1 Rollen-Anforderungen je Aktion (Beispiele)
 
@@ -167,11 +167,11 @@ export async function removeMember(studyGroupId, targetUserId, requestingUserId)
 }
 ```
 
-`checkPermission` stellt hier nur sicher, dass der Anfragende überhaupt ADMIN oder MODERATOR ist. Die feinere Regel — ein Moderator darf keine anderen Moderatoren oder den Admin entfernen, nur einfache Mitglieder — wird direkt danach im Service anhand der zurückgegebenen `requestingMembership.role` geprüft. Genauso bei `updateMembershipRole`: `checkPermission` verlangt `ADMIN`, zusätzlich wird verhindert, dass sich der Admin selbst degradiert oder ein anderer Admin über diese Funktion umgestuft wird.
+`checkPermission` stellt hier nur sicher, dass der Anfragende überhaupt ADMIN oder MODERATOR ist. Die feinere Regel, ein Moderator darf keine anderen Moderatoren oder den Admin entfernen, nur einfache Mitglieder, wird direkt danach im Service anhand der zurückgegebenen `requestingMembership.role` geprüft. Genauso bei `updateMembershipRole`: `checkPermission` verlangt `ADMIN`, zusätzlich wird verhindert, dass sich der Admin selbst degradiert oder ein anderer Admin über diese Funktion umgestuft wird.
 
 ### 4.3 Sonderfall: Besitz statt Rolle (`run.service.js`)
 
-Nicht jede geschützte Aktion prüft eine Rolle — manche prüfen stattdessen **Eigentümerschaft**:
+Nicht jede geschützte Aktion prüft eine Rolle, manche prüfen stattdessen **Eigentümerschaft**:
 
 ```js
 export async function moveToField(runId, userId, targetPosition) {
@@ -184,7 +184,7 @@ export async function moveToField(runId, userId, targetPosition) {
 }
 ```
 
-`moveToField` und `endRun` rufen `checkPermission()` bewusst **nicht** erneut auf, sondern vergleichen nur `run.userId === userId`. Das genügt, weil ein Run nur gestartet werden konnte, wenn `startRun()` zuvor bereits erfolgreich `checkPermission(userId, studyGroupId, [...])` durchlaufen hat — die Gruppenmitgliedschaft ist also implizit schon zum Start-Zeitpunkt geprüft worden. Eine erneute Prüfung bei jedem Zug wäre redundant, da niemand außer dem Run-Ersteller überhaupt eine `runId` besitzt, mit der er etwas anfangen könnte.
+`moveToField` und `endRun` rufen `checkPermission()` bewusst **nicht** erneut auf, sondern vergleichen nur `run.userId === userId`. Das genügt, weil ein Run nur gestartet werden konnte, wenn `startRun()` zuvor bereits erfolgreich `checkPermission(userId, studyGroupId, [...])` durchlaufen hat. Die Gruppenmitgliedschaft ist also implizit schon zum Start-Zeitpunkt geprüft worden. Eine erneute Prüfung bei jedem Zug wäre redundant, da niemand außer dem Run-Ersteller überhaupt eine `runId` besitzt, mit der er etwas anfangen könnte.
 
 ## 5. Ende-zu-Ende: Ablauf einer geschützten Abfrage
 
@@ -284,7 +284,7 @@ flowchart TB
 
 ## 7. Sonderfälle und Konsistenzregeln
 
-- **Admin-Nachfolge beim Verlassen der Gruppe** (`leaveStudyGroup`): Verlässt der letzte Admin eine Gruppe mit noch anderen Mitgliedern, wird automatisch ein Nachfolger bestimmt — bevorzugt der dienstälteste Moderator, sonst das dienstälteste Mitglied (`joinedAt` als Sortierkriterium). Verlässt der Admin als letztes verbleibendes Mitglied die Gruppe, wird die gesamte Gruppe gelöscht und ein `onStudyGroupDeleted`-Event publiziert, damit andere Nutzer mit offenem Suchfenster die Gruppe nicht mehr als beitretbar sehen.
-- **Rollenänderung ist eingeschränkt**: `updateMembershipRole` erlaubt ausdrücklich nur den Wechsel zwischen `MODERATOR` und `MEMBER`. Ein Admin kann so weder sich selbst degradieren noch einen anderen Admin über diese Funktion umstufen — ein Admin-Wechsel passiert ausschließlich implizit über die Nachfolgeregelung beim Verlassen der Gruppe.
-- **`creator_id` kommt nie vom Client**: In `createIndexCard` wird `creator_id` immer serverseitig aus dem verifizierten `userId` gesetzt, nicht aus den vom Frontend übergebenen Daten übernommen — verhindert, dass sich ein Nutzer als Ersteller einer fremden Karte ausgibt.
+- **Admin-Nachfolge beim Verlassen der Gruppe** (`leaveStudyGroup`): Verlässt der letzte Admin eine Gruppe mit noch anderen Mitgliedern, wird automatisch ein Nachfolger bestimmt. Bevorzugt der dienstälteste Moderator, sonst das dienstälteste Mitglied (`joinedAt` als Sortierkriterium). Verlässt der Admin als letztes verbleibendes Mitglied die Gruppe, wird die gesamte Gruppe gelöscht und ein `onStudyGroupDeleted`-Event publiziert, damit andere Nutzer mit offenem Suchfenster die Gruppe nicht mehr als beitretbar sehen.
+- **Rollenänderung ist eingeschränkt**: `updateMembershipRole` erlaubt ausdrücklich nur den Wechsel zwischen `MODERATOR` und `MEMBER`. Ein Admin kann so weder sich selbst degradieren noch einen anderen Admin über diese Funktion umstufen. Ein Admin-Wechsel passiert ausschließlich implizit über die Nachfolgeregelung beim Verlassen der Gruppe.
+- **`creator_id` kommt nie vom Client**: In `createIndexCard` wird `creator_id` immer serverseitig aus dem verifizierten `userId` gesetzt, nicht aus den vom Frontend übergebenen Daten übernommen, das verhindert, dass sich ein Nutzer als Ersteller einer fremden Karte ausgibt.
 - **Eigentümerschaft ergänzt, ersetzt aber nicht Rollenprüfung**: Passkey-Löschung (`removePasskey`) prüft reine Eigentümerschaft (`userId === passkey.userId`) ganz ohne `checkPermission()`, da Passkeys nicht gruppengebunden sind, sondern direkt am User hängen.

@@ -1,5 +1,3 @@
-import { cacheMessages, getCachedMessages } from '../services/offlineStorage.service.js'
-
 class ChatWindowElement extends HTMLElement {
   constructor() {
     super()
@@ -10,6 +8,15 @@ class ChatWindowElement extends HTMLElement {
     this._rendered = false
     this._loadingMore = false
     this._connectionId = 0
+    this.onMessageReceived = null
+    // Wird mit dem Nachrichten-Array aufgerufen, sobald loadMessages() erfolgreich
+    // war — die Component selbst weiß nicht, WIE gecacht wird, das entscheidet
+    // die einbindende Anwendung (siehe ChatPanel.vue).
+    this.onMessagesLoaded = null
+    // Async-Funktion (chatId) => Nachrichten-Array, wird im Offline-Fallback von
+    // loadMessages() aufgerufen. Bleibt sie unbesetzt, gibt es im Fehlerfall
+    // einfach keinen Offline-Fallback statt eines Absturzes.
+    this.loadCachedMessages = null
   }
 
   static get observedAttributes() {
@@ -42,14 +49,19 @@ class ChatWindowElement extends HTMLElement {
   connectedCallback() {
     this.render()
     this._rendered = true
-    if (this.chatId && this.token) {
-      this.connect()
-    }
 
     this._onlineHandler = () => this.handleOnline()
     this._offlineHandler = () => this.handleOffline()
     window.addEventListener('online', this._onlineHandler)
     window.addEventListener('offline', this._offlineHandler)
+  }
+
+  // Von der einbindenden Anwendung aufzurufen, NACHDEM onMessageReceived /
+  // onMessagesLoaded / loadCachedMessages gesetzt wurden.
+  start() {
+    if (this.chatId && this.token) {
+      this.connect()
+    }
   }
 
   disconnectedCallback() {
@@ -119,12 +131,14 @@ class ChatWindowElement extends HTMLElement {
         const msg = data.message
         const normalized = {
           ...msg,
+          chatId: msg.chatId || msg.chat_id,
           sentAt: msg.sent_at || msg.sentAt,
           senderName: msg.senderName,
           senderRole: msg.senderRole,
         }
         this._messages.push(normalized)
         this.appendMessage(normalized)
+        if (this.onMessageReceived) this.onMessageReceived(normalized)
       } else if (data.type === 'delete') {
         this._messages = this._messages.filter((m) => m.id !== data.messageId)
         const el = this.shadowRoot.querySelector(`[data-message-id="${data.messageId}"]`)
@@ -231,9 +245,10 @@ class ChatWindowElement extends HTMLElement {
       const data = await res.json()
       const messages = data?.data?.getMessages ?? []
 
-      // erfolgreich geladene Nachrichten cachen
+      // erfolgreich geladene Nachrichten cachen — WIE/OB gecacht wird, entscheidet
+      // die einbindende Anwendung über diesen Hook, nicht die Component selbst.
       const normalizedForCache = messages.map((m) => ({ ...m, senderName: m.sender?.name, senderRole: m.senderRole }))
-      cacheMessages(normalizedForCache)
+      if (this.onMessagesLoaded) this.onMessagesLoaded(normalizedForCache)
 
       // Veraltete Antwort (ein neuerer connect() lief inzwischen) verwerfen
       if (connectionId !== this._connectionId) return
@@ -247,8 +262,9 @@ class ChatWindowElement extends HTMLElement {
       })
     } catch (err) {
       console.error('Fehler beim Laden der Nachrichten:', err)
+      if (!this.loadCachedMessages) return
       try {
-        const cached = await getCachedMessages(chatId)
+        const cached = await this.loadCachedMessages(chatId)
         if (connectionId !== this._connectionId) return
         const ordered = [...cached].sort((a, b) => new Date(a.sentAt) - new Date(b.sentAt))
         ordered.forEach((m) => {

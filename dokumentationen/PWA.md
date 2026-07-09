@@ -10,7 +10,7 @@ Die Anwendung ist als installierbare Progressive Web App umgesetzt. Dafür komme
 | GraphQL-Offline-Cache | Eigener Apollo Link + IndexedDB | Fachliche Daten (Lerngruppen, Karteikarten, Rangliste, Runs) |
 | Query-Fallback | `useOfflineAwareQuery` Composable | Automatisches Umschalten zwischen Live-Daten und Cache |
 
-Der Grund für diese Zweiteilung: Workbox cacht auf Basis von URL und HTTP-Methode. Der GraphQL-Endpunkt (`/graphql`) ist aber für alle Queries derselbe Endpunkt (POST) — Workbox kann also nicht zwischen "Karteikarten abfragen" und "Rangliste abfragen" unterscheiden. Für strukturierte, fachliche Offline-Daten wurde deshalb ein eigener Layer auf Basis von IndexedDB gebaut.
+Der Grund für diese Zweiteilung: Workbox cacht auf Basis von URL und HTTP-Methode. Der GraphQL-Endpunkt (`/graphql`) ist aber für alle Queries derselbe Endpunkt (POST). Workbox kann also nicht zwischen "Karteikarten abfragen" und "Rangliste abfragen" unterscheiden. Für strukturierte, fachliche Offline-Daten wurde deshalb ein eigener Layer auf Basis von IndexedDB gebaut.
 
 ## 2. Service Worker & Manifest
 
@@ -27,8 +27,8 @@ Konfiguriert über `VitePWA` mit `registerType: 'autoUpdate'` (Service Worker ak
 
 | Route | Strategie | Begründung |
 | --- | --- | --- |
-| `GET /api/v1/index-cards/*/attachments/:id` (Datei-Download) | Cache First | Einmal hochgeladene Dateien ändern sich nie — Netzwerk-Request ist unnötig, sobald gecacht |
-| `GET /api/v1/index-cards/*/attachments` (Anhänge-Liste) | Network First | Liste kann sich ändern (neue Uploads) — aktuelle Daten haben Vorrang |
+| `GET /api/v1/index-cards/*/attachments/:id` (Datei-Download) | Cache First | Einmal hochgeladene Dateien ändern sich nie. Netzwerk-Request ist unnötig, sobald gecacht |
+| `GET /api/v1/index-cards/*/attachments` (Anhänge-Liste) | Network First | Liste kann sich ändern (neue Uploads)aktuelle Daten haben Vorrang |
 | `POST /graphql` | Network First, 5s Timeout | Fallback nur für den Fall eines Netzwerkfehlers; eigentliche Offline-Fähigkeit läuft über den IndexedDB-Layer, s. Abschnitt 3 |
 
 ## 3. GraphQL-Offline-Cache
@@ -43,7 +43,7 @@ Dateien: `offlineCacheLink.js`, `offlineStorage.service.js`
 - `getRanking` → `cacheRanking()`
 - `getRuns` → `cacheRuns()`, mit vorheriger Transformation (siehe unten)
 
-**Sonderfall Runs — verschachtelte vs. flache Gruppen-ID**
+**Sonderfall Runs: verschachtelte vs. flache Gruppen-ID**
 
 `getRuns` liefert die Lerngruppe verschachtelt zurück (`run.studyGroup.id`), da das GraphQL-Schema die Beziehung so modelliert. Der IndexedDB-Index `study_group_id` auf dem `runs`-Store erwartet dagegen ein flaches Feld `studyGroupId` auf dem Objekt selbst, da IndexedDB-Indizes nicht direkt auf verschachtelte Pfade zugreifen können, ohne dass der Index explizit mit `keyPath: 'studyGroup.id'` angelegt wurde. Ursprünglich fehlte diese Umwandlung: Runs wurden zwar gespeichert, aber der Index fand beim Lesen nie einen Treffer, da `studyGroupId` schlicht `undefined` war.
 

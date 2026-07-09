@@ -40,7 +40,7 @@ Attribute statt Props, da Custom Elements nur Strings als Attribute unterstütze
 
 - Klick auf die Karte dreht sie per CSS `transform: rotateY(180deg)` (reine Optik, kein Datenverlust, da beide Seiten weiterhin im DOM liegen).
 - Ist `blocked="true"` gesetzt, wird weder geflippt noch die Detail-Ansicht geöffnet. Stattdessen wird ein `index-card-blocked`-Event ausgelöst.
-- Klick auf den Detail-Button löst ein `index-card-detail`-Event mit `detail: { cardId }` aus, statt selbst eine Detailansicht zu rendern — die Component bleibt bewusst reine Anzeige- und Interaktionslogik, das Öffnen eines Modals ist Aufgabe der Vue-Elternkomponente.
+- Klick auf den Detail-Button löst ein `index-card-detail`-Event mit `detail: { cardId }` aus, statt selbst eine Detailansicht zu rendern. Die Component bleibt bewusst reine Anzeige- und Interaktionslogik, das Öffnen eines Modals ist Aufgabe der Vue-Elternkomponente.
 
 ### Custom Events
 
@@ -66,7 +66,7 @@ Beide Events werden mit `bubbles: true, composed: true` dispatcht, damit sie das
 />
 ```
 
-`hasActiveRun` kommt aus einer gepollten GraphQL-Query (`getActiveRun`, `pollInterval: 5000`) und sperrt alle Karten, sobald der Nutzer einen aktiven Run gestartet hat — das verhindert, dass er während eines Kampfes die Antworten der eigenen Karteikarten nachschlägt. Der Blockier-Versuch selbst wird zusätzlich als kleiner Anti-Cheat-Hinweis quittiert: `handleBlockedEvent` öffnet einen Wikipedia-Artikel zum Stichwort Täuschung und zeigt eine Warnmeldung im UI.
+`hasActiveRun` kommt aus einer gepollten GraphQL-Query (`getActiveRun`, `pollInterval: 5000`) und sperrt alle Karten, sobald der Nutzer einen aktiven Run gestartet hat. Das verhindert, dass er während eines Kampfes die Antworten der eigenen Karteikarten nachschlägt. Der Blockier-Versuch selbst wird zusätzlich als kleiner Anti-Cheat-Hinweis quittiert: `handleBlockedEvent` öffnet einen Wikipedia-Artikel zum Stichwort Täuschung und zeigt eine Warnmeldung im UI.
 
 ## 3. `<chat-window>` (`ChatWindowElement.js`)
 
@@ -83,21 +83,38 @@ Beide Events werden mit `bubbles: true, composed: true` dispatcht, damit sie das
 
 Die Component verbindet zwei Kommunikationswege, die im PROJEKT.md-Abschnitt "Sonderfall Chat" architektonisch begründet sind:
 
-- **Historisches Laden** (`getMessages`, GraphQL Query, paginiert über einen `before`-Cursor): läuft über einen eigenen, direkten `fetch()`-Aufruf gegen `/graphql` — nicht über Apollo, da die Component außerhalb des Vue-/Apollo-Kontexts lebt.
+- **Historisches Laden** (`getMessages`, GraphQL Query, paginiert über einen `before`-Cursor): läuft über einen eigenen, direkten `fetch()`-Aufruf gegen `/graphql`. Nicht über Apollo, da die Component außerhalb des Vue-/Apollo-Kontexts lebt.
 - **Live-Nachrichten** (senden, empfangen, löschen): laufen über einen rohen WebSocket (`ws://localhost:3000/chat`), nicht über GraphQL Subscriptions.
 
 ### Offline-Anbindung
 
-`loadMessages()` cached jede erfolgreich geladene Historie direkt über `cacheMessages()` aus `offlineStorage.service.js`. Schlägt der `fetch()`-Aufruf fehl (Offline-Fall), greift `loadMessages()` im `catch`-Block auf `getCachedMessages(chatId)` zurück und zeigt den Status `Offline` an. Live-Nachrichten über den WebSocket werden dagegen nicht zusätzlich in IndexedDB geschrieben — sie existieren nur, solange die Verbindung steht.
+`loadMessages()` cached jede erfolgreich geladene Historie, live über den WebSocket empfangene Nachrichten werden ebenfalls sofort gecacht (siehe `onMessageReceived`-Hook unten). Schlägt der `fetch()`-Aufruf fehl (Offline-Fall), greift `loadMessages()` im `catch`-Block auf den Cache zurück und zeigt den Status `Offline` an. Damit stehen auch Nachrichten, die während einer offenen, aktiven Chat-Sitzung eintrafen, offline wieder zur Verfügung, nicht nur die beim letzten historischen Laden abgerufenen.
+
+Die Component selbst importiert `offlineStorage.service.js` dabei bewusst **nicht** direkt, um framework-unabhängig einsetzbar zu bleiben (siehe eigener Abschnitt zu den Caching-Hooks weiter unten).
 
 ### Verbindungs-Handling und behobene Bugs
 
 Beim Wechsel der Lerngruppe ändert sich `chat-id` (und oft gleichzeitig `role`). Zwei Aspekte sorgen dafür, dass daraus kein inkonsistenter Zustand entsteht:
 
-- `attributeChangedCallback` reagiert bewusst nur auf `chat-id`/`token`, nicht auf jede Attributänderung — sonst würde ein gleichzeitiger `role`-Wechsel einen zweiten, parallelen `connect()`-Aufruf auslösen.
-- Eine hochgezählte `_connectionId` ("Verbindungs-Generation") wird bei jedem `connect()` erhöht. Jede laufende `loadMessages()`-Anfrage prüft vor dem Anhängen der Ergebnisse, ob ihre `connectionId` noch der aktuellen entspricht — eine veraltete, spät zurückkommende Antwort eines vorherigen `connect()`-Aufrufs wird sonst verworfen, statt Nachrichten zu verdoppeln.
+- `attributeChangedCallback` reagiert bewusst nur auf `chat-id`/`token`, nicht auf jede Attributänderung, sonst würde ein gleichzeitiger `role`-Wechsel einen zweiten, parallelen `connect()`-Aufruf auslösen.
+- Eine hochgezählte `_connectionId` ("Verbindungs-Generation") wird bei jedem `connect()` erhöht. Jede laufende `loadMessages()`-Anfrage prüft vor dem Anhängen der Ergebnisse, ob ihre `connectionId` noch der aktuellen entspricht:
+eine veraltete, spät zurückkommende Antwort eines vorherigen `connect()`-Aufrufs wird sonst verworfen, statt Nachrichten zu verdoppeln.
 - `resetMessages()` leert Zustand und DOM vor jedem neuen `connect()`.
 - Browser-`online`/`offline`-Events werden in `connectedCallback` registriert und in `disconnectedCallback` wieder entfernt, damit die Component auch reagiert, wenn sie bereits offen ist und sich der Netzwerkstatus währenddessen ändert (nicht erst beim erneuten Öffnen).
+
+### Caching-Hooks statt direktem Import
+
+`ChatWindowElement.js` importiert `offlineStorage.service.js` bewusst **nicht** selbst, ein Custom Element, das einen projektspezifischen relativen Pfad importiert, wäre nicht mehr ohne Weiteres in ein anderes Projekt übertragbar, was dem eigentlichen Sinn von Web Components (framework- und projektunabhängige Wiederverwendbarkeit) widerspräche. Stattdessen bietet die Component drei öffentliche Hooks an, die die einbindende Anwendung von außen setzt:
+
+| Hook | Aufgerufen mit | Zweck |
+| --- | --- | --- |
+| `onMessageReceived(message)` | einer live per WebSocket empfangenen Nachricht | Live-Nachrichten zusätzlich cachen |
+| `onMessagesLoaded(messages)` | dem Ergebnis-Array eines erfolgreichen `loadMessages()`-Aufrufs | Historisch geladene Nachrichten cachen |
+| `loadCachedMessages(chatId)` | (wird von der Component aufgerufen) | Async-Funktion, die im Offline-Fallback von `loadMessages()` die gecachten Nachrichten liefert |
+
+**Start-Timing:** Die Component verbindet sich nicht mehr automatisch in `connectedCallback()`, sondern erst über eine explizit aufzurufende Methode `start()`. Grund: `connectedCallback()` feuert synchron beim Einhängen ins DOM, noch bevor eine umgebende Vue-Komponente über einen `ref` + `nextTick()` die Zeit hätte, die drei Hooks zu setzen. Ohne diese Entkopplung würde `loadMessages()` im Offline-Fall bereits in den Fehler-Fallback laufen, während `loadCachedMessages` noch gar nicht gesetzt ist. Die einbindende Anwendung muss `start()` deshalb erst nach dem Setzen der Hooks aufrufen.
+
+**Feldnamen-Konsistenz:** Live per WebSocket empfangene Nachrichten kommen roh aus MongoDB (`chat_id`, snake_case), während historisch per GraphQL geladene Nachrichten das Feld als `chatId` (camelCase) liefern, worauf auch der IndexedDB-Index aufgebaut ist. `ChatWindowElement.js` normalisiert das Feld beim Empfang deshalb explizit auf `chatId`, bevor `onMessageReceived` aufgerufen wird, sonst würde die Nachricht zwar im Store landen, aber vom `chatId`-Index nie gefunden werden.
 
 ### Custom Events
 
@@ -109,6 +126,7 @@ Beim Wechsel der Lerngruppe ändert sich `chat-id` (und oft gleichzeitig `role`)
 
 ```html
 <chat-window
+  ref="chatWindowEl"
   :chat-id="chatId"
   :token="token"
   :username="username"
@@ -116,7 +134,15 @@ Beim Wechsel der Lerngruppe ändert sich `chat-id` (und oft gleichzeitig `role`)
 />
 ```
 
-`token` wird direkt aus `localStorage` gelesen (`computed(() => localStorage.getItem('token') || '')`), nicht aus einem zentralen Auth-Store — konsistent mit dem Rest der Anwendung, wo der Token nach dem OAuth-Callback ebenfalls in `localStorage` abgelegt wird.
+```js
+// Hooks setzen und erst danach explizit starten (siehe "Caching-Hooks statt direktem Import" oben)
+el.onMessageReceived = (message) => cacheMessages([message])
+el.onMessagesLoaded = (messages) => cacheMessages(messages)
+el.loadCachedMessages = (chatId) => getCachedMessages(chatId)
+el.start()
+```
+
+`token` wird direkt aus `localStorage` gelesen (`computed(() => localStorage.getItem('token') || '')`), nicht aus einem zentralen Auth-Store. Konsistent mit dem Rest der Anwendung, wo der Token nach dem OAuth-Callback ebenfalls in `localStorage` abgelegt wird.
 
 ## 4. Diagramm: Lifecycle von `<chat-window>` bei Gruppenwechsel
 
@@ -166,4 +192,3 @@ flowchart LR
 ## 6. Bekannte Einschränkungen
 
 - `username` wird als Attribut an `<chat-window>` übergeben, aber im Rendering nicht verwendet (eigener Nutzername erscheint nicht gesondert hervorgehoben in der Nachrichtenliste).
-- Live über WebSocket empfangene Nachrichten werden nicht zusätzlich in IndexedDB gespiegelt — nur die beim Laden der Historie abgerufenen. Bei einem Offline-Wechsel mitten in einer aktiven Chat-Sitzung fehlen entsprechend die zuletzt live empfangenen Nachrichten im Cache, bis erneut eine Historie geladen wurde.
