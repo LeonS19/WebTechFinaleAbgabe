@@ -1,3 +1,4 @@
+const DMG_MULIPLIER = 0.8
 
 export function takeDamage(run, amount) {
   run.currentHealth = Math.max(0, run.currentHealth - amount);
@@ -18,5 +19,5 @@ export function levelUp(run) {
 }
 
 export function calculateDamageMultiplier(level) {
-  return 1 + (level - 1) * 0.15;
+  return 1 + (level - 1) * DMG_MULIPLIER;
 }

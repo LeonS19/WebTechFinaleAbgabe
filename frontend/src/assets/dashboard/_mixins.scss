@@ -1,0 +1,50 @@
+@use '../variables' as *;
+
+// ============================================
+// MIXINS — wiederkehrende Muster gebündelt
+// ============================================
+
+@mixin icon-button-reset {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: $color-text;
+}
+
+@mixin flex-col($gap: 0) {
+  display: flex;
+  flex-direction: column;
+  @if $gap != 0 {
+    gap: $gap;
+  }
+}
+
+@mixin flex-row($justify: flex-start, $align: center, $gap: 0) {
+  display: flex;
+  align-items: $align;
+  justify-content: $justify;
+  @if $gap != 0 {
+    gap: $gap;
+  }
+}
+
+@mixin panel-surface {
+  background: $color-background-soft;
+  border: 1px solid $color-border;
+  border-radius: 0.5rem;
+}
+
+@mixin disabled-state {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@mixin outline-btn($color: $color-border, $text: $color-text) {
+  background: none;
+  border: 1px solid $color;
+  border-radius: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+  color: $text;
+  font-weight: 600;
+}

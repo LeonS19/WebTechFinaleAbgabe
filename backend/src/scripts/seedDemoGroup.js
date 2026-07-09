@@ -265,6 +265,7 @@ async function seed() {
   const userIds = [];
   for (const u of DEMO_USERS) {
     const id = await upsertUser(u.name, u.email);
+    console.log(id)
     userIds.push(id);
   }
   console.log(`${userIds.length} Demo-User bereit.`);

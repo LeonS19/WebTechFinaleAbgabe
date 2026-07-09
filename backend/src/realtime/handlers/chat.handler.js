@@ -1,4 +1,4 @@
-import { saveMessage, deleteMessage, getSenderRole } from '../../services/chat.service.js';
+import { saveMessage, deleteMessage, getSenderRole, verifyChatMembership } from '../../services/chat.service.js';
 import { verifyToken } from '../../services/auth/token.service.js';
 import { findById } from '../../models/sql/user.model.js';
 
@@ -14,14 +14,15 @@ export function handleChatConnection(ws) {
     try {
         const data = JSON.parse(raw);
     
-        if(data.type === 'join'){
-            currentUser = verifyToken(data.token);
-            currentChatId = data.chatId;
-            const user = await findById(currentUser.userId);
-            if(!user){
-                throw new Error("User nicht gefunden") // Unwahrscheinlicher Fall, zu dem Zeitpunkt, aber sicher ist sicher :)
-            }
-            currentUserName = user.name;
+        if (data.type === 'join') {
+        currentUser = verifyToken(data.token)
+        currentChatId = data.chatId
+        const user = await findById(currentUser.userId)
+        if (!user) throw new Error("User nicht gefunden") // Unwahrscheinlicher Fall, zu dem Zeitpunkt, aber sicher ist sicher :)
+
+        await verifyChatMembership(currentChatId, currentUser.userId)
+
+        currentUserName = user.name
             
             //Chat-Room anlegen falls noch nicht da
             if(!chatRooms.has(currentChatId)){

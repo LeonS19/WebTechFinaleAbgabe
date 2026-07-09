@@ -41,7 +41,8 @@ export async function getIndexCardsByIds(cardIds) {
 export async function updateIndexCard(cardId, data, userId) {
   const card = await IndexCard.findById(cardId);
   if (!card){ 
-    throw new Error('Karteikarte nicht gefunden');
+    //throw new Error('Karteikarte nicht gefunden');
+    throw new Error('Karteikarte inzwischen gelöscht');
   }
 
   await checkPermission(userId, card.study_group_id, ['ADMIN', 'MODERATOR']);

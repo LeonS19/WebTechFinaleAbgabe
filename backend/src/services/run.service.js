@@ -19,17 +19,25 @@ import { RANKING_UPDATED } from '../graphql/resolvers/ranking.resolver.js';
 
 const MIN_CARD_AMOUNT = 5;
 const HEAL_FIELD_PERCENTAGE = 0.5;
+const VALID_CHARACTER_IDS = [1, 2, 3];
 
 export async function startRun(
   userId,
   studyGroupId,
   selectedStartFieldPosition,
+  characterId,
 ) {
   await checkPermission(userId, studyGroupId, ["ADMIN", "MODERATOR", "MEMBER"]);
 
   const existingRun = await findActiveRunByUser(userId, studyGroupId);
   if (existingRun) {
+    // Ein bestehender Run behält seinen ursprünglich gewählten Charakter —
+    // ein erneuter startRun-Aufruf (z.B. "Weiter"-Klick) ändert ihn nicht mehr.
     return existingRun;
+  }
+
+  if (!VALID_CHARACTER_IDS.includes(characterId)) {
+    throw new Error("Ungültiger Charakter ausgewählt");
   }
 
   const availableCards = await IndexCardService.getIndexCards(
@@ -41,7 +49,7 @@ export async function startRun(
   );
   if (availableCards.length < MIN_CARD_AMOUNT) {
     throw new Error(
-      `Die Lerngruppe braucht mindestens ${MIN_CARDS_REQUIRED} Karteikarten, um einen Run zu starten`,
+      `Die Lerngruppe braucht mindestens ${MIN_CARD_AMOUNT} Karteikarten, um einen Run zu starten`,
     );
   }
 
@@ -67,6 +75,7 @@ export async function startRun(
     studyGroupId,
     map.id,
     selectedStartFieldPosition,
+    characterId,
   );
 
   const deckCardIds = await buildRunDeck(availableCards, userId);

@@ -1,5 +1,3 @@
-import { cacheMessages, getCachedMessages } from '../services/offlineStorage.service.js'
-
 class ChatWindowElement extends HTMLElement {
   constructor() {
     super()
@@ -10,6 +8,15 @@ class ChatWindowElement extends HTMLElement {
     this._rendered = false
     this._loadingMore = false
     this._connectionId = 0
+    this.onMessageReceived = null
+    // Wird mit dem Nachrichten-Array aufgerufen, sobald loadMessages() erfolgreich
+    // war — die Component selbst weiß nicht, WIE gecacht wird, das entscheidet
+    // die einbindende Anwendung (siehe ChatPanel.vue).
+    this.onMessagesLoaded = null
+    // Async-Funktion (chatId) => Nachrichten-Array, wird im Offline-Fallback von
+    // loadMessages() aufgerufen. Bleibt sie unbesetzt, gibt es im Fehlerfall
+    // einfach keinen Offline-Fallback statt eines Absturzes.
+    this.loadCachedMessages = null
   }
 
   static get observedAttributes() {
@@ -42,14 +49,19 @@ class ChatWindowElement extends HTMLElement {
   connectedCallback() {
     this.render()
     this._rendered = true
-    if (this.chatId && this.token) {
-      this.connect()
-    }
 
     this._onlineHandler = () => this.handleOnline()
     this._offlineHandler = () => this.handleOffline()
     window.addEventListener('online', this._onlineHandler)
     window.addEventListener('offline', this._offlineHandler)
+  }
+
+  // Von der einbindenden Anwendung aufzurufen, NACHDEM onMessageReceived /
+  // onMessagesLoaded / loadCachedMessages gesetzt wurden.
+  start() {
+    if (this.chatId && this.token) {
+      this.connect()
+    }
   }
 
   disconnectedCallback() {
@@ -119,12 +131,14 @@ class ChatWindowElement extends HTMLElement {
         const msg = data.message
         const normalized = {
           ...msg,
+          chatId: msg.chatId || msg.chat_id,
           sentAt: msg.sent_at || msg.sentAt,
           senderName: msg.senderName,
           senderRole: msg.senderRole,
         }
         this._messages.push(normalized)
         this.appendMessage(normalized)
+        if (this.onMessageReceived) this.onMessageReceived(normalized)
       } else if (data.type === 'delete') {
         this._messages = this._messages.filter((m) => m.id !== data.messageId)
         const el = this.shadowRoot.querySelector(`[data-message-id="${data.messageId}"]`)
@@ -231,9 +245,10 @@ class ChatWindowElement extends HTMLElement {
       const data = await res.json()
       const messages = data?.data?.getMessages ?? []
 
-      // erfolgreich geladene Nachrichten cachen
+      // erfolgreich geladene Nachrichten cachen — WIE/OB gecacht wird, entscheidet
+      // die einbindende Anwendung über diesen Hook, nicht die Component selbst.
       const normalizedForCache = messages.map((m) => ({ ...m, senderName: m.sender?.name, senderRole: m.senderRole }))
-      cacheMessages(normalizedForCache)
+      if (this.onMessagesLoaded) this.onMessagesLoaded(normalizedForCache)
 
       // Veraltete Antwort (ein neuerer connect() lief inzwischen) verwerfen
       if (connectionId !== this._connectionId) return
@@ -247,8 +262,9 @@ class ChatWindowElement extends HTMLElement {
       })
     } catch (err) {
       console.error('Fehler beim Laden der Nachrichten:', err)
+      if (!this.loadCachedMessages) return
       try {
-        const cached = await getCachedMessages(chatId)
+        const cached = await this.loadCachedMessages(chatId)
         if (connectionId !== this._connectionId) return
         const ordered = [...cached].sort((a, b) => new Date(a.sentAt) - new Date(b.sentAt))
         ordered.forEach((m) => {
@@ -326,7 +342,26 @@ class ChatWindowElement extends HTMLElement {
 
   updateStatus(text) {
     const status = this.shadowRoot.querySelector('.status')
-    if (status) status.textContent = text
+    if (!status) return
+
+    const dot = status.querySelector('.status-dot')
+    // Textknoten separat setzen, damit der .status-dot-Span nicht mit überschrieben wird
+    const textNode = Array.from(status.childNodes).find((n) => n.nodeType === Node.TEXT_NODE)
+    if (textNode) {
+      textNode.textContent = text
+    } else {
+      status.appendChild(document.createTextNode(text))
+    }
+
+    if (dot) {
+      dot.classList.remove('connected', 'disconnected')
+      if (text === 'Verbunden') {
+        dot.classList.add('connected')
+      } else if (text !== 'Verbinde...') {
+        dot.classList.add('disconnected')
+      }
+      // 'Verbinde...' bleibt neutral grau (Standardfarbe von .status-dot)
+    }
   }
 
   render() {
@@ -362,6 +397,25 @@ class ChatWindowElement extends HTMLElement {
           font-size: 0.75rem;
           opacity: 0.5;
           color: #2c3e50;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+        }
+
+        .status-dot {
+          width: 0.5rem;
+          height: 0.5rem;
+          border-radius: 50%;
+          background: #9ca3af;
+          flex-shrink: 0;
+        }
+
+        .status-dot.connected {
+          background: #22c55e;
+        }
+
+        .status-dot.disconnected {
+          background: #ef4444;
         }
 
         .messages {
@@ -471,21 +525,12 @@ class ChatWindowElement extends HTMLElement {
         }
 
         .delete-btn:hover { opacity: 1; color: #ff5252; }
-
-        @media (prefers-color-scheme: dark) {
-          :host { background: #222222; border-color: rgba(84,84,84,0.48); }
-          .header h3, .status { color: rgba(235,235,235,0.87); }
-          .message-content { background: #282828; color: rgba(235,235,235,0.87); }
-          .message-time { color: rgba(235,235,235,0.4); }
-          .input-area input { background: #282828; border-color: rgba(84,84,84,0.48); color: rgba(235,235,235,0.87); }
-          .close-btn { color: rgba(235,235,235,0.87); }
-        }
       </style>
 
       <div class="header">
         <h3>Chat</h3>
         <div style="display:flex;align-items:center;gap:0.75rem">
-          <span class="status">Verbinde...</span>
+          <span class="status"><span class="status-dot"></span>Verbinde...</span>
           <button class="close-btn" id="close-btn">✕</button>
         </div>
       </div>

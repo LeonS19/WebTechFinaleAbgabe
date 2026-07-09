@@ -1,0 +1,77 @@
+@use '../variables' as *;
+@use './mixins' as *;
+
+// ============================================
+// FILE UPLOAD
+// ============================================
+
+.file-input {
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+  color: $color-text;
+  cursor: pointer;
+  width: 100%;
+}
+
+.selected-files {
+  @include flex-col(0.4rem);
+  margin-top: 0.5rem;
+}
+
+.selected-file {
+  @include flex-row(space-between);
+  padding: 0.4rem 0.75rem;
+  background: $color-background-mute;
+  border-radius: 0.375rem;
+  font-size: 0.85rem;
+}
+
+.file-size {
+  opacity: 0.5;
+  font-size: 0.8rem;
+}
+
+// ============================================
+// GROUP LIST (Join Modal)
+// ============================================
+
+.groups-list {
+  @include flex-col(0.5rem);
+  max-height: 20rem;
+  overflow-y: auto;
+  margin-top: 0.5rem;
+}
+
+.group-list-item {
+  @include flex-row(space-between);
+  padding: 0.6rem 0.9rem;
+  background: $color-background-mute;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.already-joined {
+  font-size: 0.85rem;
+  color: $color-success;
+}
+
+.error-msg {
+  color: $color-error;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+// ============================================
+// OFFLINE BANNER
+// ============================================
+// dashboard/misc.scss — am Ende ergänzen
+
+.offline-banner {
+  background: #f59e0b;
+  color: white;
+  text-align: center;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}

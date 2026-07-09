@@ -1,0 +1,82 @@
+@use '../variables' as *;
+@use './mixins' as *;
+
+// ============================================
+// MEMBERS SIDEBAR
+// ============================================
+
+.members-sidebar {
+  width: 12.5rem;
+  border-left: 1px solid $color-border;
+  padding: 1rem;
+  @include flex-col(1rem);
+  background: $color-background-soft;
+  flex-shrink: 0;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.member {
+  @include flex-row(flex-start, center, 0.6rem);
+}
+
+.member-avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: $color-background-mute;
+  border: 1px solid $color-border;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.sidebar-bottom {
+  padding-top: 1rem;
+  border-top: 1px solid $color-border;
+}
+
+.members-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.role-group {
+  @include flex-col(0.6rem);
+
+  + .role-group {
+    margin-top: 2rem;
+  }
+}
+
+.role-heading {
+  @include flex-row(flex-start, center, 0.5rem);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  opacity: 0.5;
+
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: $color-border;
+  }
+
+  &[data-role='ADMIN'] {
+    color: #ff5252;
+  }
+
+  &[data-role='MODERATOR'] {
+    color: #17ebb6;
+  }
+
+  &[data-role='MEMBER'] {
+    color: $color-text;
+    opacity: 0.75;
+  }
+}

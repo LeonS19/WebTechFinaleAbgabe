@@ -1,6 +1,6 @@
 import { OAuth2Client } from 'google-auth-library';
 import { env } from '../../config/env.js';
-import { generateToken } from './token.service.js';
+import { createAuthCode } from './authCode.service.js';
 import * as oAuthModel from '../../models/sql/oauth.model.js'
 import { createUser } from '../../models/sql/user.model.js'
 import { withTransaction } from '../../config/db.postgres.js';
@@ -27,14 +27,16 @@ export function getGoogleAuthUrl() {
  * Verarbeitet den Google OAuth Callback nach erfolgreichem Login.
  * 
  * Flow:
- * 1. Tauscht den einmaligen Code gegen Google-Tokens
+ * 1. Tauscht den einmaligen Google-Code gegen Google-Tokens
  * 2. Verifiziert das ID-Token und liest User-Daten aus
  * 3. Findet oder legt User + oauth_account an (in Transaktion!)
- * 4. Gibt eigenes JWT zurück
+ * 4. Erzeugt einen kurzlebigen Einmal-Code (NICHT das JWT selbst)
  * 
- * ⚠️ JWT wird per Redirect als Query-Parameter ans Frontend übergeben:
- * FRONTEND_URL/auth/callback?token=eyJ...
- * Für Produktion wäre HttpOnly Cookie sicherer.
+ * Der Einmal-Code wird per Redirect als Query-Parameter ans Frontend
+ * übergeben: FRONTEND_URL/auth/callback?code=...
+ * Das Frontend tauscht den Code serverseitig über POST /auth/exchange
+ * gegen das eigentliche JWT. Dadurch landet das JWT nie in der URL,
+ * Browser-History oder Server-Logs.
  */
 export async function handleGoogleCallback(code){
     // Code gegen Google-Tokens tauschen
@@ -77,7 +79,8 @@ export async function handleGoogleCallback(code){
         }
     });
 
-    // Eigenes JWT ausstellen (nicht das Google-Token!)
-    const token = generateToken({ userId });
-    return token;
+    // Kurzlebigen Einmal-Code ausstellen — das eigentliche JWT wird erst
+    // beim Exchange-Call erzeugt, nie in dieser Funktion.
+    const authCode = createAuthCode(userId);
+    return authCode;
 }

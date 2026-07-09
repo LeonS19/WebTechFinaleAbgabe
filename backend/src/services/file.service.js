@@ -22,26 +22,29 @@ export async function uploadAttachment(cardId, file, userId){
     return card.attachments[card.attachments.length -1];
 }
 
-export async function getAttachments(cardId) {
+export async function getAttachments(cardId, userId) {
     const card = await IndexCard.findById(cardId);
-    if(!card){
+    if (!card) {
         throw new Error("Karteikarte nicht gefunden");
     }
+
+    await checkPermission(userId, card.study_group_id, ['ADMIN', 'MODERATOR', 'MEMBER']);
     return card.attachments;
 }
 
-export async function getAttachment(cardId, attachmentId) {
+export async function getAttachment(cardId, attachmentId, userId) {
     const card = await IndexCard.findById(cardId);
-    if(!card){
+    if (!card) {
         throw new Error("Karteikarte nicht gefunden");
     }
 
+    await checkPermission(userId, card.study_group_id, ['ADMIN', 'MODERATOR', 'MEMBER']);
     const attachment = card.attachments.id(attachmentId);
-    if(!attachment){
+    if (!attachment) {
         throw new Error("Anhang nicht gefunden");
     }
 
-    return attachment
+    return attachment;
 }
 
 export async function deleteAttachment(cardId, attachmentId, userId) {

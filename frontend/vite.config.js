@@ -22,8 +22,8 @@ export default defineConfig({
         enabled: true,
       },
       manifest: {
-        name: 'Dungeon of Knowledge',
-        short_name: 'DoK',
+        name: 'Dungeon Learn',
+        short_name: 'DL',
         description: 'Kollaborative Lernplattform mit RPG-Gameplay – Karteikarten lernen und gemeinsam Dungeons erobern.',
         theme_color: '#4f8ef7',
         background_color: '#ffffff',
@@ -49,6 +49,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        navigateFallback: '/index.html',
         runtimeCaching: [
           {
             // Datei-Anhänge herunterladen: Cache First (Dateien ändern sich nach Upload nicht mehr)

@@ -1,76 +1,83 @@
 <template>
-  <div class="dashboard">
-    <GroupSwitcher
-      :groups="studyGroups"
-      :selectedGroupId="selectedGroup?.id"
-      @select="selectGroup"
-      @create="showCreateGroup = true"
-      @search="showJoinGroup = true"
-    />
-
-    <div class="main">
-      <DashboardHeader
-        :groupName="selectedGroup?.name"
-        :user="currentUser"
-        :role="currentMemberRole"
-        :menuOpen="userMenuOpen"
-        :hasGroup="!!selectedGroup"
-        @toggleMenu="userMenuOpen = !userMenuOpen"
-        @leaveGroup="leaveGroup"
-        @logout="logout"
-      />
-
-      <div class="content-wrapper">
-        <ContentNav
-          :activeView="activeView"
-          :visible="!!selectedGroup"
-          @change="activeView = $event"
-          @startRun="startRun"
+    <div class="app-shell">
+      <div v-if="isOffline" class="offline-banner">
+          Du bist Offline Es werden nicht alle Funktionen während der Verbindungsunterbrechung verfügbar sein
+      </div>
+      <div class="dashboard">
+        <GroupSwitcher
+          :groups="studyGroups"
+          :selectedGroupId="selectedGroup?.id"
+          @select="selectGroup"
+          @create="showCreateGroup = true"
+          @search="showJoinGroup = true"
         />
 
-        <main class="content-area">
-          <p v-if="!selectedGroup" class="placeholder">Wähle eine Lerngruppe aus</p>
-          <RunView
-            v-else-if="activeView === 'run'"
-            :studyGroupId="selectedGroup.id"
-            @runEnded="onRunEnded"
+        <div class="main">
+          <DashboardHeader
+            :groupName="selectedGroup?.name"
+            :user="currentUser"
+            :role="currentMemberRole"
+            :menuOpen="userMenuOpen"
+            :hasGroup="!!selectedGroup"
+            @toggleMenu="userMenuOpen = !userMenuOpen"
+            @leaveGroup="leaveGroup"
+            @logout="logout"
           />
-          <IndexCardsView
-            v-else-if="activeView === 'karteikarten'"
-            :studyGroupId="selectedGroup.id"
-            :cards="indexCards"
-            :userRole="currentMemberRole"
-            @cardCreated="refetchCards()"
-          />
-          <RankingView v-else-if="activeView === 'bestenliste'" :studyGroupId="selectedGroup.id" />
-          <RunHistoryView v-else-if="activeView === 'historie'" :studyGroupId="selectedGroup.id" />
-        </main>
 
-        <MembersSidebar
-          :members="members"
-          :visible="!!selectedGroup"
-          :currentUserRole="currentMemberRole"
-          :studyGroupId="selectedGroup?.id"
-          @openChat="chatOpen = true"
-          @membersChanged="refetchGroup()"
+          <div class="content-wrapper">
+            <ContentNav
+              :activeView="activeView"
+              :visible="!!selectedGroup"
+              @change="activeView = $event"
+              @startRun="startRun"
+            />
+
+            <main class="content-area">
+              <p v-if="!selectedGroup" class="placeholder">Wähle eine Lerngruppe aus</p>
+              <RunView
+                v-else-if="activeView === 'run'"
+                :studyGroupId="selectedGroup.id"
+                :username="currentUser?.name"
+                @runEnded="onRunEnded"
+              />
+              <IndexCardsView
+                v-else-if="activeView === 'karteikarten'"
+                :studyGroupId="selectedGroup.id"
+                :cards="indexCards"
+                :userRole="currentMemberRole"
+                :currentUserId="currentUser?.id"
+                @cardCreated="refetchCards()"
+              />
+              <RankingView v-else-if="activeView === 'bestenliste'" :studyGroupId="selectedGroup.id" />
+              <RunHistoryView v-else-if="activeView === 'historie'" :studyGroupId="selectedGroup.id" />
+            </main>
+
+            <MembersSidebar
+              :members="members"
+              :visible="!!selectedGroup"
+              :currentUserRole="currentMemberRole"
+              :studyGroupId="selectedGroup?.id"
+              @openChat="chatOpen = true"
+              @membersChanged="refetchGroup()"
+            />
+          </div>
+        </div>
+
+        <ChatPanel :visible="chatOpen" :chatId="selectedGroup?.chatId" :username="currentUser?.name" :role="currentMemberRole" />
+
+        <CreateStudyGroupModal
+          v-if="showCreateGroup"
+          @close="showCreateGroup = false"
+          @created="onGroupCreated"
+        />
+
+        <JoinStudyGroupModal
+          v-if="showJoinGroup"
+          :joinedGroupIds="studyGroups.map((g) => g.id)"
+          @close="showJoinGroup = false"
+          @joined="onGroupJoined"
         />
       </div>
-    </div>
-
-    <ChatPanel :visible="chatOpen" :chatId="selectedGroup?.chatId" :username="currentUser?.name" :role="currentMemberRole" />
-
-    <CreateStudyGroupModal
-      v-if="showCreateGroup"
-      @close="showCreateGroup = false"
-      @created="onGroupCreated"
-    />
-
-    <JoinStudyGroupModal
-      v-if="showJoinGroup"
-      :joinedGroupIds="studyGroups.map((g) => g.id)"
-      @close="showJoinGroup = false"
-      @joined="onGroupJoined"
-    />
   </div>
 </template>
 
@@ -91,7 +98,7 @@ import RunHistoryView from '../components/content/RunHistoryView.vue'
 import CreateStudyGroupModal from '../components/layout/CreateStudyGroupModal.vue'
 import JoinStudyGroupModal from '../components/layout/JoinStudyGroupModal.vue'
 import RunView from '../components/content/RunView.vue'
-import '../assets/dashboard.css'
+import '../assets/dashboard.scss'
 import { useOfflineAwareQuery } from '../composables/useOfflineAwareQuery.js'
 import { getAllCachedStudyGroups, getCachedStudyGroup, getCachedIndexCards } from '../services/offlineStorage.service.js'
 
@@ -107,6 +114,21 @@ const showCreateGroup = ref(false)
 const newGroupName = ref('')
 const currentUser = ref(null)
 const showJoinGroup = ref(false)
+const isOffline = ref(!navigator.onLine)
+
+function updateOnlineStatus() {
+  isOffline.value = !navigator.onLine
+}
+
+onMounted(() => {
+  window.addEventListener('online', updateOnlineStatus)
+  window.addEventListener('offline', updateOnlineStatus)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('online', updateOnlineStatus)
+  window.removeEventListener('offline', updateOnlineStatus)
+})
 
 onMounted(() => {
   const token = localStorage.getItem('token')
@@ -459,7 +481,7 @@ watch(myGroupsData, (val) => {
 })
 
 onMounted(() => {
-  // ...bestehender Code...
+  
   document.addEventListener('chat-close', () => {
     chatOpen.value = false
   })

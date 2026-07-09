@@ -61,7 +61,7 @@ export const runResolvers = {
   Mutation: {
     startRun: async (
       _,
-      { studyGroupId, selectedStartFieldPosition },
+      { studyGroupId, selectedStartFieldPosition, characterId },
       context,
     ) => {
       if (!context.user) {
@@ -71,6 +71,7 @@ export const runResolvers = {
         context.user.id,
         studyGroupId,
         selectedStartFieldPosition,
+        characterId,
       );
     },
 
@@ -126,6 +127,19 @@ export const runResolvers = {
     deckCount: async (combat) => {
       const runDeck = await RunDeckService.findRunDeck(combat.run_id);
       return runDeck?.deck.length ?? 0;
+    },
+    discardCount: async (combat) => {
+      const runDeck = await RunDeckService.findRunDeck(combat.run_id);
+      return runDeck?.discard_pile.length ?? 0;
+    },
+    fieldPosition: (combat) => combat.field_position,
+    // "Level" des Gegners = Spalte (x), aus der sich auch base_health/base_damage
+    // in seedMap.js ableiten — NICHT die rohe field_position, die je nach Verzweigung
+    // für gleich starke Gegner in derselben Spalte unterschiedlich hoch wäre.
+    enemyLevel: async (combat) => {
+      const map = await MapService.getMap();
+      const field = map.fields.find((f) => f.position === combat.field_position);
+      return field ? field.x : 0;
     },
   },
   Subscription: {

@@ -86,6 +86,7 @@ CREATE TABLE run (
     correct_answers     INTEGER DEFAULT 0,                      -- absolute count, used for ranking
     total_answers       INTEGER DEFAULT 0,                      -- absolute count, hit_rate = correct/total
     current_position    INTEGER NOT NULL DEFAULT 0,
+    character_id        INTEGER NOT NULL DEFAULT 1,
     level               INTEGER NOT NULL DEFAULT 1,
     max_health           INTEGER NOT NULL DEFAULT 100,
     current_health       INTEGER NOT NULL DEFAULT 100

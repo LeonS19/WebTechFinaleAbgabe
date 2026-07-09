@@ -147,6 +147,7 @@ type Run {
     totalAnswers:       Int!
     hitRate:            Float
     currentPosition:    Int!
+    characterId:        Int!
     player:             Player!
     deck:               [IndexCard!]!
     discardPile:        [IndexCard!]!
@@ -168,6 +169,9 @@ type Combat {
     isPlayerTurn:       Boolean!
     status:             String!
     deckCount: Int!
+    discardCount: Int!
+    fieldPosition:      Int!
+    enemyLevel:         Int!
 }
 
 type MoveResult {
@@ -279,7 +283,7 @@ type Mutation {
     deleteIndexCard(id: ID!): Boolean!
 
     # Run
-    startRun(studyGroupId: ID!, selectedStartFieldPosition: Int!): Run!
+    startRun(studyGroupId: ID!, selectedStartFieldPosition: Int!, characterId: Int!): Run!
     endRun(runId: ID!, successful: Boolean!): Run!
     moveToField(runId: ID!, targetPosition: Int!): MoveResult!
 
@@ -314,4 +318,6 @@ type Subscription {
     onRankingUpdated(studyGroupId: ID!): [RankingEntry!]!
 
     onMembersUpdated(studyGroupId: ID!): [Membership!]!
+
+    onStudyGroupDeleted: ID!
 }

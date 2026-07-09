@@ -15,6 +15,7 @@ function mapRow(row) {
     totalAnswers: row.total_answers,
     hitRate: row.total_answers > 0 ? row.correct_answers / row.total_answers : null,
     currentPosition: row.current_position,
+    characterId: row.character_id,
     level: row.level,
     maxHealth: row.max_health,
     currentHealth: row.current_health,
@@ -22,11 +23,11 @@ function mapRow(row) {
 }
 
 // nutzen die DB-Defaults (1/100/100) — deshalb hier nicht explizit angeben
-export async function createRun(userId, studyGroupId, mapId, startPosition, client = pool) {
+export async function createRun(userId, studyGroupId, mapId, startPosition, characterId, client = pool) {
     const run = await client.query(
-        `INSERT INTO run (user_id, study_group_id, map_id, current_position)
-        VALUES ($1, $2, $3, $4) RETURNING *`,
-        [userId, studyGroupId, mapId, startPosition]
+        `INSERT INTO run (user_id, study_group_id, map_id, current_position, character_id)
+        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [userId, studyGroupId, mapId, startPosition, characterId]
     )
     return mapRow(run.rows[0])
 }

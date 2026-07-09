@@ -1,0 +1,200 @@
+@use '../variables' as *;
+@use './mixins' as *;
+
+// ============================================
+// MODAL
+// ============================================
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.modal {
+  background: $color-background-soft;
+  border: 1px solid $color-border;
+  border-radius: 0.75rem;
+  padding: 2rem;
+  min-width: 35rem;
+  max-width: 43.75rem;
+  width: 90%;
+  @include flex-col(0.75rem);
+
+  h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+
+  input {
+    padding: 0.6rem 0.9rem;
+    border: 1px solid $color-border;
+    border-radius: 0.5rem;
+    background: $color-background;
+    color: $color-text;
+    font-size: 0.95rem;
+    width: 100%;
+  }
+
+  button {
+    padding: 0.6rem;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    background: $color-primary;
+    color: white;
+    font-weight: 600;
+  }
+
+  .cancel-btn {
+    background: $color-background-mute;
+    color: $color-text;
+  }
+}
+
+// ============================================
+// MODAL LARGE (Detail)
+// ============================================
+
+.modal-large {
+  max-width: 40rem;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  @include flex-row(space-between);
+  margin-bottom: 1rem;
+}
+
+.modal-close {
+  @include icon-button-reset;
+  font-size: 1.2rem;
+  opacity: 0.6;
+  padding: 0;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.modal-body {
+  @include flex-col(1.25rem);
+}
+
+.detail-section {
+  @include flex-col(0.4rem);
+}
+
+.detail-label {
+  font-size: 0.8rem;
+  opacity: 0.6;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.detail-value {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.detail-meta {
+  flex-direction: row;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+// --- IndexCardDetailModal: Bearbeiten von Frage/Antwort ---
+
+.detail-label-row {
+  @include flex-row(space-between);
+}
+
+.detail-actions {
+  @include flex-row(flex-start, center, 0.5rem);
+}
+
+.edit-btn {
+  @include outline-btn;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.8rem;
+
+  &:hover {
+    background: $color-background-mute;
+  }
+}
+
+.edit-textarea {
+  width: 100%;
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 0.5rem;
+  border: 1px solid $color-border;
+  border-radius: 0.4rem;
+  background: $color-background;
+  color: $color-text;
+  resize: vertical;
+}
+
+.edit-actions {
+  @include flex-row(flex-end, center, 0.5rem);
+  margin-top: -0.5rem;
+}
+
+.edit-error {
+  color: #dc2626;
+  font-size: 0.85rem;
+  margin-right: auto;
+}
+
+.cancel-btn {
+  @include outline-btn;
+}
+
+.save-btn {
+  background: #4f8ef7;
+  color: white;
+  border: none;
+  border-radius: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.delete-card-btn {
+  @include outline-btn(#dc2626, #dc2626);
+
+  &:hover:not(:disabled) {
+    background: #dc2626;
+  }
+}
+
+.delete-attachment-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.3rem;
+  opacity: 0.7;
+
+  &:hover:not(:disabled) {
+    opacity: 1;
+    background: #fee2e2;
+  }
+}
+
+.save-btn,
+.cancel-btn,
+.delete-card-btn,
+.delete-attachment-btn {
+  &:disabled {
+    @include disabled-state;
+  }
+}

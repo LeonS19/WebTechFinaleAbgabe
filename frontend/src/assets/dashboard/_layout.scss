@@ -1,0 +1,182 @@
+@use '../variables' as *;
+@use './mixins' as *;
+
+// ============================================
+// DASHBOARD LAYOUT
+// ============================================
+
+.dashboard {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.main {
+  flex: 1;
+  @include flex-col;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.content-wrapper {
+  flex: 1;
+  display: flex;
+  overflow: hidden; /* ← wichtig */
+  min-height: 0;
+}
+
+.content-area {
+  flex: 1;
+  padding: 1.5rem;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.placeholder {
+  color: $color-text;
+  opacity: 0.4;
+  text-align: center;
+  margin-top: 4rem;
+  font-size: 1rem;
+}
+
+// ============================================
+// GROUP SWITCHER
+// ============================================
+
+.group-switcher {
+  width: 4.5rem;
+  background: $color-background-mute;
+  border-right: 1px solid $color-border;
+  @include flex-col(0.75rem);
+  align-items: center;
+  padding: 1rem 0;
+  flex-shrink: 0;
+}
+
+.group-list {
+  @include flex-col(0.75rem);
+  align-items: center;
+  width: 100%;
+}
+
+.group-btn {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  border: 1px solid $color-border;
+  background: $color-background-soft;
+  color: $color-text;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s, border-radius 0.2s;
+  flex-shrink: 0;
+
+  &:hover,
+  &.active {
+    background: $color-primary;
+    color: white;
+    border-radius: 30%;
+  }
+
+  &.add-btn {
+    font-size: 1.5rem;
+    font-weight: 300;
+  }
+}
+
+.icon-btn {
+  @include icon-button-reset;
+  font-size: 1.2rem;
+}
+
+// ============================================
+// HEADER
+// ============================================
+
+.dashboard-header {
+  height: 3.5rem;
+  border-bottom: 1px solid $color-border;
+  @include flex-row(space-between);
+  padding: 0 1.5rem;
+  background: $color-background;
+  flex-shrink: 0;
+}
+
+.group-name {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.user-area {
+  position: relative;
+}
+
+.user-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: $color-primary;
+  color: white;
+  display: flex;
+  align-items: center;
+  text-transform: uppercase;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.user-menu {
+  position: absolute;
+  right: 0;
+  top: 2.75rem;
+  background: $color-background-soft;
+  border: 1px solid $color-border;
+  border-radius: 0.625rem;
+  padding: 0.75rem;
+  min-width: 11rem;
+  z-index: 100;
+  @include flex-col(0.4rem);
+
+  &-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  &-role {
+    font-size: 0.8rem;
+    opacity: 0.6;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid $color-border;
+    margin: 0.3rem 0;
+  }
+
+  button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    padding: 0.3rem 0;
+    color: $color-text;
+    font-size: 0.9rem;
+
+    &:hover {
+      color: $color-primary;
+    }
+  }
+}
+
+.logout-btn {
+  color: $color-error !important;
+}

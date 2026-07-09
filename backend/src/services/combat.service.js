@@ -28,6 +28,8 @@ import { RANKING_UPDATED } from '../graphql/resolvers/ranking.resolver.js';
 const CARD_DIFFICULTY_MIN_ATTEMPTS = 10;
 const DEFAULT_CARD_DAMAGE = 3;
 const HAND_SIZE = 5;
+const MIN_CARD_DRAW = 3;
+const CARD_PUNISH_DRAW = 1;
 
 // Kartenschaden 1–5, basierend auf Gruppen-Schwierigkeit (Cold-Start-Schutz ab 10 Versuchen)
 function calculateCardDamage(card, studyGroupId) {
@@ -50,21 +52,41 @@ async function ensureDeckHasCards(runId, neededCount) {
   }
 }
 
-//Hilfsfunktion für Zugende-Ziehlogik
-// async function drawForNextTurn(runId, count, currentHandSize) {
-//   console.log('drawForNextTurn:', { count, currentHandSize });
-//   if (currentHandSize === 0) {
-//     await ensureDeckNotEmpty(runId);
-//   }
-//   const drawn = await drawCards(runId, count);
-//   console.log('drawn cards:', drawn.length);
-//   return drawn;
-// }
+// Hilfsfunktion für Zugende-Ziehlogik: löst bei leerer Hand ggf. ein Reshuffle aus
 async function drawForNextTurn(runId, count, currentHandSize) {
   if (currentHandSize === 0) {
-    await ensureDeckHasCards(runId, count); // statt ensureDeckNotEmpty
+    await ensureDeckHasCards(runId, count);
   }
   return await drawCards(runId, count);
+}
+
+// Bestimmt Zieh-Menge nach einem beendeten Zug und aktualisiert combat.hand
+// entsprechend. Zentrale Stelle für die Zugende-Ziehregeln:
+//   - perfekte Runde (5/5 richtig)      -> 5 neue Karten (Hand komplett ersetzt)
+//   - Hand nicht-perfekt leer gespielt  -> 3 neue Karten (Hand komplett ersetzt,
+//                                          verhindert den "1-Karten-Limbo")
+//   - Zug endet mit Restkarten in Hand  -> 1 neue Karte (auf Resthand draufgelegt)
+async function resolveHandAfterTurn(runId, combat, { wasPerfectRound, earnedBonusDraw }) {
+  let drawCount;
+  let replaceHand;
+
+  if (wasPerfectRound) {
+    drawCount = HAND_SIZE;
+    replaceHand = true;
+  } else if (earnedBonusDraw) {
+    drawCount = MIN_CARD_DRAW;
+    replaceHand = true;
+  } else {
+    drawCount = Math.min(CARD_PUNISH_DRAW, HAND_SIZE - combat.hand.length);
+    replaceHand = false;
+  }
+
+  const newCards = await drawForNextTurn(runId, drawCount, combat.hand.length);
+  const updatedHand = replaceHand ? newCards : [...combat.hand, ...newCards];
+
+  setCombatHand(combat, updatedHand);
+  combat.turn_start_hand_size = updatedHand.length;
+  setPlayerTurn(combat, true);
 }
 
 function calculateDuration(startTime) {
@@ -118,7 +140,6 @@ export async function startCombat(run, fieldPosition) {
 
   const enemyData = field.enemies[0];
 
-  // await ensureDeckNotEmpty(run.id);
   await ensureDeckHasCards(run.id, HAND_SIZE);
 
   const hand = await drawCards(run.id, HAND_SIZE);
@@ -193,8 +214,7 @@ export async function answerCard(runId, userId, cardId, userAnswer) {
   const correctAnswers = run.correctAnswers + (isCorrect ? 1 : 0);
 
   // War die Runde perfekt? (Startgröße 5, jetzt leer, letzte Antwort richtig)
-  const wasPerfectRound =
-    combat.turn_start_hand_size === 5 && combat.hand.length === 0 && isCorrect;
+  const wasPerfectRound = combat.turn_start_hand_size === HAND_SIZE && combat.hand.length === 0 && isCorrect;
 
   // Zug endet, wenn: falsch beantwortet, ODER Hand jetzt leer
   const turnEnds = !isCorrect || combat.hand.length === 0;
@@ -227,7 +247,6 @@ export async function answerCard(runId, userId, cardId, userAnswer) {
 
     // war das ein Boss-Kampf? Dann ist der ganze Run gewonnen
     if (combat.enemy.type === "BOSS") {
-      console.log('run.startTime beim endRunModel-Call:', run.startTime, typeof run.startTime);
       await endRunModel(runId, true, calculateDuration(run.startTime));
       pubsub.publish(RANKING_UPDATED, { studyGroupId: run.studyGroupId });
     }
@@ -247,7 +266,7 @@ export async function answerCard(runId, userId, cardId, userAnswer) {
 
   if (turnEnds) {
     setPlayerTurn(combat, false);
-    if (!wasPerfectRound) {
+    if (!isCorrect) {
       takeDamage(updatedRun, combat.enemy.base_damage); // Gegner greift an, wenn es keine perfekte Runde war
     }
 
@@ -279,18 +298,8 @@ export async function answerCard(runId, userId, cardId, userAnswer) {
       };
     }
 
-    const drawCount = wasPerfectRound ? 5 : 1;
-    const newCards = await drawForNextTurn(
-      runId,
-      drawCount,
-      combat.hand.length,
-    );
-    const updatedHand = wasPerfectRound
-      ? newCards
-      : [...combat.hand, ...newCards];
-    setCombatHand(combat, updatedHand);
-    combat.turn_start_hand_size = updatedHand.length;
-    setPlayerTurn(combat, true);
+    const earnedBonusDraw = isCorrect && combat.hand.length === 0 && !wasPerfectRound;
+    await resolveHandAfterTurn(runId, combat, {wasPerfectRound, earnedBonusDraw});
   }
 
   await updateHealthAndAnswers(runId, {
@@ -354,15 +363,8 @@ export async function endTurn(runId, userId) {
     };
   }
 
-  const canDraw = combat.hand.length < HAND_SIZE ? 1 : 0;
-  const newCards =
-    canDraw > 0
-      ? await drawForNextTurn(runId, canDraw, combat.hand.length)
-      : [];
-  const updatedHand = [...combat.hand, ...newCards];
-  setCombatHand(combat, updatedHand);
-  combat.turn_start_hand_size = updatedHand.length;
-  setPlayerTurn(combat, true);
+  // endTurn kann nie "perfekt" sein, da bewusst keine Karte gespielt wird
+  await resolveHandAfterTurn(runId, combat, { wasPerfectRound: false, earnedBonusDraw: false });
 
   await updateHealthAndAnswers(runId, {
     currentHealth: updatedRun.currentHealth,
