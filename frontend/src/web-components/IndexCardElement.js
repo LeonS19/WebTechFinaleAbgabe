@@ -6,7 +6,7 @@ class IndexCardElement extends HTMLElement {
   }
 
   static get observedAttributes() {
-    return ['question', 'answer', 'creator', 'tags', 'card-id', 'blocked']
+    return ['question', 'answer', 'creator', 'tags', 'card-id', 'blocked', 'has-attachment']
   }
 
   attributeChangedCallback() {
@@ -50,6 +50,13 @@ class IndexCardElement extends HTMLElement {
   }
   set cardId(value) {
     this.setAttribute('card-id', value)
+  }
+
+  get hasAttachment() {
+    return this.getAttribute('has-attachment') === 'true'
+  }
+  set hasAttachment(value) {
+    this.setAttribute('has-attachment', value)
   }
 
   get tags() {
@@ -135,6 +142,28 @@ class IndexCardElement extends HTMLElement {
 
         .card-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: auto; }
 
+        .card-header-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+          margin-bottom: 0.5rem;
+        }
+
+        .card-creator { margin-bottom: 0; }
+
+        .attachment-icon {
+          flex-shrink: 0;
+          width: 1rem;
+          height: 1rem;
+          opacity: 0.55;
+          color: #2c3e50;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .attachment-icon { color: rgba(235,235,235,0.87); }
+        }
+
         .tag-chip {
           background: #f2f2f2;
           border: 1px solid rgba(60,60,60,0.2);
@@ -180,7 +209,16 @@ class IndexCardElement extends HTMLElement {
       <div class="card-wrapper">
         <div class="card ${this._flipped ? 'flipped' : ''}">
           <div class="card-front">
-            <span class="card-creator">Ersteller: ${this.creator}</span>
+            <div class="card-header-row">
+              <span class="card-creator">Ersteller: ${this.creator}</span>
+              ${
+                this.hasAttachment
+                  ? `<svg class="attachment-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Diese Karte hat einen Dateianhang">
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                    </svg>`
+                  : ''
+              }
+            </div>
             <p class="card-question">${this.question}</p>
             <div class="card-tags">
               ${this.tags.map((tag) => `<span class="tag-chip">${tag}</span>`).join('')}

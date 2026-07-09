@@ -46,6 +46,7 @@
       :answer="card.answer"
       :creator="card.creator?.name || 'Unbekannt'"
       :tags="card.tags"
+      :has-attachment="card.attachments && card.attachments.length > 0"
       :blocked="hasActiveRun"
     />
     </div>
