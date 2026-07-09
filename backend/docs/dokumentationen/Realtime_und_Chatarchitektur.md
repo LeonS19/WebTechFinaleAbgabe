@@ -188,7 +188,7 @@ Diese Frage ist explizit Teil der geforderten Reflexion ("Welche Anforderungen l
 
 - **Historisch gewachsen**: Der Chat wurde zuerst als eigenständiges WebSocket-Feature gebaut, bevor der Rest der Anwendung auf GraphQL vereinheitlicht wurde.
 - **Kein GraphQL-Mehrwert für den Chat selbst**: `sendMessage`-Mutation und `onNewMessage`-Subscription wurden versucht, aber nie vom Frontend genutzt und wieder entfernt, um kein totes Schema zu hinterlassen (siehe Architektur-Dokumentation, Abschnitt 3.2).
-- **Historisches Laden bleibt GraphQL**: `getMessages` ist nicht latenzkritisch und profitiert von der ohnehin vorhandenen GraphQL-Infrastruktur (Pagination, Typisierung) — nur der Echtzeit-Anteil (senden/empfangen) blieb beim rohen WebSocket.
+- **Historisches Laden bleibt GraphQL**: `getMessages` ist nicht latenzkritisch und profitiert von der ohnehin vorhandenen GraphQL-Infrastruktur (Pagination, Typisierung). Nur der Echtzeit-Anteil (senden/empfangen) blieb beim rohen WebSocket.
 
 ## 5. Bekannte Einschränkungen
 

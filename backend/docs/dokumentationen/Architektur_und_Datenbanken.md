@@ -56,14 +56,14 @@ Route/Resolver → Controller/Resolver → Service → Model → Datenbank
 
 Controller (REST) und Resolver (GraphQL) rufen ausschließlich Services auf, nie direkt Datenbank-Modelle. Das hat zwei Konsequenzen:
 
-- Geschäftslogik (z. B. Berechtigungsprüfung, Kampf-Mathematik, Deck-Verwaltung) liegt an genau einer Stelle und wird von beiden Schnittstellen gleichermaßen genutzt — REST und GraphQL sind austauschbare Zugänge zur selben Logik, keine zwei parallelen Implementierungen.
+- Geschäftslogik (z. B. Berechtigungsprüfung, Kampf-Mathematik, Deck-Verwaltung) liegt an genau einer Stelle und wird von beiden Schnittstellen gleichermaßen genutzt. REST und GraphQL sind austauschbare Zugänge zur selben Logik, keine zwei parallelen Implementierungen.
 - Bei MongoDB greifen Services aus Pragmatismus direkt auf Mongoose-Models zu, ohne zusätzlichen Repository-Layer, da Mongoose selbst bereits die Abstraktionsebene zur Datenbank darstellt.
 
 Services dürfen sich gegenseitig aufrufen, wenn fachliche Logik zusammengehört (z. B. nutzt `combat.service.js` auch `indexCard.service.js` für Statistik-Updates nach einer beantworteten Karte). Um zirkuläre Imports zwischen zwei Services zu vermeiden, wurden gemeinsam genutzte, reine Berechnungsfunktionen ohne Seiteneffekte in eine neutrale Utility-Datei ausgelagert (`utils/playerStats.util.js`), statt dass sich zwei Services direkt gegenseitig importieren.
 
 ### 1.3 Realtime-Kommunikation: zwei getrennte WebSocket-Server
 
-Ein technischer Sonderfall der Architektur: GraphQL Subscriptions (`graphql-ws`) und der Chat laufen über zwei unabhängige WebSocket-Server auf demselben HTTP-Server. Die `ws`-Library hat einen bekannten Bug, bei dem eine zweite `WebSocketServer`-Instanz mit `path`-Option den `upgrade`-Handler der ersten überschreibt — einer der beiden Server würde sonst gar keine Verbindungen mehr annehmen. Gelöst wurde das mit `noServer: true` für beide Server und manuellem Routing über den `upgrade`-Event des `httpServer`, das anhand des URL-Pfads (`/graphql` vs. `/chat`) entscheidet, welcher Server die Verbindung übernimmt.
+Ein technischer Sonderfall der Architektur: GraphQL Subscriptions (`graphql-ws`) und der Chat laufen über zwei unabhängige WebSocket-Server auf demselben HTTP-Server. Die `ws`-Library hat einen bekannten Bug, bei dem eine zweite `WebSocketServer`-Instanz mit `path`-Option den `upgrade`-Handler der ersten überschreibt. Einer der beiden Server würde sonst gar keine Verbindungen mehr annehmen. Gelöst wurde das mit `noServer: true` für beide Server und manuellem Routing über den `upgrade`-Event des `httpServer`, das anhand des URL-Pfads (`/graphql` vs. `/chat`) entscheidet, welcher Server die Verbindung übernimmt.
 
 ### 1.4 Ordnerstruktur als Architektur-Spiegel
 
@@ -97,7 +97,7 @@ Die Aufteilung folgt einem klaren Kriterium: **Wie stark sind die Daten struktur
 
 **In PostgreSQL, weil relational und skalar:**
 
-- `run` enthält ausschließlich skalare Werte (Level, HP, Position, Zähler) und hat klare 1:n-Beziehungen zu `user` und `study_group` über Fremdschlüssel. Der laufende Spieler-Zustand (Level, HP) wurde bewusst nicht in eine eigene `Player`-Tabelle ausgelagert, da er 1:1 an genau einen Run gebunden ist und nie unabhängig davon existiert — eine zusätzliche Tabelle hätte hier nur einen weiteren Join ohne fachlichen Mehrwert erzeugt.
+- `run` enthält ausschließlich skalare Werte (Level, HP, Position, Zähler) und hat klare 1:n-Beziehungen zu `user` und `study_group` über Fremdschlüssel. Der laufende Spieler-Zustand (Level, HP) wurde bewusst nicht in eine eigene `Player`-Tabelle ausgelagert, da er 1:1 an genau einen Run gebunden ist und nie unabhängig davon existiert. Eine zusätzliche Tabelle hätte hier nur einen weiteren Join ohne fachlichen Mehrwert erzeugt.
 - `membership` ist eine klassische n:m-Zwischentabelle (User ↔ Lerngruppe) mit einem zusätzlichen skalaren Attribut (`role`), eine klare relationale Struktur.
 - `passkey`/`oauth_account` sind 1:n an `user` gebunden, mit festen, immer gleich aufgebauten Feldern (Credential-ID, Public Key, Provider-Infos).
 
