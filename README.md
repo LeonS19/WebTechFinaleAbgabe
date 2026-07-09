@@ -154,10 +154,18 @@ Testet REST-Endpunkte, GraphQL Queries/Mutations, WebSocket-/Subscription-Kommun
 
 ## API-Dokumentation
 
-- REST: [`docs/openapi.yaml`](./docs/openapi.yaml), interaktiv unter `http://localhost:3000/api/docs`
-- GraphQL: [`schema/schema.graphql`](./schema/schema.graphql)
+- REST: [`backend/docs/openapi.yaml`](./backend/docs/openapi.yaml), interaktiv als Swagger UI unter `http://localhost:3000/api/docs`
+- GraphQL: [`backend/schema/schema.graphql`](./backend/schema/schema.graphql) — über GraphQL-Doc-Comments selbstdokumentierend, interaktiv einsehbar über Apollo Sandbox unter `http://localhost:3000/graphql` (Backend muss dafür laufen), analog zu Swagger UI für die REST-API
 
 ## Weitere Dokumentation
 
-- Architektur, Datenmodell, Rollen-/Rechtekonzept: siehe technische Dokumentation
-- Reflexion der Architekturentscheidungen: siehe Reflexion
+Die vollständige technische Dokumentation liegt im Ordner [`/dokumentationen`](./dokumentationen). Enthaltene Diagramme sind als Mermaid-Code eingebettet und werden direkt in der GitHub/GitLab-Vorschau der Markdown-Dateien gerendert; für eine lokale Ansicht reicht ein Editor mit Mermaid-Unterstützung (z. B. VS Code mit einer Markdown-Preview-Erweiterung).
+
+- [Architektur & Datenbanken](./dokumentationen/Architektur_und_Datenbanken.md) — Gesamtarchitektur, Schichtenaufbau, SQL/MongoDB-Aufteilung und Begründung, Rolle von REST und GraphQL
+- [Rollen- und Rechtekonzept](./dokumentationen/Rollen_Rechtekonzept.md) — Authentifizierung, Autorisierung über `checkPermission()`, Rollenhierarchie
+- [Schutz bestehender Schnittstellen](./dokumentationen/Schutz_bestehender_Schnittstellen.md) — Absicherung von REST, GraphQL, Subscriptions, Chat-WebSocket und Datei-Uploads
+- [Realtime- und Chat-Architektur](./dokumentationen/Realtime_und_Chatarchitektur.md) — GraphQL Subscriptions, PubSub, eigenes Chat-WebSocket-Protokoll
+- [Web Components](./dokumentationen/WebComponent.md) — `<chat-window>` und `<index-card>`, Caching-Hooks statt direktem Import
+- [Cache- und Offline-Strategie](./dokumentationen/Cache_Offlinestrategien.md) — Service-Worker-Caching vs. IndexedDB-Layer
+- [PWA](./dokumentationen/PWA.md) — Service Worker, Web App Manifest, Offline-Fallback
+- [Reflexion](./dokumentationen/Reflexion.md) — bewährte Architekturentscheidungen, Stärken/Schwächen der eingesetzten Technologien, Integrationsherausforderungen, Grenzen der Lösung

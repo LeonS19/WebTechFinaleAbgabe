@@ -69,6 +69,12 @@ type Attachment {
     uploadedBy:     User!
 }
 
+"""
+Statistik einer Karte innerhalb einer bestimmten Lerngruppe (nicht pro
+einzelnem User). difficulty wird nie gespeichert, sondern immer live aus
+correctAnswers / totalAttempts berechnet. Vor 10 Versuchen gilt ein
+neutraler Cold-Start-Default statt eines verzerrten Frühwerts.
+"""
 type GroupStat {
     studyGroupId:   ID!
     totalAttempts:  Int!
@@ -76,6 +82,10 @@ type GroupStat {
     difficulty:     Float!          # calculated: correctAnswers / totalAttempts
 }
 
+"""
+Statistik einer Karte für einen einzelnen User (persönlicher Lernfortschritt),
+genutzt zur gewichteten Deck-Zusammenstellung beim Run-Start.
+"""
 type UserStat {
     userId:         ID!
     totalAttempts:  Int!
@@ -129,6 +139,12 @@ type Map {
 # RUN & COMBAT
 # ============================================
 
+"""
+Reiner Value-Typ für den Spieler-Zustand innerhalb eines Runs. Es gibt keine
+eigene Persistenzschicht dafür — die Werte werden im Resolver direkt aus den
+run-Feldern (SQL) zusammengesetzt, da der Zustand 1:1 an einen Run gebunden
+ist und nie unabhängig davon existiert.
+"""
 type Player {
     level:          Int!
     maxHealth:      Int!
@@ -179,6 +195,12 @@ type MoveResult {
     combat: Combat
 }
 
+"""
+Rückgabe von answerCard. combat und player enthalten den bereits
+serverseitig berechneten Folgezustand (Gegenangriff, Perfekt-Heilung,
+Level-Up), damit das Frontend ihn 1:1 übernehmen kann, statt ihn selbst
+anzunähern.
+"""
 type AnswerResult {
     correct:        Boolean!
     damageDealt:    Int!
@@ -196,6 +218,12 @@ type EndTurnResult {
 # CHAT
 # ============================================
 
+"""
+Nur für das historische Laden per getMessages relevant. Senden, Empfangen
+und Löschen von Nachrichten in Echtzeit laufen bewusst NICHT über GraphQL,
+sondern über einen eigenen WebSocket-Endpunkt (ws://.../chat), siehe
+PROJEKT.md, Abschnitt "Sonderfall Chat".
+"""
 type Message {
     id:         ID!
     chatId:     ID!
@@ -224,32 +252,58 @@ type RankingEntry {
 # ============================================
 
 type Query {
-    # Study Groups
+    "Liefert eine einzelne Lerngruppe inklusive Mitgliederliste."
     getStudyGroup(id: ID!): StudyGroup
+
+    "Sucht Lerngruppen unabhängig von der eigenen Mitgliedschaft, z.B. für die Beitritts-Suche."
     getStudyGroups(search: String): [StudyGroup!]!
+
+    "Liefert alle Lerngruppen, in denen der eingeloggte User Mitglied ist."
     getMyStudyGroups: [StudyGroup!]!
+
+    "Liefert den eingeloggten User anhand des JWT."
     me: User!
 
-    # Index Cards - supports filtering by tags and search term
+    """
+    Liefert Karteikarten einer Lerngruppe, optional gefiltert nach Tags,
+    Volltextsuche in Frage/Antwort und/oder Ersteller.
+    """
     getIndexCards(
         studyGroupId:   ID!
         tags:           [String!]
         search:         String          # searches in question and answer
         creatorId:      ID              # filter by creator
     ): [IndexCard!]!
+
+    "Liefert eine einzelne Karteikarte inklusive Gruppen- und User-Statistik."
     getIndexCard(id: ID!): IndexCard
 
-    # Messages
+    """
+    Historisches Laden von Chat-Nachrichten, paginiert über einen before-Cursor
+    (ID der ältesten bereits geladenen Nachricht). Live-Nachrichten laufen
+    NICHT über diese Query, sondern über den Chat-WebSocket.
+    """
     getMessages(chatId: ID!, limit: Int, before: ID): [Message!]!
 
-    # Ranking - only successful runs, sorted by correctAnswers DESC, then hitRate DESC, then duration ASC
+    """
+    Rangliste einer Lerngruppe. Nur erfolgreich abgeschlossene Runs, dreistufig
+    sortiert: correctAnswers DESC, dann hitRate DESC, dann duration ASC.
+    Kein eigenes Datenbankmodell, wird live aus run gefiltert.
+    """
     getRanking(studyGroupId: ID!): [RankingEntry!]!
 
-    # Runs - full run history of a user
+    "Vollständige Run-Historie des eingeloggten Users, gruppenübergreifend."
     getRuns: [Run!]!
+
+    """
+    Liefert den aktuell aktiven Run des Users in dieser Lerngruppe, oder null
+    falls keiner läuft. Für Reload-Robustheit im Frontend: bei aktivem Run
+    inkl. activeCombat wechselt die UI direkt in die Kampfansicht statt die
+    Map zu zeigen.
+    """
     getActiveRun(studyGroupId: ID!): Run
 
-    # Map - hardcoded single map with all fields
+    "Liefert die (aktuell hardcodierte) Map mit allen Feldern und Gegnern."
     getMap: Map
 }
 
@@ -258,14 +312,33 @@ type Query {
 # ============================================
 
 type Mutation {
-    # Study Groups
+    "Legt eine neue Lerngruppe an, der aufrufende User wird automatisch ADMIN."
     createStudyGroup(name: String!): StudyGroup!
+
+    "Tritt einer bestehenden Lerngruppe als MEMBER bei."
     joinStudyGroup(studyGroupId: ID!): Membership!
+
+    """
+    Verlässt eine Lerngruppe. Verlässt der letzte Admin eine Gruppe mit noch
+    anderen Mitgliedern, wird automatisch ein Nachfolger bestimmt (dienstältester
+    Moderator, sonst dienstältestes Mitglied). Verlässt der Admin als letztes
+    verbleibendes Mitglied, wird die gesamte Gruppe gelöscht.
+    """
     leaveStudyGroup(studyGroupId: ID!): Boolean!
+
+    """
+    Entfernt ein Mitglied. Erfordert ADMIN oder MODERATOR; ein Moderator darf
+    dabei nur einfache Mitglieder entfernen, keine anderen Moderatoren oder Admins.
+    """
     removeMember(studyGroupId: ID!, userId: ID!): Boolean!
+
+    """
+    Ändert die Rolle eines Mitglieds. Erfordert ADMIN. Erlaubt ausdrücklich nur
+    den Wechsel zwischen MODERATOR und MEMBER, kein Admin-Wechsel über diese Mutation.
+    """
     updateMembershipRole(studyGroupId: ID!, userId: ID!, role: Role!): Membership!
 
-    # Index Cards
+    "Erstellt eine neue Karteikarte. creator wird serverseitig aus dem JWT gesetzt, nie vom Client übernommen."
     createIndexCard(
         studyGroupId:   ID!
         question:       String!
@@ -273,6 +346,7 @@ type Mutation {
         tags:           [String!]
     ): IndexCard!
 
+    "Bearbeitet eine bestehende Karteikarte. Nur übergebene Felder werden geändert."
     updateIndexCard(
         id:         ID!
         question:   String
@@ -280,20 +354,38 @@ type Mutation {
         tags:       [String!]
     ): IndexCard!
 
+    "Löscht eine Karteikarte unwiderruflich."
     deleteIndexCard(id: ID!): Boolean!
 
-    # Run
+    """
+    Startet einen neuen Dungeon-Run am gewählten Startfeld. Idempotent: läuft
+    bereits ein aktiver Run des Users in dieser Gruppe, wird dieser stattdessen
+    zurückgegeben statt ein zweiter angelegt.
+    """
     startRun(studyGroupId: ID!, selectedStartFieldPosition: Int!, characterId: Int!): Run!
+
+    "Beendet einen Run manuell (Aufgabe oder Abbruch)."
     endRun(runId: ID!, successful: Boolean!): Run!
+
+    """
+    Bewegt den Spieler zu einem erreichbaren Nachbarfeld. Löst je nach Feldtyp
+    automatisch einen Kampf (FIGHT/BOSS) oder eine Heilung (HEAL, +50% max HP) aus.
+    """
     moveToField(runId: ID!, targetPosition: Int!): MoveResult!
 
-    # Combat - answer a card during a run
-    # Backend compares userAnswer to card.answer (case-insensitive, trimmed)
+    """
+    Beantwortet eine Handkarte im aktiven Kampf. Vergleich case-insensitive und
+    getrimmt gegen card.answer. Bei richtiger Antwort sinkt die Gegner-HP um
+    den dynamisch aus der Gruppen-Statistik berechneten Kartenschaden, skaliert
+    mit dem Spieler-Level.
+    """
     answerCard(
         runId:      ID!
         cardId:     ID!
         userAnswer: String!
     ): AnswerResult!
+
+    "Beendet den aktuellen Zug freiwillig, ohne eine weitere Karte zu spielen. Löst den Gegenangriff aus."
     endTurn(runId: ID!): EndTurnResult!
 
 }
@@ -304,20 +396,28 @@ type Mutation {
 
 type Subscription {
 
-    # Run state changes (position, hitRate, successful)
+    "Feuert bei jeder Änderung am Run-Zustand (Position, hitRate, successful)."
     onRunUpdated(runId: ID!): Run!
 
-    # New index card created in a study group
+    "Feuert, wenn in der angegebenen Lerngruppe eine neue Karteikarte erstellt wird."
     onIndexCardCreated(studyGroupId: ID!): IndexCard!
 
-    # New Attachment for IndexCard
+    "Feuert bei Änderungen an einer bestehenden Karteikarte, u.a. bei neuen Anhängen."
     onIndexCardUpdated(studyGroupId: ID!): IndexCard!
 
+    "Feuert beim Löschen einer Karteikarte, liefert nur deren ID."
     onIndexCardDeleted(studyGroupId: ID!): ID!
 
+    "Feuert nach jedem abgeschlossenen Run in dieser Lerngruppe mit der neu berechneten Rangliste."
     onRankingUpdated(studyGroupId: ID!): [RankingEntry!]!
 
+    "Feuert bei Beitritt, Austritt, Entfernen oder Rollenänderung eines Mitglieds."
     onMembersUpdated(studyGroupId: ID!): [Membership!]!
 
+    """
+    Feuert, wenn eine Lerngruppe gelöscht wird (z.B. weil das letzte Mitglied
+    sie verlassen hat). Kein Filter nach studyGroupId: alle Clients mit offenem
+    Gruppen-Suchfenster sollen benachrichtigt werden, nicht nur Mitglieder.
+    """
     onStudyGroupDeleted: ID!
 }
