@@ -55,6 +55,7 @@
       v-if="detailCard"
       :card="detailCard"
       :userRole="userRole"
+      :currentUserId="currentUserId"
       @close="detailCard = null"
       @attachmentUploaded="emit('cardCreated')"
     />
@@ -79,6 +80,7 @@ const props = defineProps({
   cards: { type: Array, default: () => [] },
   userRole: String,
   studyGroupId: String,
+  currentUserId: String,
 })
 
 const emit = defineEmits(['cardCreated'])

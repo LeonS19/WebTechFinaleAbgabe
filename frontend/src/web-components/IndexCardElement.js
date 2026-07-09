@@ -1,3 +1,5 @@
+import indexCardBg from '../assets/gui/index_card.png'
+
 class IndexCardElement extends HTMLElement {
   constructor() {
     super()
@@ -112,18 +114,24 @@ class IndexCardElement extends HTMLElement {
         }
 
         .card-front {
-          background: #ffffff;
-          border: 1px solid rgba(60,60,60,0.12);
-          color: #2c3e50;
+          background: url('${indexCardBg}') center / 100% 100% no-repeat;
+          image-rendering: -moz-crisp-edges;
+          image-rendering: -webkit-crisp-edges;
+          image-rendering: pixelated;
+          image-rendering: crisp-edges;
+          color: #3a2e1f;
         }
 
         .card-back {
           transform: rotateY(180deg);
-          background: #f2f2f2;
-          border: 1px solid rgba(60,60,60,0.12);
+          background: url('${indexCardBg}') center / 100% 100% no-repeat;
+          image-rendering: -moz-crisp-edges;
+          image-rendering: -webkit-crisp-edges;
+          image-rendering: pixelated;
+          image-rendering: crisp-edges;
           align-items: center;
           justify-content: center;
-          color: #2c3e50;
+          color: #3a2e1f;
         }
 
         .card-creator { font-size: 0.8rem; opacity: 0.6; margin-bottom: 0.5rem; }
@@ -156,21 +164,17 @@ class IndexCardElement extends HTMLElement {
           flex-shrink: 0;
           width: 1rem;
           height: 1rem;
-          opacity: 0.55;
-          color: #2c3e50;
-        }
-
-        @media (prefers-color-scheme: dark) {
-          .attachment-icon { color: rgba(235,235,235,0.87); }
+          opacity: 0.6;
+          color: #3a2e1f;
         }
 
         .tag-chip {
-          background: #f2f2f2;
-          border: 1px solid rgba(60,60,60,0.2);
+          background: rgba(58, 46, 31, 0.12);
+          border: 1px solid rgba(58, 46, 31, 0.35);
           border-radius: 1.25rem;
           padding: 0.25rem 0.75rem;
           font-size: 0.8rem;
-          color: #2c3e50;
+          color: #3a2e1f;
         }
 
         .card-detail-btn {
@@ -190,20 +194,6 @@ class IndexCardElement extends HTMLElement {
         }
 
         .card-wrapper:hover .card-detail-btn { opacity: 1; }
-
-        @media (prefers-color-scheme: dark) {
-          .card-front, .card-back {
-            background: #222222;
-            border-color: rgba(84,84,84,0.48);
-            color: rgba(235,235,235,0.87);
-          }
-          .card-back { background: #282828; }
-          .tag-chip {
-            background: #282828;
-            border-color: rgba(84,84,84,0.48);
-            color: rgba(235,235,235,0.64);
-          }
-        }
       </style>
 
       <div class="card-wrapper">

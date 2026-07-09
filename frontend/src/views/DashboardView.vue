@@ -45,6 +45,7 @@
                 :studyGroupId="selectedGroup.id"
                 :cards="indexCards"
                 :userRole="currentMemberRole"
+                :currentUserId="currentUser?.id"
                 @cardCreated="refetchCards()"
               />
               <RankingView v-else-if="activeView === 'bestenliste'" :studyGroupId="selectedGroup.id" />

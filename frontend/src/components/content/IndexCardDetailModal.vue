@@ -61,12 +61,13 @@
 
         <div class="detail-section">
           <p class="detail-label">Meine Statistik</p>
-          <div class="stats-grid">
-            <div class="stat-box" v-for="stat in card.userStats" :key="stat.userId">
-              <span class="stat-value">{{ stat.correctAnswers }} / {{ stat.totalAttempts }}</span>
+          <div v-if="myStat" class="stats-grid">
+            <div class="stat-box">
+              <span class="stat-value">{{ myStat.correctAnswers }} / {{ myStat.totalAttempts }}</span>
               <span class="stat-label">Richtige Antworten</span>
             </div>
           </div>
+          <p v-else class="placeholder-small">Du hast diese Karte noch nicht beantwortet</p>
         </div>
 
         <div class="detail-section">
@@ -104,6 +105,7 @@ import { gql } from '@apollo/client/core'
 const props = defineProps({
   card: Object,
   userRole: String,
+  currentUserId: String,
 })
 
 const emit = defineEmits([
@@ -125,6 +127,13 @@ const answer = ref(props.card.answer)
 
 const canUpload = computed(() => props.userRole === 'ADMIN' || props.userRole === 'MODERATOR')
 const canEdit = computed(() => props.userRole === 'ADMIN' || props.userRole === 'MODERATOR')
+
+// Nur die Statistik des aktuell eingeloggten Users — card.userStats enthält die
+// Statistik aller Gruppenmitglieder zu dieser Karte, "Meine Statistik" soll aber
+// nur meinen eigenen Eintrag zeigen.
+const myStat = computed(() =>
+  props.card.userStats?.find((stat) => stat.userId === props.currentUserId) ?? null,
+)
 
 // ---- Bearbeiten von Frage/Antwort ----
 const UPDATE_INDEX_CARD = gql`

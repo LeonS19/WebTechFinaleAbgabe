@@ -18,9 +18,7 @@
       <!-- Namen + Healthbars mittig -->
       <div class="combat-top-row">
         <div class="combat-info">
-          <span class="combat-name"
-            >{{ username || 'Du' }} <span class="combat-level">Lvl. {{ playerLevel }}</span></span
-          >
+          <span class="combat-name">{{ username || 'Du' }} <span class="combat-level">Lvl. {{ playerLevel }}</span></span>
           <div class="health-bar-wrapper">
             <div class="health-bar" :style="{ width: playerHealthPercent + '%' }"></div>
             <span class="health-label">{{ playerHp }} / {{ playerMaxHp }}</span>
@@ -30,12 +28,7 @@
         <div class="combat-top-spacer"></div>
 
         <div class="combat-info">
-          <span class="combat-name"
-            >{{ enemy?.name }}
-            <span class="combat-level">{{
-              enemy?.type === 'BOSS' ? 'BOSS' : `Lvl. ${enemy?.level}`
-            }}</span></span
-          >
+          <span class="combat-name">{{ enemy?.name }} <span class="combat-level">{{ enemy?.type === 'BOSS' ? 'BOSS' : `Lvl. ${enemy?.level}` }}</span></span>
           <div class="health-bar-wrapper">
             <div class="health-bar enemy" :style="{ width: enemyHealthPercent + '%' }"></div>
             <span class="health-label">{{ enemyHp }} / {{ enemy?.baseHealth }}</span>
@@ -45,27 +38,30 @@
 
       <!-- Untere Reihe: Sprites -->
       <div class="combat-sprites-row">
-        <div class="combat-sprite player-sprite">
+        <div class="combat-sprite player-sprite" :class="{ 'sprite-defeated': playerDefeated }">
           <img :src="playerSpriteSrc" alt="Player" />
           <transition-group name="damage-pop" tag="div" class="damage-popup-layer">
-            <span v-for="popup in playerDamagePopups" :key="popup.id" class="damage-popup"
-              >-{{ popup.amount }}</span
-            >
+            <span
+              v-for="popup in playerDamagePopups"
+              :key="popup.id"
+              class="damage-popup"
+            >-{{ popup.amount }}</span>
             <span
               v-for="popup in playerHealPopups"
               :key="'heal-' + popup.id"
               class="damage-popup heal-popup"
-              >+{{ popup.amount }}</span
-            >
+            >+{{ popup.amount }}</span>
           </transition-group>
         </div>
 
-        <div class="combat-sprite enemy-sprite">
+        <div class="combat-sprite enemy-sprite" :class="{ 'sprite-defeated': enemyDefeated }">
           <img :src="enemySpriteSrc" alt="Enemy" />
           <transition-group name="damage-pop" tag="div" class="damage-popup-layer">
-            <span v-for="popup in enemyDamagePopups" :key="popup.id" class="damage-popup"
-              >-{{ popup.amount }}</span
-            >
+            <span
+              v-for="popup in enemyDamagePopups"
+              :key="popup.id"
+              class="damage-popup"
+            >-{{ popup.amount }}</span>
           </transition-group>
         </div>
       </div>
@@ -83,23 +79,15 @@
           @play="onPlayCard"
         />
       </div>
-      <div class="deck-counter" @mousemove="onCounterMouseMove($event, 'deck')" @mouseleave="hideCounterTooltip('deck')">
+      <div class="deck-counter">
         <img src="@/assets/gui/deck_stapel_new.png" alt="" class="deck-counter-bg" />
         <h2>{{ deckCount }}</h2>
-        <span
-          v-if="deckTooltipVisible"
-          class="counter-tooltip"
-          :style="{ left: deckTooltipPos.x + 'px', top: deckTooltipPos.y + 'px' }"
-        >Dein Deck</span>
+        <span class="counter-tooltip">Dein Deck</span>
       </div>
-      <div class="discard-counter" @mousemove="onCounterMouseMove($event, 'discard')" @mouseleave="hideCounterTooltip('discard')">
+      <div class="discard-counter">
         <img src="@/assets/gui/ablage_deck.png" alt="" class="discard-counter-bg" />
         <h2>{{ discardCount }}</h2>
-        <span
-          v-if="discardTooltipVisible"
-          class="counter-tooltip"
-          :style="{ left: discardTooltipPos.x + 'px', top: discardTooltipPos.y + 'px' }"
-        >Dein Ablagestapel</span>
+        <span class="counter-tooltip">Dein Ablagestapel</span>
       </div>
     </div>
 
@@ -158,6 +146,12 @@ const props = defineProps({
   bossDeathDuration: { type: Number, default: 900 }, // 6 Frames × 150ms
 })
 
+// Nach der Todesanimation ausgeblendet — GIFs loopen im Browser automatisch, ohne
+// das würde die letzte Death-Animation nach ihrem letzten Frame wieder von vorn
+// beginnen und der Gegner/Spieler würde optisch "wiederauferstehen".
+const enemyDefeated = ref(false)
+const playerDefeated = ref(false)
+
 // Neue Zufallsvariante, sobald ein neuer Gegner ankommt (= neuer Kampf startet).
 // Wichtig: NICHT auf props.enemy selbst hören — RunView baut bei jeder Antwort ein
 // neues enemy-Objekt (gleicher Inhalt, neue Referenz), wodurch der Watch sonst nach
@@ -166,6 +160,11 @@ const props = defineProps({
 watch(
   () => props.combatId,
   () => {
+    // Neuer Kampf beginnt — Sprites wieder einblenden, falls der vorherige Kampf
+    // mit einer Todesanimation endete.
+    enemyDefeated.value = false
+    playerDefeated.value = false
+
     const newEnemy = props.enemy
     if (!newEnemy) return
     const isBoss = newEnemy.type === 'BOSS'
@@ -215,36 +214,6 @@ let reactionTimer = null
 const playerDamagePopups = ref([])
 const enemyDamagePopups = ref([])
 const playerHealPopups = ref([])
-
-// ---- Tooltips, die der Maus folgen (Deck-/Ablage-Counter) ----
-const deckTooltipVisible = ref(false)
-const discardTooltipVisible = ref(false)
-const deckTooltipPos = ref({ x: 0, y: 0 })
-const discardTooltipPos = ref({ x: 0, y: 0 })
-const TOOLTIP_OFFSET_X = 16
-const TOOLTIP_OFFSET_Y = -12
-
-function onCounterMouseMove(event, which) {
-  // offsetX/offsetY sind relativ zum Element, auf dem der Handler sitzt (currentTarget) —
-  // genau der Bezugsrahmen, den .deck-counter/.discard-counter per position:relative brauchen.
-  const pos = { x: event.offsetX + TOOLTIP_OFFSET_X, y: event.offsetY + TOOLTIP_OFFSET_Y }
-  if (which === 'deck') {
-    deckTooltipPos.value = pos
-    deckTooltipVisible.value = true
-  } else {
-    discardTooltipPos.value = pos
-    discardTooltipVisible.value = true
-  }
-}
-
-function hideCounterTooltip(which) {
-  if (which === 'deck') {
-    deckTooltipVisible.value = false
-  } else {
-    discardTooltipVisible.value = false
-  }
-}
-
 let popupCounter = 0
 
 function spawnDamageNumber(target, amount) {
@@ -304,10 +273,7 @@ const gifSources = computed(() => {
       idle: idleVariants[v % idleVariants.length],
       attack: attackVariants[v % attackVariants.length],
       hurt: hurtVariants[v % hurtVariants.length],
-      death:
-        deathVariants.length > 0
-          ? deathVariants[v % deathVariants.length]
-          : hurtVariants[v % hurtVariants.length], // Fallback, falls kein death.gif existiert (Schleim)
+      death: deathVariants.length > 0 ? deathVariants[v % deathVariants.length] : hurtVariants[v % hurtVariants.length], // Fallback, falls kein death.gif existiert (Schleim)
     },
   }
 })
@@ -401,11 +367,17 @@ function playDeathAnimation(target) {
   return new Promise((resolve) => {
     if (target === 'player') {
       playerAnim.value = 'death'
-      setTimeout(resolve, props.playerDeathDuration)
+      setTimeout(() => {
+        playerDefeated.value = true
+        resolve()
+      }, props.playerDeathDuration)
     } else {
       const isBoss = props.enemy?.type === 'BOSS'
       enemyAnim.value = 'death'
-      setTimeout(resolve, isBoss ? props.bossDeathDuration : props.slimeDeathDuration)
+      setTimeout(() => {
+        enemyDefeated.value = true
+        resolve()
+      }, isBoss ? props.bossDeathDuration : props.slimeDeathDuration)
     }
   })
 }
@@ -430,14 +402,7 @@ function finishEndTurn() {
   endingTurn.value = false
 }
 
-defineExpose({
-  playCombatAnimation,
-  resolveAnswer,
-  finishEndTurn,
-  playDeathAnimation,
-  spawnHealNumber,
-  showPerfectRoundBanner,
-})
+defineExpose({ playCombatAnimation, resolveAnswer, finishEndTurn, playDeathAnimation, spawnHealNumber, showPerfectRoundBanner })
 
 onBeforeUnmount(() => {
   clearTimeout(playerTimer)
@@ -711,6 +676,10 @@ function onOverlayClose() {
 
 .counter-tooltip {
   position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translate(-50%, 8px);
+  margin-bottom: 0.5rem;
   padding: 0.4rem 0.9rem;
   background: rgba(20, 15, 10, 0.92);
   color: #fff;
@@ -719,8 +688,16 @@ function onOverlayClose() {
   white-space: nowrap;
   border-radius: 0.4rem;
   border: 1px solid rgba(255, 255, 255, 0.15);
+  opacity: 0;
   pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
   z-index: 30;
+}
+
+.deck-counter:hover .counter-tooltip,
+.discard-counter:hover .counter-tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 .combat-sprites-row {
@@ -732,6 +709,12 @@ function onOverlayClose() {
 .combat-sprite {
   position: absolute; /* ← neu: raus aus dem normalen Fluss */
   bottom: 0;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+.sprite-defeated {
+  opacity: 0;
 }
 
 .damage-popup-layer {

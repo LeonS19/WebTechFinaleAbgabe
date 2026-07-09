@@ -1,5 +1,9 @@
 <template>
   <div class="run-view">
+    <transition name="run-notification">
+      <div v-if="eventNotification" class="run-notification">{{ eventNotification }}</div>
+    </transition>
+
     <p v-if="activeRunLoading" class="run-loading">Run wird geladen...</p>
 
     <div v-if="!selectedCharacter" class="character-select">
@@ -51,7 +55,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useQuery, useMutation, useSubscription } from '@vue/apollo-composable'
 import { gql } from '@apollo/client/core'
 import RunMapView from './RunMapView.vue'
@@ -349,6 +353,18 @@ const phase = ref('map') // 'map' | 'combat'
 const mapPhase = ref('select-start') // 'select-start' (noch kein Run) | 'select-next' (an RunMapView weitergereicht)
 const combatViewRef = ref(null)
 const actionError = ref(null)
+const eventNotification = ref(null)
+let eventNotificationTimer = null
+const EVENT_NOTIFICATION_DURATION = 2200 // ms — wie lange das Popup sichtbar bleibt
+
+function showEventNotification(text, duration = EVENT_NOTIFICATION_DURATION) {
+  clearTimeout(eventNotificationTimer)
+  eventNotification.value = text
+  eventNotificationTimer = setTimeout(() => {
+    eventNotification.value = null
+  }, duration)
+  return duration
+}
 
 // Muss NACH der Deklaration von `run` stehen, da die reaktiven Getter unten
 // sofort beim Setup ausgeführt werden und sonst auf `run` zugreifen, bevor es existiert.
@@ -431,14 +447,28 @@ function handleCombatEnd(combat) {
 
   const wholeRunEnded = combat.status === 'LOST' || combat.enemy.type === 'BOSS'
 
-  currentCombat.value = null
-  hand.value = []
+  if (combat.status === 'LOST') {
+    showEventNotification('Du wurdest besiegt — versuch\u2019s beim nächsten Mal!')
+  } else if (combat.enemy.type === 'BOSS') {
+    showEventNotification('Herzlichen Glückwunsch, du hast den Boss besiegt!')
+  } else {
+    showEventNotification('Du hast den Gegner besiegt!')
+  }
 
   if (wholeRunEnded) {
-    emit('runEnded', { successful: combat.status === 'WON' })
+    // currentCombat/hand bewusst NICHT sofort leeren: die CombatView bleibt mit dem
+    // finalen Kampfzustand (besiegter Boss) sichtbar, während die Nachricht angezeigt
+    // wird — sonst würde sie in der Zwischenzeit auf leere/Default-Werte zurückfallen.
+    setTimeout(() => {
+      currentCombat.value = null
+      hand.value = []
+      emit('runEnded', { successful: combat.status === 'WON' })
+    }, EVENT_NOTIFICATION_DURATION)
     return
   }
 
+  currentCombat.value = null
+  hand.value = []
   phase.value = 'map'
   mapPhase.value = 'select-next'
 }
@@ -497,6 +527,9 @@ async function onFieldSelected(field) {
       hand.value = currentCombat.value.hand.map((c) => ({ ...c, _isNew: false }))
       phase.value = 'combat'
     } else {
+      if (field.type === 'HEAL') {
+        showEventNotification('Du wurdest geheilt!')
+      }
       mapPhase.value = 'select-next'
     }
   } catch (err) {
@@ -619,9 +652,62 @@ async function onAbandonRun() {
     actionError.value = err.message ?? 'Run konnte nicht beendet werden.'
   }
 }
+
+onUnmounted(() => {
+  clearTimeout(eventNotificationTimer)
+})
 </script>
 
 <style scoped>
+.run-notification {
+  position: absolute;
+  top: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  background: rgba(20, 15, 10, 0.92);
+  color: #fff;
+  padding: 0.9rem 1.75rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.run-notification-enter-active {
+  animation: run-notification-in 0.35s ease-out forwards;
+}
+
+.run-notification-leave-active {
+  animation: run-notification-out 0.3s ease-in forwards;
+}
+
+@keyframes run-notification-in {
+  0% {
+    transform: translateX(-50%) translateY(-20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes run-notification-out {
+  0% {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) translateY(-20px);
+    opacity: 0;
+  }
+}
+
 .character-select {
   display: flex;
   flex-direction: column;
@@ -659,6 +745,7 @@ async function onAbandonRun() {
   height: 100%;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .run-loading {
