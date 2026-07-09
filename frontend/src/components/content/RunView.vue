@@ -33,6 +33,7 @@
         :combatId="currentCombat?.id"
         :hand="handForView"
         :deckCount="deckCount"
+        :discardCount="discardCount"
         :playerHp="playerHp"
         :playerMaxHp="playerMaxHp"
         :enemyHp="enemyHp"
@@ -120,6 +121,7 @@ const GET_ACTIVE_RUN = gql`
         isPlayerTurn
         status
         deckCount
+        discardCount
         fieldPosition
         enemyLevel
         enemy {
@@ -232,6 +234,7 @@ const MOVE_TO_FIELD = gql`
         isPlayerTurn
         status
         deckCount
+        discardCount
         fieldPosition
         enemyLevel
         enemy {
@@ -269,6 +272,7 @@ const ANSWER_CARD = gql`
         isPlayerTurn
         status
         deckCount
+        discardCount
         fieldPosition
         enemyLevel
         enemy {
@@ -306,6 +310,7 @@ const END_TURN = gql`
         isPlayerTurn
         status
         deckCount
+        discardCount
         fieldPosition
         enemyLevel
         enemy {
@@ -377,6 +382,7 @@ const handForView = computed(() => hand.value)
 const deckCount = computed(() =>
   phase.value === 'combat' ? (currentCombat.value?.deckCount ?? 0) : (run.value?.deck?.length ?? 0),
 )
+const discardCount = computed(() => currentCombat.value?.discardCount ?? 0)
 
 // Sobald getActiveRun geladen hat: bestehenden Fortschritt übernehmen.
 // Kommt null zurück, existiert kein aktiver Run -> Startfeld-Auswahl bleibt sichtbar.

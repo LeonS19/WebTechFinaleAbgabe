@@ -18,7 +18,9 @@
       <!-- Namen + Healthbars mittig -->
       <div class="combat-top-row">
         <div class="combat-info">
-          <span class="combat-name">{{ username || 'Du' }} <span class="combat-level">Lvl. {{ playerLevel }}</span></span>
+          <span class="combat-name"
+            >{{ username || 'Du' }} <span class="combat-level">Lvl. {{ playerLevel }}</span></span
+          >
           <div class="health-bar-wrapper">
             <div class="health-bar" :style="{ width: playerHealthPercent + '%' }"></div>
             <span class="health-label">{{ playerHp }} / {{ playerMaxHp }}</span>
@@ -28,7 +30,12 @@
         <div class="combat-top-spacer"></div>
 
         <div class="combat-info">
-          <span class="combat-name">{{ enemy?.name }} <span class="combat-level">{{ enemy?.type === 'BOSS' ? 'BOSS' : `Lvl. ${enemy?.level}` }}</span></span>
+          <span class="combat-name"
+            >{{ enemy?.name }}
+            <span class="combat-level">{{
+              enemy?.type === 'BOSS' ? 'BOSS' : `Lvl. ${enemy?.level}`
+            }}</span></span
+          >
           <div class="health-bar-wrapper">
             <div class="health-bar enemy" :style="{ width: enemyHealthPercent + '%' }"></div>
             <span class="health-label">{{ enemyHp }} / {{ enemy?.baseHealth }}</span>
@@ -41,27 +48,24 @@
         <div class="combat-sprite player-sprite">
           <img :src="playerSpriteSrc" alt="Player" />
           <transition-group name="damage-pop" tag="div" class="damage-popup-layer">
-            <span
-              v-for="popup in playerDamagePopups"
-              :key="popup.id"
-              class="damage-popup"
-            >-{{ popup.amount }}</span>
+            <span v-for="popup in playerDamagePopups" :key="popup.id" class="damage-popup"
+              >-{{ popup.amount }}</span
+            >
             <span
               v-for="popup in playerHealPopups"
               :key="'heal-' + popup.id"
               class="damage-popup heal-popup"
-            >+{{ popup.amount }}</span>
+              >+{{ popup.amount }}</span
+            >
           </transition-group>
         </div>
 
         <div class="combat-sprite enemy-sprite">
           <img :src="enemySpriteSrc" alt="Enemy" />
           <transition-group name="damage-pop" tag="div" class="damage-popup-layer">
-            <span
-              v-for="popup in enemyDamagePopups"
-              :key="popup.id"
-              class="damage-popup"
-            >-{{ popup.amount }}</span>
+            <span v-for="popup in enemyDamagePopups" :key="popup.id" class="damage-popup"
+              >-{{ popup.amount }}</span
+            >
           </transition-group>
         </div>
       </div>
@@ -79,8 +83,23 @@
           @play="onPlayCard"
         />
       </div>
-      <div class="deck-counter">
+      <div class="deck-counter" @mousemove="onCounterMouseMove($event, 'deck')" @mouseleave="hideCounterTooltip('deck')">
+        <img src="@/assets/gui/deck_stapel_new.png" alt="" class="deck-counter-bg" />
         <h2>{{ deckCount }}</h2>
+        <span
+          v-if="deckTooltipVisible"
+          class="counter-tooltip"
+          :style="{ left: deckTooltipPos.x + 'px', top: deckTooltipPos.y + 'px' }"
+        >Dein Deck</span>
+      </div>
+      <div class="discard-counter" @mousemove="onCounterMouseMove($event, 'discard')" @mouseleave="hideCounterTooltip('discard')">
+        <img src="@/assets/gui/ablage_deck.png" alt="" class="discard-counter-bg" />
+        <h2>{{ discardCount }}</h2>
+        <span
+          v-if="discardTooltipVisible"
+          class="counter-tooltip"
+          :style="{ left: discardTooltipPos.x + 'px', top: discardTooltipPos.y + 'px' }"
+        >Dein Ablagestapel</span>
       </div>
     </div>
 
@@ -119,6 +138,7 @@ const props = defineProps({
   combatId: { type: String, default: null },
   hand: { type: Array, default: () => [] },
   deckCount: { type: Number, default: 0 },
+  discardCount: { type: Number, default: 0 },
   playerHp: { type: Number, default: 100 },
   playerMaxHp: { type: Number, default: 100 },
   enemyHp: { type: Number, default: 100 },
@@ -195,6 +215,36 @@ let reactionTimer = null
 const playerDamagePopups = ref([])
 const enemyDamagePopups = ref([])
 const playerHealPopups = ref([])
+
+// ---- Tooltips, die der Maus folgen (Deck-/Ablage-Counter) ----
+const deckTooltipVisible = ref(false)
+const discardTooltipVisible = ref(false)
+const deckTooltipPos = ref({ x: 0, y: 0 })
+const discardTooltipPos = ref({ x: 0, y: 0 })
+const TOOLTIP_OFFSET_X = 16
+const TOOLTIP_OFFSET_Y = -12
+
+function onCounterMouseMove(event, which) {
+  // offsetX/offsetY sind relativ zum Element, auf dem der Handler sitzt (currentTarget) —
+  // genau der Bezugsrahmen, den .deck-counter/.discard-counter per position:relative brauchen.
+  const pos = { x: event.offsetX + TOOLTIP_OFFSET_X, y: event.offsetY + TOOLTIP_OFFSET_Y }
+  if (which === 'deck') {
+    deckTooltipPos.value = pos
+    deckTooltipVisible.value = true
+  } else {
+    discardTooltipPos.value = pos
+    discardTooltipVisible.value = true
+  }
+}
+
+function hideCounterTooltip(which) {
+  if (which === 'deck') {
+    deckTooltipVisible.value = false
+  } else {
+    discardTooltipVisible.value = false
+  }
+}
+
 let popupCounter = 0
 
 function spawnDamageNumber(target, amount) {
@@ -254,7 +304,10 @@ const gifSources = computed(() => {
       idle: idleVariants[v % idleVariants.length],
       attack: attackVariants[v % attackVariants.length],
       hurt: hurtVariants[v % hurtVariants.length],
-      death: deathVariants.length > 0 ? deathVariants[v % deathVariants.length] : hurtVariants[v % hurtVariants.length], // Fallback, falls kein death.gif existiert (Schleim)
+      death:
+        deathVariants.length > 0
+          ? deathVariants[v % deathVariants.length]
+          : hurtVariants[v % hurtVariants.length], // Fallback, falls kein death.gif existiert (Schleim)
     },
   }
 })
@@ -377,7 +430,14 @@ function finishEndTurn() {
   endingTurn.value = false
 }
 
-defineExpose({ playCombatAnimation, resolveAnswer, finishEndTurn, playDeathAnimation, spawnHealNumber, showPerfectRoundBanner })
+defineExpose({
+  playCombatAnimation,
+  resolveAnswer,
+  finishEndTurn,
+  playDeathAnimation,
+  spawnHealNumber,
+  showPerfectRoundBanner,
+})
 
 onBeforeUnmount(() => {
   clearTimeout(playerTimer)
@@ -584,23 +644,83 @@ function onOverlayClose() {
 
 .deck-counter {
   position: absolute;
-  right: -10rem;
+  bottom: 0;
+  right: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  background-image: url('@/assets/gui/deck_stapel.png');
-  background-size: cover;
-  image-rendering: pixelated;
-  height: 30%;
-  width: 30%;
+  height: 450px;
+  width: 220px;
   font-size: 0.9rem;
   font-weight: 600;
 }
 
+.deck-counter-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: bottom right;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
 .deck-counter h2 {
+  position: relative;
   font-size: 4rem;
   margin: 0;
+  transform: translate(10px, 50px);
+}
+
+/* Ablage-Stapel — gespiegelt auf der linken Seite, gleiches Prinzip wie der Deck-Counter */
+.discard-counter {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 550px;
+  width: 269px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.discard-counter-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: bottom left;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.discard-counter h2 {
+  position: relative;
+  font-size: 4rem;
+  margin: 0;
+  transform: translate(10px, 100px);
+}
+
+.counter-tooltip {
+  position: absolute;
+  padding: 0.4rem 0.9rem;
+  background: rgba(20, 15, 10, 0.92);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  pointer-events: none;
+  z-index: 30;
 }
 
 .combat-sprites-row {

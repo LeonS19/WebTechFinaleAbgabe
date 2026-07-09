@@ -128,6 +128,10 @@ export const runResolvers = {
       const runDeck = await RunDeckService.findRunDeck(combat.run_id);
       return runDeck?.deck.length ?? 0;
     },
+    discardCount: async (combat) => {
+      const runDeck = await RunDeckService.findRunDeck(combat.run_id);
+      return runDeck?.discard_pile.length ?? 0;
+    },
     fieldPosition: (combat) => combat.field_position,
     // "Level" des Gegners = Spalte (x), aus der sich auch base_health/base_damage
     // in seedMap.js ableiten — NICHT die rohe field_position, die je nach Verzweigung

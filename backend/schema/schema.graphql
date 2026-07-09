@@ -169,6 +169,7 @@ type Combat {
     isPlayerTurn:       Boolean!
     status:             String!
     deckCount: Int!
+    discardCount: Int!
     fieldPosition:      Int!
     enemyLevel:         Int!
 }
