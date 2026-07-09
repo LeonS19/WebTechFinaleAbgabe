@@ -9,7 +9,6 @@ class ChatWindowElement extends HTMLElement {
     this._connected = false
     this._rendered = false
     this._loadingMore = false
-    this._hasMoreMessages = true
     this._connectionId = 0
   }
 
@@ -100,7 +99,6 @@ class ChatWindowElement extends HTMLElement {
     const myConnectionId = this._connectionId
 
     this.resetMessages()
-    this._hasMoreMessages = true
     this.loadMessages(myConnectionId)
 
     this._ws = new WebSocket('ws://localhost:3000/chat')
@@ -265,7 +263,7 @@ class ChatWindowElement extends HTMLElement {
   }
 
   async loadMoreMessages() {
-    if (this._loadingMore || this._messages.length === 0 || !this._hasMoreMessages) return
+    if (this._loadingMore || this._messages.length === 0) return
     this._loadingMore = true
 
     const oldestId = this._messages[0]?.id
@@ -301,40 +299,16 @@ class ChatWindowElement extends HTMLElement {
       const data = await res.json()
       const messages = data?.data?.getMessages ?? []
 
-      // Server liefert kein einziges Ergebnis mehr — Anfang der Unterhaltung
-      // erreicht. Ohne dieses Flag würde jeder weitere Scroll-an-den-Rand-Event
-      // erneut denselben Request mit demselben Cursor auslösen (siehe Bugfix:
-      // endloses Nachladen am Anfang der Konversation).
       if (messages.length === 0) {
-        this._hasMoreMessages = false
         this._loadingMore = false
         return
       }
 
-      // Defensive Deduplizierung: falls durch Timing (paralleler Reconnect,
-      // ein spät ankommender Retry) doch mal dieselbe Seite zweimal ankäme,
-      // sollen keine doppelten Nachrichten im UI/State landen.
-      const knownIds = new Set(this._messages.map((m) => m.id))
-      const newMessages = messages.filter((m) => !knownIds.has(m.id))
-
-      if (newMessages.length === 0) {
-        this._hasMoreMessages = false
-        this._loadingMore = false
-        return
-      }
-
-      // WICHTIG: Hier NICHT reversen. newMessages kommt vom Server bereits
-      // absteigend sortiert (neueste dieser Seite zuerst). unshift()/prepend()
-      // fügen jeweils ganz vorne ein — verarbeitet man aufsteigend sortierte
-      // Daten damit, landet das zuletzt verarbeitete (= neueste) Element fälschlich
-      // ganz vorne, die Reihenfolge kippt effektiv um (Bugfix: vertauschte
-      // Reihenfolge beim Nachladen älterer Nachrichten). Die serverseitige
-      // DESC-Reihenfolge direkt zu verarbeiten kompensiert das automatisch
-      // zur richtigen aufsteigenden Endreihenfolge.
+      const ordered = [...messages].reverse()
       const list = this.shadowRoot.querySelector('.messages')
       const oldScrollHeight = list.scrollHeight
 
-      newMessages.forEach((m) => {
+      ordered.forEach((m) => {
         const normalized = { ...m, senderName: m.sender?.name, senderRole: m.senderRole }
         this._messages.unshift(normalized)
         this.prependMessage(normalized)
@@ -352,7 +326,26 @@ class ChatWindowElement extends HTMLElement {
 
   updateStatus(text) {
     const status = this.shadowRoot.querySelector('.status')
-    if (status) status.textContent = text
+    if (!status) return
+
+    const dot = status.querySelector('.status-dot')
+    // Textknoten separat setzen, damit der .status-dot-Span nicht mit überschrieben wird
+    const textNode = Array.from(status.childNodes).find((n) => n.nodeType === Node.TEXT_NODE)
+    if (textNode) {
+      textNode.textContent = text
+    } else {
+      status.appendChild(document.createTextNode(text))
+    }
+
+    if (dot) {
+      dot.classList.remove('connected', 'disconnected')
+      if (text === 'Verbunden') {
+        dot.classList.add('connected')
+      } else if (text !== 'Verbinde...') {
+        dot.classList.add('disconnected')
+      }
+      // 'Verbinde...' bleibt neutral grau (Standardfarbe von .status-dot)
+    }
   }
 
   render() {
@@ -388,6 +381,25 @@ class ChatWindowElement extends HTMLElement {
           font-size: 0.75rem;
           opacity: 0.5;
           color: #2c3e50;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+        }
+
+        .status-dot {
+          width: 0.5rem;
+          height: 0.5rem;
+          border-radius: 50%;
+          background: #9ca3af;
+          flex-shrink: 0;
+        }
+
+        .status-dot.connected {
+          background: #22c55e;
+        }
+
+        .status-dot.disconnected {
+          background: #ef4444;
         }
 
         .messages {
@@ -502,7 +514,7 @@ class ChatWindowElement extends HTMLElement {
       <div class="header">
         <h3>Chat</h3>
         <div style="display:flex;align-items:center;gap:0.75rem">
-          <span class="status">Verbinde...</span>
+          <span class="status"><span class="status-dot"></span>Verbinde...</span>
           <button class="close-btn" id="close-btn">✕</button>
         </div>
       </div>
