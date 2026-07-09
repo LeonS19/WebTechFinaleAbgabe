@@ -1,5 +1,9 @@
 <template>
   <div class="run-view">
+    <transition name="run-notification">
+      <div v-if="eventNotification" class="run-notification">{{ eventNotification }}</div>
+    </transition>
+
     <p v-if="activeRunLoading" class="run-loading">Run wird geladen...</p>
 
     <div v-if="!selectedCharacter" class="character-select">
@@ -30,12 +34,16 @@
         ref="combatViewRef"
         style="flex: 1"
         :enemy="enemyForView"
+        :combatId="currentCombat?.id"
         :hand="handForView"
         :deckCount="deckCount"
+        :discardCount="discardCount"
         :playerHp="playerHp"
         :playerMaxHp="playerMaxHp"
         :enemyHp="enemyHp"
         :characterId="selectedCharacter"
+        :playerLevel="playerLevel"
+        :username="username"
         @cardPlayed="onCardPlayed"
         @endTurn="onEndTurn"
         @runAbandoned="onAbandonRun"
@@ -47,7 +55,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useQuery, useMutation, useSubscription } from '@vue/apollo-composable'
 import { gql } from '@apollo/client/core'
 import RunMapView from './RunMapView.vue'
@@ -62,6 +70,7 @@ const playerIdlePreviews = import.meta.glob('../../assets/characters/player/play
 
 const props = defineProps({
   studyGroupId: { type: String, required: true },
+  username: { type: String, default: '' },
 })
 const emit = defineEmits(['runEnded'])
 
@@ -102,6 +111,7 @@ const GET_ACTIVE_RUN = gql`
       id
       successful
       currentPosition
+      characterId
       player {
         level
         maxHealth
@@ -115,6 +125,9 @@ const GET_ACTIVE_RUN = gql`
         isPlayerTurn
         status
         deckCount
+        discardCount
+        fieldPosition
+        enemyLevel
         enemy {
           name
           type
@@ -176,11 +189,12 @@ const ON_RUN_UPDATED = gql`
 // D.h. der Klick auf ein Startfeld dient bei einem bestehenden Run praktisch nur
 // als "Weiter"-Klick — angezeigt wird danach trotzdem immer der korrekte Fortschritt.
 const START_RUN = gql`
-  mutation StartRun($studyGroupId: ID!, $selectedStartFieldPosition: Int!) {
-    startRun(studyGroupId: $studyGroupId, selectedStartFieldPosition: $selectedStartFieldPosition) {
+  mutation StartRun($studyGroupId: ID!, $selectedStartFieldPosition: Int!, $characterId: Int!) {
+    startRun(studyGroupId: $studyGroupId, selectedStartFieldPosition: $selectedStartFieldPosition, characterId: $characterId) {
       id
       successful
       currentPosition
+      characterId
       player {
         level
         maxHealth
@@ -224,6 +238,9 @@ const MOVE_TO_FIELD = gql`
         isPlayerTurn
         status
         deckCount
+        discardCount
+        fieldPosition
+        enemyLevel
         enemy {
           name
           type
@@ -259,6 +276,9 @@ const ANSWER_CARD = gql`
         isPlayerTurn
         status
         deckCount
+        discardCount
+        fieldPosition
+        enemyLevel
         enemy {
           name
           type
@@ -294,6 +314,9 @@ const END_TURN = gql`
         isPlayerTurn
         status
         deckCount
+        discardCount
+        fieldPosition
+        enemyLevel
         enemy {
           name
           type
@@ -330,6 +353,18 @@ const phase = ref('map') // 'map' | 'combat'
 const mapPhase = ref('select-start') // 'select-start' (noch kein Run) | 'select-next' (an RunMapView weitergereicht)
 const combatViewRef = ref(null)
 const actionError = ref(null)
+const eventNotification = ref(null)
+let eventNotificationTimer = null
+const EVENT_NOTIFICATION_DURATION = 2200 // ms — wie lange das Popup sichtbar bleibt
+
+function showEventNotification(text, duration = EVENT_NOTIFICATION_DURATION) {
+  clearTimeout(eventNotificationTimer)
+  eventNotification.value = text
+  eventNotificationTimer = setTimeout(() => {
+    eventNotification.value = null
+  }, duration)
+  return duration
+}
 
 // Muss NACH der Deklaration von `run` stehen, da die reaktiven Getter unten
 // sofort beim Setup ausgeführt werden und sonst auf `run` zugreifen, bevor es existiert.
@@ -343,6 +378,8 @@ const currentPosition = computed(() => run.value?.currentPosition ?? null)
 const playerHp = computed(() => run.value?.player?.currentHealth ?? 100)
 const playerMaxHp = computed(() => run.value?.player?.maxHealth ?? 100)
 
+const playerLevel = computed(() => run.value?.player?.level ?? 1)
+
 // CombatView erwartet enemy.baseHealth (Anzeige-Prop), das Backend liefert enemy.maxHealth (CombatEnemy) — hier gemappt
 const enemyForView = computed(() => {
   if (!currentCombat.value) return null
@@ -350,6 +387,9 @@ const enemyForView = computed(() => {
     name: currentCombat.value.enemy.name,
     baseHealth: currentCombat.value.enemy.maxHealth,
     type: currentCombat.value.enemy.type, // ← neu
+    baseDamage: currentCombat.value.enemy.baseDamage,
+    // "Level" des Gegners = Position des Feldes auf der Map, auf dem der Kampf ausgelöst wurde
+    level: currentCombat.value.enemyLevel,
   }
 })
 
@@ -358,6 +398,7 @@ const handForView = computed(() => hand.value)
 const deckCount = computed(() =>
   phase.value === 'combat' ? (currentCombat.value?.deckCount ?? 0) : (run.value?.deck?.length ?? 0),
 )
+const discardCount = computed(() => currentCombat.value?.discardCount ?? 0)
 
 // Sobald getActiveRun geladen hat: bestehenden Fortschritt übernehmen.
 // Kommt null zurück, existiert kein aktiver Run -> Startfeld-Auswahl bleibt sichtbar.
@@ -379,6 +420,7 @@ watch(
     if (!activeRun) return
 
     run.value = activeRun
+    selectedCharacter.value = activeRun.characterId
     mapPhase.value = 'select-next'
 
     if (activeRun.activeCombat) {
@@ -405,14 +447,28 @@ function handleCombatEnd(combat) {
 
   const wholeRunEnded = combat.status === 'LOST' || combat.enemy.type === 'BOSS'
 
-  currentCombat.value = null
-  hand.value = []
+  if (combat.status === 'LOST') {
+    showEventNotification('Du wurdest besiegt — versuch\u2019s beim nächsten Mal!')
+  } else if (combat.enemy.type === 'BOSS') {
+    showEventNotification('Herzlichen Glückwunsch, du hast den Boss besiegt!')
+  } else {
+    showEventNotification('Du hast den Gegner besiegt!')
+  }
 
   if (wholeRunEnded) {
-    emit('runEnded', { successful: combat.status === 'WON' })
+    // currentCombat/hand bewusst NICHT sofort leeren: die CombatView bleibt mit dem
+    // finalen Kampfzustand (besiegter Boss) sichtbar, während die Nachricht angezeigt
+    // wird — sonst würde sie in der Zwischenzeit auf leere/Default-Werte zurückfallen.
+    setTimeout(() => {
+      currentCombat.value = null
+      hand.value = []
+      emit('runEnded', { successful: combat.status === 'WON' })
+    }, EVENT_NOTIFICATION_DURATION)
     return
   }
 
+  currentCombat.value = null
+  hand.value = []
   phase.value = 'map'
   mapPhase.value = 'select-next'
 }
@@ -452,6 +508,7 @@ async function onFieldSelected(field) {
       const { data } = await startRunMutation({
         studyGroupId: props.studyGroupId,
         selectedStartFieldPosition: field.position,
+        characterId: selectedCharacter.value,
       })
       run.value = data.startRun
       mapPhase.value = 'select-next'
@@ -470,6 +527,9 @@ async function onFieldSelected(field) {
       hand.value = currentCombat.value.hand.map((c) => ({ ...c, _isNew: false }))
       phase.value = 'combat'
     } else {
+      if (field.type === 'HEAL') {
+        showEventNotification('Du wurdest geheilt!')
+      }
       mapPhase.value = 'select-next'
     }
   } catch (err) {
@@ -481,6 +541,7 @@ async function onFieldSelected(field) {
 async function onCardPlayed({ card, answer }) {
   actionError.value = null
   let result
+  const playerHpBefore = run.value?.player?.currentHealth ?? 0
 
   try {
     const { data } = await answerCardMutation({
@@ -492,12 +553,17 @@ async function onCardPlayed({ card, answer }) {
 
     // Overlay-Feedback (richtig/falsch + korrekte Antwort) und Sprite-Animation
     // laufen parallel; wir warten auf beides, bevor der State weiterverarbeitet wird.
+    // Schaden für die fliegende Zahl: bei richtiger Antwort der ausgeteilte Schaden
+    // (result.damageDealt), bei falscher Antwort der Schaden, den der Gegner austeilt.
+    const damageForAnimation = result.correct
+      ? result.damageDealt
+      : currentCombat.value?.enemy?.baseDamage
     await Promise.all([
       combatViewRef.value?.resolveAnswer({
         correct: result.correct,
         correctAnswer: result.correctAnswer,
       }),
-      combatViewRef.value?.playCombatAnimation(result.correct),
+      combatViewRef.value?.playCombatAnimation(result.correct, damageForAnimation),
     ])
 
     // Server liefert Hand/Gegner-HP/Status jetzt komplett aktualisiert mit —
@@ -517,6 +583,17 @@ async function onCardPlayed({ card, answer }) {
     // direktes Zuweisen einer Property crasht deshalb. Stattdessen ein neues Objekt bauen.
     if (run.value) {
       run.value = { ...run.value, player: result.player }
+    }
+
+    // Heilung erkennen (Perfekt-Runden-Bonus): nur über die HP-Differenz, da der Server
+    // keinen expliziten healAmount liefert. Nur relevant, solange der Kampf noch läuft —
+    // bei Sieg (Level-Up) wird maxHealth/currentHealth neu skaliert, das ist keine "Heilung".
+    if (result.combat.status === 'ACTIVE') {
+      const healthDiff = result.player.currentHealth - playerHpBefore
+      if (healthDiff > 0) {
+        combatViewRef.value?.spawnHealNumber(healthDiff)
+        combatViewRef.value?.showPerfectRoundBanner()
+      }
     }
 
     if (result.combat.status === 'WON' || result.combat.status === 'LOST') {
@@ -539,7 +616,7 @@ async function onEndTurn() {
     const { data } = await endTurnMutation({ runId: run.value.id })
     const result = data.endTurn
 
-    await combatViewRef.value?.playCombatAnimation(false)
+    await combatViewRef.value?.playCombatAnimation(false, currentCombat.value?.enemy?.baseDamage)
 
     const previousHandIds = new Set(hand.value.map((c) => c.id))
     const newHand = result.combat.hand.map((c) => ({
@@ -575,9 +652,62 @@ async function onAbandonRun() {
     actionError.value = err.message ?? 'Run konnte nicht beendet werden.'
   }
 }
+
+onUnmounted(() => {
+  clearTimeout(eventNotificationTimer)
+})
 </script>
 
 <style scoped>
+.run-notification {
+  position: absolute;
+  top: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  background: rgba(20, 15, 10, 0.92);
+  color: #fff;
+  padding: 0.9rem 1.75rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.run-notification-enter-active {
+  animation: run-notification-in 0.35s ease-out forwards;
+}
+
+.run-notification-leave-active {
+  animation: run-notification-out 0.3s ease-in forwards;
+}
+
+@keyframes run-notification-in {
+  0% {
+    transform: translateX(-50%) translateY(-20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes run-notification-out {
+  0% {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) translateY(-20px);
+    opacity: 0;
+  }
+}
+
 .character-select {
   display: flex;
   flex-direction: column;
@@ -615,6 +745,7 @@ async function onAbandonRun() {
   height: 100%;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .run-loading {

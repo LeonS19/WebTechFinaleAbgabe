@@ -497,15 +497,6 @@ class ChatWindowElement extends HTMLElement {
         }
 
         .delete-btn:hover { opacity: 1; color: #ff5252; }
-
-        @media (prefers-color-scheme: dark) {
-          :host { background: #222222; border-color: rgba(84,84,84,0.48); }
-          .header h3, .status { color: rgba(235,235,235,0.87); }
-          .message-content { background: #282828; color: rgba(235,235,235,0.87); }
-          .message-time { color: rgba(235,235,235,0.4); }
-          .input-area input { background: #282828; border-color: rgba(84,84,84,0.48); color: rgba(235,235,235,0.87); }
-          .close-btn { color: rgba(235,235,235,0.87); }
-        }
       </style>
 
       <div class="header">

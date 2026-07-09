@@ -46,6 +46,7 @@
       :answer="card.answer"
       :creator="card.creator?.name || 'Unbekannt'"
       :tags="card.tags"
+      :has-attachment="card.attachments && card.attachments.length > 0"
       :blocked="hasActiveRun"
     />
     </div>
@@ -54,6 +55,7 @@
       v-if="detailCard"
       :card="detailCard"
       :userRole="userRole"
+      :currentUserId="currentUserId"
       @close="detailCard = null"
       @attachmentUploaded="emit('cardCreated')"
     />
@@ -78,6 +80,7 @@ const props = defineProps({
   cards: { type: Array, default: () => [] },
   userRole: String,
   studyGroupId: String,
+  currentUserId: String,
 })
 
 const emit = defineEmits(['cardCreated'])
